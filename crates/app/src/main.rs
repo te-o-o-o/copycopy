@@ -13,6 +13,7 @@
 //!   copycopy --demo           # multilingual sample data
 //!   copycopy --backend wayland|x11|poll
 //!   copycopy --screenshot out.png --for 10
+//!   copycopy --scroll 400      # open scrolled, to check virtualisation
 
 mod config;
 mod fonts;
@@ -255,6 +256,10 @@ struct Args {
     query: String,
     screenshot: Option<std::path::PathBuf>,
     seconds: u64,
+    /// Scroll offset to apply on open. Only useful to check, in a screenshot,
+    /// that the virtualisation spacers stay aligned with the real scroll
+    /// position.
+    scroll: Option<f32>,
 }
 
 fn parse_args() -> Args {
@@ -272,6 +277,7 @@ fn parse_args() -> Args {
         query: val("--query").unwrap_or_default(),
         screenshot,
         seconds: val("--for").and_then(|v| v.parse().ok()).unwrap_or(1),
+        scroll: val("--scroll").and_then(|v| v.parse().ok()),
     }
 }
 
@@ -331,12 +337,17 @@ fn boot() -> (State, Task<Message>) {
     };
     state.refilter();
 
-    let task = if args.open {
-        state.open_window(true)
-    } else {
-        Task::none()
-    };
-    (state, task)
+    let mut tasks = Vec::new();
+    if args.open {
+        tasks.push(state.open_window(true));
+    }
+    if let Some(y) = args.scroll {
+        tasks.push(iced::widget::operation::scroll_to(
+            SCROLL_ID,
+            scrollable::AbsoluteOffset { x: 0.0, y },
+        ));
+    }
+    (state, Task::batch(tasks))
 }
 
 fn update(state: &mut State, message: Message) -> Task<Message> {
