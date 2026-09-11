@@ -1,12 +1,12 @@
-//! Instance unique et commande `--show`.
+//! Single instance and the `--show` command.
 //!
-//! Deux rôles :
+//! Two roles:
 //!
-//! 1. empêcher deux daemons de capturer en parallèle ;
-//! 2. offrir le repli universel au raccourci global — sous Wayland, où aucune
-//!    application ne peut capter une touche, l'utilisateur définit un raccourci
-//!    dans son compositeur qui lance `copycopy-iced --show`, et ce second
-//!    process demande au résident d'ouvrir sa fenêtre.
+//! 1. stop two daemons from capturing in parallel;
+//! 2. provide the universal fallback for the global shortcut — under Wayland,
+//!    where no application can grab a key, the user defines a shortcut in the
+//!    compositor that runs `copycopy --show`, and that second process asks the
+//!    resident to open its window.
 
 use std::io::{self, BufRead, BufReader, Write};
 
@@ -26,32 +26,32 @@ fn name() -> io::Result<interprocess::local_socket::Name<'static>> {
     } else {
         let dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
         let path = format!("{dir}/{SOCKET}");
-        // Fuite volontaire : la Name doit vivre aussi longtemps que le socket.
+        // Deliberate leak: the Name must live as long as the socket.
         Box::leak(path.into_boxed_str()).to_fs_name::<GenericFilePath>()
     }
 }
 
 pub enum Claim {
-    /// On est le résident : voici le guichet.
+    /// We are the resident; here is the listener.
     Primary(interprocess::local_socket::Listener),
-    /// Un résident tourne déjà.
+    /// A resident is already running.
     AlreadyRunning,
 }
 
-/// Tente de devenir l'instance résidente.
+/// Attempts to become the resident instance.
 pub fn claim() -> io::Result<Claim> {
     let listener = ListenerOptions::new()
         .name(name()?)
-        // Un socket « cadavre » reste après un arrêt brutal : on le remplace,
-        // sinon l'application refuserait de redémarrer.
+        // A stale socket survives an abrupt shutdown; replace it, otherwise
+        // the application would refuse to start again.
         .reclaim_name(true)
         .create_sync();
 
     match listener {
         Ok(listener) => Ok(Claim::Primary(listener)),
         Err(e) if e.kind() == io::ErrorKind::AddrInUse => {
-            // Le nom est pris : soit un résident écoute, soit le socket est
-            // mort. On tranche en essayant de s'y connecter.
+            // The name is taken: either a resident is listening or the socket
+            // is dead. Connecting to it settles the question.
             match Stream::connect(name()?) {
                 Ok(_) => Ok(Claim::AlreadyRunning),
                 Err(_) => Err(e),
@@ -61,7 +61,7 @@ pub fn claim() -> io::Result<Claim> {
     }
 }
 
-/// Envoie une commande au résident et renvoie sa réponse.
+/// Sends a command to the resident and returns its reply.
 pub fn send(command: &str) -> io::Result<String> {
     let mut conn = BufReader::new(Stream::connect(name()?)?);
     conn.get_mut().write_all(format!("{command}\n").as_bytes())?;
@@ -70,7 +70,7 @@ pub fn send(command: &str) -> io::Result<String> {
     Ok(reply.trim().to_string())
 }
 
-/// Sert les commandes dans un thread dédié.
+/// Serves commands on a dedicated thread.
 pub fn spawn_server(
     listener: interprocess::local_socket::Listener,
     on_command: impl Fn(String) + Send + 'static,

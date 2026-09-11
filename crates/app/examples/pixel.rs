@@ -1,5 +1,5 @@
-//! Sonde : valeurs RGBA de quelques pixels. Sert à savoir si une capture de
-//! fenêtre contient vraiment de la transparence dans les coins.
+//! Probe: RGBA values of a few pixels. Tells you whether a window screenshot
+//! really is transparent in the corners.
 //! pixel -- img.png X,Y X,Y ...
 fn main() {
     let a: Vec<String> = std::env::args().collect();

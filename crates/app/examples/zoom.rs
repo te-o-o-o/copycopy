@@ -1,4 +1,4 @@
-//! Outil de debug : recadre et agrandit une capture pour inspecter le rendu.
+//! Debug tool: crops and magnifies a screenshot to inspect the rendering.
 //! cargo run --release --example zoom -- in.png out.png X Y W H SCALE
 fn main() {
     let a: Vec<String> = std::env::args().collect();

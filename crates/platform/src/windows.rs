@@ -1,8 +1,8 @@
-//! Backend Windows événementiel.
+//! Event-driven Windows backend.
 //!
-//! `AddClipboardFormatListener` fait poster `WM_CLIPBOARDUPDATE` à une fenêtre
-//! « message-only » : pas de sondage, pas de fenêtre visible, pas de hook.
-//! C'est l'API prévue pour exactement notre cas d'usage.
+//! `AddClipboardFormatListener` posts `WM_CLIPBOARDUPDATE` to a message-only
+//! window: no polling, no visible window, no hook. It is the API designed for
+//! exactly this use case.
 
 use std::sync::mpsc::Sender;
 
@@ -31,8 +31,8 @@ const CF_HDROP: u32 = 15;
 const CF_DIB: u32 = 8;
 const MAX_BYTES: usize = 32 * 1024 * 1024;
 
-// Le canal est rangé ici parce que la procédure de fenêtre Win32 est une
-// fonction libre : elle n'a pas de `self` où le ranger.
+// The channel lives here because the Win32 window procedure is a free
+// function: it has no `self` to hold it.
 thread_local! {
     static SENDER: std::cell::RefCell<Option<Sender<Capture>>> =
         const { std::cell::RefCell::new(None) };
@@ -82,7 +82,7 @@ fn create_listener_window() -> Result<HWND, String> {
             lpszMenuName: std::ptr::null(),
             lpszClassName: class_name.as_ptr(),
         };
-        // Une classe déjà enregistrée n'est pas une erreur : on réutilise.
+        // An already-registered class is not an error; we reuse it.
         RegisterClassW(&class);
 
         let hwnd = CreateWindowExW(
@@ -138,8 +138,8 @@ unsafe extern "system" fn wnd_proc(
     unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
 }
 
-/// Le presse-papier est une ressource globale verrouillée par un seul process à
-/// la fois : une autre application peut le tenir au moment où on arrive.
+/// The clipboard is a global resource locked by one process at a time, so
+/// another application may be holding it when we arrive.
 unsafe fn open_clipboard_retrying(hwnd: HWND) -> bool {
     for attempt in 0..10 {
         if unsafe { OpenClipboard(hwnd) } != 0 {
@@ -160,15 +160,15 @@ unsafe fn read_clipboard(hwnd: HWND) -> Option<(ClipEvent, String)> {
 }
 
 unsafe fn read_clipboard_locked() -> Option<(ClipEvent, String)> {
-    // Les gestionnaires de mots de passe posent ces formats pour demander aux
-    // gestionnaires de presse-papier de ne pas retenir le contenu. On obéit.
+    // Password managers set these formats to ask clipboard managers not to
+    // retain the content. We obey.
     let exclude = unsafe { RegisterClipboardFormatW(wide("ExcludeClipboardContentFromMonitorProcessing").as_ptr()) };
     let can_include = unsafe { RegisterClipboardFormatW(wide("CanIncludeInClipboardHistory").as_ptr()) };
     if exclude != 0 && unsafe { IsClipboardFormatAvailable(exclude) } != 0 {
         return None;
     }
     if can_include != 0 && unsafe { IsClipboardFormatAvailable(can_include) } != 0 {
-        // Présent avec la valeur 0 = « ne pas historiser ».
+        // Present with value 0 means "do not record in history".
         if let Some(bytes) = unsafe { clipboard_bytes(can_include) } {
             if bytes.first().is_some_and(|b| *b == 0) {
                 return None;
@@ -178,7 +178,7 @@ unsafe fn read_clipboard_locked() -> Option<(ClipEvent, String)> {
 
     let source = unsafe { owner_process_name() }.unwrap_or_default();
 
-    // PNG d'abord : c'est ce que posent les navigateurs et l'outil Capture.
+    // PNG first: that is what browsers and the Snipping Tool provide.
     let png_format = unsafe { RegisterClipboardFormatW(wide("PNG").as_ptr()) };
     if png_format != 0 && unsafe { IsClipboardFormatAvailable(png_format) } != 0 {
         if let Some(png) = unsafe { clipboard_bytes(png_format) } {
@@ -205,9 +205,9 @@ unsafe fn read_clipboard_locked() -> Option<(ClipEvent, String)> {
         }
     }
 
-    // Dernier recours pour les images : un DIB brut, qu'on repackage en BMP
-    // (le DIB n'est qu'un BMP privé de ses 14 octets d'en-tête de fichier)
-    // pour le convertir en PNG.
+    // Last resort for images: a raw DIB, repackaged as a BMP — a DIB is just
+    // a BMP stripped of its 14-byte file header — so it can be converted to
+    // PNG.
     if unsafe { IsClipboardFormatAvailable(CF_DIB) } != 0 {
         if let Some(dib) = unsafe { clipboard_bytes(CF_DIB) } {
             if let Some(png) = dib_to_png(&dib) {
@@ -281,7 +281,7 @@ unsafe fn read_hdrop() -> Option<Vec<std::path::PathBuf>> {
     Some(paths)
 }
 
-/// Nom de l'exécutable qui possède le presse-papier, sans chemin ni extension.
+/// Name of the executable owning the clipboard, without path or extension.
 unsafe fn owner_process_name() -> Option<String> {
     let owner = unsafe { GetClipboardOwner() };
     if owner.is_null() {
@@ -310,8 +310,8 @@ unsafe fn owner_process_name() -> Option<String> {
         .map(|s| s.to_string_lossy().into_owned())
 }
 
-/// Un CF_DIB est un BMP amputé de son en-tête de fichier : on le lui rend, puis
-/// on laisse `image` faire la conversion.
+/// A CF_DIB is a BMP missing its file header: we give it back, then let
+/// `image` do the conversion.
 fn dib_to_png(dib: &[u8]) -> Option<Vec<u8>> {
     if dib.len() < 40 {
         return None;

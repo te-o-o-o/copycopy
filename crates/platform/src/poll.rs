@@ -1,6 +1,6 @@
-//! Repli universel : on sonde le presse-papier et on compare les hashs.
-//! Inélégant, mais c'est exactement ce que fait macOS de toute façon
-//! (`NSPasteboard` n'a pas d'événement de changement).
+//! Universal fallback: poll the clipboard and compare hashes. Inelegant, but
+//! it is exactly what macOS does anyway, since `NSPasteboard` has no change
+//! event.
 
 use std::sync::mpsc::Sender;
 use std::time::Duration;
@@ -12,8 +12,8 @@ use crate::Capture;
 const INTERVAL: Duration = Duration::from_millis(200);
 
 pub fn spawn(tx: Sender<Capture>) -> Result<(), String> {
-    // On valide l'accès ici pour pouvoir échouer tout de suite plutôt que
-    // silencieusement dans le thread.
+    // Access is validated here so we fail immediately rather than silently
+    // inside the thread.
     arboard::Clipboard::new().map_err(|e| e.to_string())?;
 
     std::thread::Builder::new()
@@ -66,7 +66,7 @@ fn run(tx: Sender<Capture>) {
         if tx
             .send(Capture {
                 event,
-                // Le sondage ne sait pas d'où vient le contenu.
+                // Polling cannot tell where the content came from.
                 source: String::new(),
             })
             .is_err()

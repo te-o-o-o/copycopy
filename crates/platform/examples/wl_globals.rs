@@ -1,5 +1,5 @@
-//! Sonde : liste les globaux Wayland exposés par le compositeur courant.
-//! Sert à savoir si un backend événementiel (data-control) est possible ici.
+//! Probe: lists the Wayland globals exposed by the current compositor. Tells
+//! you whether an event-driven backend (data-control) is possible here.
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use wayland_client::{Connection, Dispatch, QueueHandle};

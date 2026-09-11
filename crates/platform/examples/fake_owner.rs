@@ -1,9 +1,9 @@
-//! Fixture de test : un vrai client X11 qui annonce WM_CLASS et _NET_WM_PID,
-//! prend possession de CLIPBOARD et sert le texte demandé. Sert à valider la
-//! détection de l'application source, qu'`xclip` ne permet pas de tester
-//! (il n'expose ni l'un ni l'autre).
+//! Test fixture: a real X11 client that advertises WM_CLASS and _NET_WM_PID,
+//! takes ownership of CLIPBOARD and serves the requested text. Used to validate
+//! source-application detection, which `xclip` cannot exercise since it exposes
+//! neither.
 //!
-//!   cargo run -p copycopy-platform --example fake_owner -- "texte" MaClasse 4
+//!   cargo run -p copycopy-platform --example fake_owner -- "text" MyClass 4
 
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{

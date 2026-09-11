@@ -1,19 +1,19 @@
-//! Polices.
+//! Fonts.
 //!
-//! Contrairement à egui, cosmic-text découvre les polices système tout seul
-//! (via fontdb) : il n'y a plus de chaîne de fallback à écrire à la main. Ce
-//! module ne sert plus qu'aux systèmes dépourvus de polices CJK ou emoji —
-//! typiquement un WSL minimal, où l'on va chercher celles de Windows.
+//! Unlike egui, cosmic-text discovers system fonts on its own through fontdb,
+//! so there is no fallback chain left to write by hand. This module only serves
+//! systems that lack CJK or emoji fonts — typically a minimal WSL, where we go
+//! and fetch the Windows ones.
 
-/// Chemins tentés en plus de ce que le système expose déjà. Aucun n'est requis.
+/// Paths tried on top of what the system already exposes. None is required.
 const EXTRA: &[&str] = &[
-    // WSL : les polices Windows sont montées et couvrent tout.
+    // WSL: the Windows fonts are mounted and cover everything.
     "/mnt/c/Windows/Fonts/segoeui.ttf",
     "/mnt/c/Windows/Fonts/seguiemj.ttf",
     "/mnt/c/Windows/Fonts/YuGothR.ttc",
     "/mnt/c/Windows/Fonts/msyh.ttc",
     "/mnt/c/Windows/Fonts/malgun.ttf",
-    // Linux, si présentes.
+    // Linux, when present.
     "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
 ];

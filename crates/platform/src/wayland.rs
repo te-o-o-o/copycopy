@@ -1,19 +1,19 @@
-//! Backend Wayland événementiel.
+//! Event-driven Wayland backend.
 //!
-//! Wayland n'expose pas le presse-papier aux applications en arrière-plan : le
-//! `wl_data_device` standard exige le focus clavier. Il faut un protocole
-//! « data-control », qui existe en deux variantes de forme identique :
+//! Wayland does not expose the clipboard to background applications: the
+//! standard `wl_data_device` requires keyboard focus. A "data-control"
+//! protocol is needed, and it exists in two identically shaped variants:
 //!
-//! - `ext_data_control_v1` : la version standardisée (staging), à préférer ;
-//! - `zwlr_data_control_unstable_v1` : l'historique wlroots, encore ce
-//!   qu'exposent KDE, Sway, Hyprland, COSMIC.
+//! - `ext_data_control_v1`: the standardised (staging) version, preferred;
+//! - `zwlr_data_control_unstable_v1`: the historical wlroots one, still what
+//!   KDE, Sway, Hyprland and COSMIC expose.
 //!
-//! **GNOME n'expose ni l'un ni l'autre** : sur GNOME/Wayland il n'existe aucun
-//! moyen de surveiller le presse-papier depuis un process en arrière-plan sans
-//! extension ni portail. `start()` bascule alors sur le sondage.
+//! **GNOME exposes neither**: on GNOME/Wayland there is no way to watch the
+//! clipboard from a background process without an extension or a portal.
+//! `start()` then falls back to polling.
 //!
-//! L'application source n'est pas récupérable : aucun protocole Wayland ne
-//! l'expose, contrairement à `WM_CLASS` sous X11.
+//! The source application cannot be retrieved: no Wayland protocol exposes it,
+//! unlike `WM_CLASS` on X11.
 
 use std::collections::HashMap;
 use std::io::Read;
@@ -31,14 +31,14 @@ use crate::Capture;
 const READ_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_BYTES: usize = 32 * 1024 * 1024;
 
-/// Marqueurs « ce contenu est un secret » : on ne capture pas.
+/// "This content is a secret" markers: such content is never captured.
 const SECRET_MIMES: &[&str] = &[
     "x-kde-passwordManagerHint",
     "org.nspasteboard.ConcealedType",
     "application/x-nextcloud-talk-secret",
 ];
 
-/// Par ordre de préférence.
+/// In order of preference.
 fn pick_mime(mimes: &[String]) -> Option<&String> {
     const ORDER: &[&str] = &[
         "image/png",
@@ -80,9 +80,9 @@ fn to_event(mime: &str, data: Vec<u8>) -> Option<ClipEvent> {
     Some(ClipEvent::Text(text))
 }
 
-/// Le corps du backend, identique pour les deux protocoles. Les noms `Manager`,
-/// `Device`, `Offer`, `dev`, `offer` et `INTERFACE` sont résolus dans le module
-/// appelant : c'est ce qui permet de n'écrire la logique qu'une fois.
+/// The body of the backend, identical for both protocols. The names `Manager`,
+/// `Device`, `Offer`, `dev`, `offer` and `INTERFACE` resolve in the calling
+/// module, which is what lets the logic be written only once.
 macro_rules! impl_data_control {
     () => {
         use super::*;
@@ -166,8 +166,8 @@ macro_rules! impl_data_control {
                 }
             }
 
-            // L'événement `data_offer` (opcode 0) crée un nouvel objet : il faut
-            // dire à wayland-rs comment l'accueillir.
+            // The `data_offer` event (opcode 0) creates a new object, so
+            // wayland-rs has to be told how to receive it.
             wayland_client::event_created_child!(State, Device, [
                 0 => (Offer, ()),
             ]);
@@ -232,8 +232,8 @@ macro_rules! impl_data_control {
                                 if tx
                                     .send(Capture {
                                         event,
-                                        // Aucun protocole Wayland n'expose
-                                        // l'application source.
+                                        // No Wayland protocol exposes the
+                                        // source application.
                                         source: String::new(),
                                     })
                                     .is_err()
@@ -249,13 +249,13 @@ macro_rules! impl_data_control {
             }
         }
 
-        /// Le compositeur écrit le contenu dans un descripteur qu'on lui passe.
+        /// The compositor writes the content into a descriptor we hand it.
         fn receive(conn: &Connection, offer: &Offer, mime: &str) -> Result<Vec<u8>, String> {
             let (reader, writer) = UnixStream::pair().map_err(|e| e.to_string())?;
             offer.receive(mime.to_string(), writer.as_fd());
             conn.flush().map_err(|e| e.to_string())?;
-            // Notre extrémité fermée, l'EOF viendra de la fermeture par le
-            // compositeur une fois le contenu écrit.
+            // With our end closed, EOF will come from the compositor closing
+            // its own once the content has been written.
             drop(writer);
 
             reader
@@ -307,7 +307,7 @@ mod wlr_backend {
     impl_data_control!();
 }
 
-/// Quelle variante le compositeur courant expose-t-il ?
+/// Which variant does the current compositor expose?
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Variant {
     Ext,
@@ -338,8 +338,8 @@ impl Dispatch<wl_registry::WlRegistry, ()> for Probe {
     }
 }
 
-/// Renvoie la variante disponible, ou une erreur explicite si le compositeur
-/// n'expose aucun data-control (GNOME, WSLg…).
+/// Returns the available variant, or an explicit error when the compositor
+/// exposes no data-control at all (GNOME, WSLg and friends).
 pub fn probe() -> Result<Variant, String> {
     let conn = Connection::connect_to_env().map_err(|e| e.to_string())?;
     let mut queue = conn.new_event_queue();

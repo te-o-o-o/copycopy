@@ -1,9 +1,9 @@
-//! Le popup : en-tête, liste virtualisée, pied de fenêtre.
+//! The popup: header, virtualised list, footer.
 //!
-//! Règle de mise en page : chaque bande (en-tête, rangée, pied) est un
-//! `container` de hauteur fixe qui **centre** son contenu verticalement via
-//! `center_y`. Un `row.align_y(Center)` ne suffit pas : il aligne les enfants
-//! entre eux, mais laisse la rangée collée en haut de son conteneur.
+//! Layout rule: each band (header, row, footer) is a fixed-height `container`
+//! that **centres** its content vertically through `center_y`. A
+//! `row.align_y(Center)` is not enough: it aligns children relative to each
+//! other but leaves the row stuck to the top of its container.
 
 use iced::widget::{
     canvas, column, container, mouse_area, row, scrollable, text, text_input, Space,
@@ -24,8 +24,8 @@ pub fn view(state: &State, _window: iced::window::Id) -> Element<'_, Message> {
         footer(state),
     ];
 
-    // La carte est à l'extérieur et les poignées à l'intérieur : la fenêtre
-    // reste ainsi pleine et opaque jusqu'au bord, sans marge transparente.
+    // The card is on the outside and the handles inside, which keeps the
+    // window opaque all the way to the edge with no transparent margin.
     container(resize_frame(content.into()))
         .width(Length::Fill)
         .height(Length::Fill)
@@ -33,10 +33,10 @@ pub fn view(state: &State, _window: iced::window::Id) -> Element<'_, Message> {
         .into()
 }
 
-/// La fenêtre n'a pas de décorations : ce sont ces huit bandes, invisibles
-/// parce qu'elles laissent voir le fond de la carte, qui donnent les poignées
-/// de redimensionnement. Elles sont posées **par la mise en page**, pas en
-/// calque : un `stack` par-dessus empêchait les rangées de se redessiner.
+/// The window has no decorations: these eight bands, invisible because they
+/// let the card background through, provide the resize handles. They are placed
+/// **by layout**, not as an overlay: a `stack` on top stopped rows from
+/// repainting.
 fn resize_frame(content: Element<'_, Message>) -> Element<'_, Message> {
     use window::Direction::*;
 
@@ -91,10 +91,10 @@ fn hairline<'a>() -> Element<'a, Message> {
         .into()
 }
 
-// ---------------------------------------------------------------- en-tête
+// ----------------------------------------------------------------- header
 
-/// Loupe dessinée à la main : indépendante des glyphes disponibles dans la
-/// police, et nette à toutes les échelles.
+/// Hand-drawn magnifier: independent of which glyphs the font happens to have,
+/// and crisp at every scale.
 struct Magnifier;
 
 impl canvas::Program<Message> for Magnifier {
@@ -124,8 +124,8 @@ impl canvas::Program<Message> for Magnifier {
 }
 
 fn header(state: &State) -> Element<'_, Message> {
-    // Pas d'`on_submit` : Enter passe par le listener clavier global, sinon il
-    // serait traité deux fois.
+    // No `on_submit`: Enter goes through the global keyboard listener, or it
+    // would be handled twice.
     let field = text_input("Rechercher dans le presse-papier…", &state.query)
         .id(SEARCH_ID)
         .on_input(Message::Query)
@@ -140,8 +140,8 @@ fn header(state: &State) -> Element<'_, Message> {
             selection: t::alpha(t::ACCENT, 0.35),
         });
 
-    // `mouse_area` laisse l'enfant capturer en premier : un clic dans le champ
-    // de recherche ne déclenchera donc pas le déplacement de la fenêtre.
+    // `mouse_area` lets the child capture first, so clicking the search field
+    // will not start dragging the window.
     mouse_area(
         container(
             row![
@@ -165,11 +165,11 @@ fn header(state: &State) -> Element<'_, Message> {
     .into()
 }
 
-// ------------------------------------------------------------------ liste
+// ------------------------------------------------------------------- list
 
-/// Virtualisation manuelle : iced ne la fait pas, mais avec des rangées de
-/// hauteur fixe on sait exactement lesquelles sont visibles. C'est ce qui
-/// permet de tenir 100 000 entrées à 59 fps au lieu de s'écrouler dès 5 000.
+/// Manual virtualisation: iced does not do it, but with fixed-height rows we
+/// know exactly which ones are visible. That is what holds 100,000 entries at
+/// 59 fps instead of collapsing from 5,000 onwards.
 fn list(state: &State) -> Element<'_, Message> {
     let total = state.filtered.len();
     if total == 0 {
@@ -193,9 +193,9 @@ fn list(state: &State) -> Element<'_, Message> {
     let take = visible.min(total.saturating_sub(skip));
     let after = total.saturating_sub(skip + take);
 
-    // Ni `spacing` ni marge verticale : le pas d'une rangée à l'autre doit
-    // valoir exactement ROW_H, sinon les espaceurs de virtualisation dérivent
-    // par rapport à la position de défilement réelle.
+    // Neither `spacing` nor vertical margin: the pitch from one row to the
+    // next must be exactly ROW_H, otherwise the virtualisation spacers drift
+    // away from the real scroll position.
     let mut rows = column![];
     if skip > 0 {
         rows = rows.push(Space::new().height(Length::Fixed(skip as f32 * t::ROW_H)));
@@ -247,8 +247,8 @@ fn row_widget(
 ) -> Element<'_, Message> {
     let tint = t::tint(item.kind);
 
-    // Toujours présente, transparente quand la rangée n'est pas sélectionnée :
-    // la largeur du contenu ne bouge pas d'une rangée à l'autre.
+    // Always present, transparent when the row is not selected, so the content
+    // width does not shift from one row to the next.
     let accent = container(Space::new())
         .width(Length::Fixed(3.0))
         .height(Length::Fixed(24.0))
@@ -304,10 +304,10 @@ fn row_widget(
         content = content.push(Space::new().width(Length::Fixed(8.0)));
     }
 
-    // Pas de fondu en fin de ligne : le calque `stack` qui le produisait
-    // empêchait la rangée de se redessiner (le texte restait figé sur son
-    // premier rendu, puis disparaissait). L'aperçu est donc coupé net au bord,
-    // à une abscisse constante, ce qui se lit comme une limite de colonne.
+    // No end-of-line fade: the `stack` overlay that produced it stopped the
+    // row from repainting — the text stayed frozen on its first render, then
+    // vanished. Previews are therefore cut off flat at the edge, at a constant
+    // x, which reads as a column boundary.
     let ground = if selected {
         t::SELECTED
     } else if hovered {
@@ -328,8 +328,8 @@ fn row_widget(
             ..Default::default()
         });
 
-    // La rangée garde exactement ROW_H : c'est ce sur quoi repose le calcul de
-    // virtualisation. Seule la surbrillance est rétrécie, d'où l'espace.
+    // The row keeps exactly ROW_H, which the virtualisation maths relies on.
+    // Only the highlight is shrunk, which is where the spacing comes from.
     let styled = container(highlight)
         .width(Length::Fill)
         .height(Length::Fixed(t::ROW_H))
@@ -343,7 +343,7 @@ fn row_widget(
         .into()
 }
 
-// -------------------------------------------------------------------- pied
+// ----------------------------------------------------------------- footer
 
 fn footer(state: &State) -> Element<'_, Message> {
     let left = match &state.flash {

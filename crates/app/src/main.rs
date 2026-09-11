@@ -1,15 +1,16 @@
-//! copycopy — gestionnaire de presse-papier.
+//! copycopy — a clipboard manager.
 //!
-//! C'est un **résident** : il capture en permanence et n'ouvre sa fenêtre qu'à
-//! la demande (raccourci global, ou `--show` depuis un second process). Sans
-//! ça, il ne retiendrait que ce qu'on copie pendant qu'on le regarde.
+//! It is a **resident process**: it captures continuously and only opens its
+//! window on demand, through the global shortcut or `--show` from a second
+//! process. Without that it would only remember what you copy while you are
+//! looking at it.
 //!
-//!   copycopy                  # démarre le résident, fenêtre fermée
-//!   copycopy --open           # démarre et ouvre la fenêtre
-//!   copycopy --show           # demande au résident d'ouvrir
-//!   copycopy --quit           # arrête le résident
-//!   copycopy --headless       # capture en console, sans interface (debug)
-//!   copycopy --demo           # données factices multilingues
+//!   copycopy                  # start the resident, window closed
+//!   copycopy --open           # start and open the window
+//!   copycopy --show           # ask the resident to open
+//!   copycopy --quit           # stop the resident
+//!   copycopy --headless       # console capture, no interface (debug)
+//!   copycopy --demo           # multilingual sample data
 //!   copycopy --backend wayland|x11|poll
 //!   copycopy --screenshot out.png --for 10
 
@@ -34,13 +35,13 @@ const CAPACITY: usize = 1000;
 const SEARCH_ID: &str = "search";
 const SCROLL_ID: &str = "clips";
 const WINDOW_SIZE: (f32, f32) = (760.0, 520.0);
-/// Un compositeur peut signaler une perte de focus dans la foulée de
-/// l'ouverture : sans ce délai de grâce, la fenêtre se refermerait aussitôt.
+/// A compositor may report a focus loss right after opening; without this
+/// grace period the window would close again immediately.
 const FOCUS_GRACE: Duration = Duration::from_millis(600);
 
 static BOOT: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
-/// Réveils venus du raccourci global et de l'IPC. Déposés ici parce que
-/// `Subscription::run` ne prend qu'un pointeur de fonction, sans capture.
+/// Wake-ups from the global shortcut and from the IPC. Parked here because
+/// `Subscription::run` only takes a function pointer, with no captures.
 static WAKE: Mutex<Option<std::sync::mpsc::Receiver<Wake>>> = Mutex::new(None);
 
 #[derive(Debug, Clone)]
@@ -49,12 +50,12 @@ pub enum Wake {
     Command(String),
 }
 
-// ------------------------------------------------------------------ état
+// ------------------------------------------------------------------ state
 
 pub struct State {
     pub history: History,
-    /// Index dans `history`, recalculés seulement quand la requête change ou
-    /// qu'une capture arrive — jamais dans `view()`.
+    /// Indices into `history`, recomputed only when the query changes or a
+    /// capture arrives — never inside `view()`.
     pub filtered: Vec<usize>,
     pub query: String,
     pub selected: usize,
@@ -67,11 +68,9 @@ pub struct State {
     pub hotkey_note: String,
     setter: Setter,
     config: Config,
-    /// La fenêtre est créée **une seule fois**, au démarrage, puis montrée et
-    /// cachée. Deux raisons : une palette doit apparaître instantanément, et
-    /// une fenêtre créée après le démarrage subissait une première mise en page
-    /// fausse que iced ne refaisait jamais (la seconde ligne des rangées ne
-    /// s'affichait pas).
+    /// The window is created **once**, on the first open, then shown and
+    /// hidden rather than destroyed: a palette has to appear instantly, and
+    /// recreating a surface on every shortcut press is not free.
     window: Option<window::Id>,
     visible: bool,
     opened_at: Option<Instant>,
@@ -79,7 +78,7 @@ pub struct State {
     shot_path: Option<std::path::PathBuf>,
     shot_after: Duration,
     shot_done: bool,
-    /// Gardé vivant : le lâcher désenregistrerait le raccourci global.
+    /// Kept alive: dropping it would unregister the global shortcut.
     _hotkeys: hotkey::Hotkeys,
 }
 
@@ -165,7 +164,7 @@ impl State {
         self.open_window(true)
     }
 
-    /// Crée la fenêtre. Appelée une fois au démarrage.
+    /// Creates the window. Called once, on the first open.
     fn open_window(&mut self, visible: bool) -> Task<Message> {
         let size = self
             .config
@@ -195,13 +194,11 @@ impl State {
         task.map(Message::WindowOpened)
     }
 
-    /// Ferme la fenêtre sans arrêter le résident, et remet la recherche à zéro
-    /// pour que la prochaine ouverture reparte propre.
-    /// Cache la fenêtre sans la détruire, et remet la recherche à zéro pour que
-    /// la prochaine ouverture reparte propre.
+    /// Hides the window without destroying it, and resets the search so the
+    /// next open starts clean. The resident keeps running.
     fn hide(&mut self) -> Task<Message> {
-        // La géométrie n'est écrite qu'ici : inutile de toucher le disque à
-        // chaque pixel pendant qu'on déplace la fenêtre.
+        // Geometry is only written here: no need to touch the disk on every
+        // pixel while the window is being dragged.
         self.config.save();
         self.query.clear();
         self.selected = 0;
@@ -235,7 +232,7 @@ impl State {
         };
         let payload = item.payload.clone();
         match self.setter.set(&payload) {
-            // La disparition de la fenêtre est la confirmation : pas de toast.
+            // The window disappearing is the confirmation; no toast needed.
             Ok(()) => self.hide(),
             Err(e) => {
                 self.flash(format!("échec de la copie : {e}"));
@@ -250,7 +247,7 @@ fn subsequence(haystack: &str, needle: &str) -> bool {
     needle.chars().all(|c| it.any(|h| h == c))
 }
 
-// ----------------------------------------------------------------- cycle
+// --------------------------------------------------------------- lifecycle
 
 struct Args {
     open: bool,
@@ -266,8 +263,8 @@ fn parse_args() -> Args {
         a.iter().position(|x| x == name).and_then(|i| a.get(i + 1)).cloned()
     };
     let screenshot = val("--screenshot").map(std::path::PathBuf::from);
-    // `--hidden` : démarrer sans fenêtre même en mode capture d'écran, pour
-    // pouvoir vérifier que le résident capture bien fenêtre fermée.
+    // `--hidden`: start without a window even in screenshot mode, so we can
+    // check that the resident really captures with the window closed.
     let hidden = a.iter().any(|x| x == "--hidden");
     Args {
         open: !hidden && (a.iter().any(|x| x == "--open" || x == "--show") || screenshot.is_some()),
@@ -285,9 +282,8 @@ fn boot() -> (State, Task<Message>) {
         println!("configuration : {}", path.display());
     }
 
-    // Le gestionnaire de raccourcis doit naître sur le thread principal
-    // (macOS) et sur celui qui porte la boucle d'événements (Windows) :
-    // `boot` remplit les deux conditions.
+    // The hotkey manager must be created on the main thread (macOS) and on
+    // the thread owning the event loop (Windows): `boot` satisfies both.
     let hotkeys = hotkey::register(&config.hotkey);
     println!(
         "raccourci : {}{}",
@@ -325,8 +321,8 @@ fn boot() -> (State, Task<Message>) {
         window: None,
         visible: false,
         opened_at: None,
-        // En mode capture d'écran, la fenêtre ne doit pas se refermer toute
-        // seule faute de focus.
+        // In screenshot mode the window must not close on its own for lack of
+        // focus.
         close_on_blur: args.screenshot.is_none(),
         shot_path: args.screenshot,
         shot_after: Duration::from_secs(args.seconds),
@@ -376,8 +372,8 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::Key(event) => handle_key(state, event),
         Message::Wake(Wake::Hotkey) => {
-            // Visible volontairement : c'est la seule façon, pour qui lance le
-            // résident au démarrage de session, de savoir si le raccourci part.
+            // Deliberately visible: for anyone starting the resident at login,
+            // this is the only way to tell whether the shortcut fires.
             println!("raccourci déclenché");
             state.toggle()
         }
@@ -462,8 +458,8 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
     }
 }
 
-/// Compose la capture sur un fond neutre : sans ça, la marge transparente
-/// autour de la carte ressort en noir et on ne voit pas les coins arrondis.
+/// Flattens the screenshot onto a neutral background, so any transparent area
+/// shows up as grey rather than black.
 fn flatten(src: &image::RgbaImage) -> image::RgbaImage {
     const BG: [u8; 3] = [0x33, 0x36, 0x3E];
     let mut out = image::RgbaImage::new(src.width(), src.height());
@@ -489,15 +485,15 @@ fn handle_key(state: &mut State, event: keyboard::Event) -> Task<Message> {
     let ctrl = modifiers.control();
 
     match key {
-        // Esc ferme la fenêtre, pas le résident.
+        // Esc closes the window, not the resident.
         Key::Named(Named::Escape) => state.hide(),
         Key::Named(Named::Enter) => state.activate(),
         Key::Named(Named::ArrowDown) => state.move_selection(1),
         Key::Named(Named::ArrowUp) => state.move_selection(-1),
         Key::Named(Named::PageDown) => state.move_selection(6),
         Key::Named(Named::PageUp) => state.move_selection(-6),
-        // Home et End restent au champ de recherche : dans une zone de saisie,
-        // c'est le déplacement du curseur qu'on attend.
+        // Home and End are left to the search field: inside a text input,
+        // moving the caret is what you expect.
         Key::Character(c) if ctrl => match c.as_str() {
             "n" => state.move_selection(1),
             "p" => state.move_selection(-1),
@@ -520,10 +516,10 @@ fn handle_key(state: &mut State, event: keyboard::Event) -> Task<Message> {
     }
 }
 
-// ---------------------------------------------------------- abonnements
+// -------------------------------------------------------- subscriptions
 
-/// La capture tourne dans son propre thread ; on la relie au runtime iced par
-/// un flux. Pas de sondage côté UI : une capture réveille le résident.
+/// Capture runs on its own thread and is bridged into the iced runtime as a
+/// stream. No polling on the UI side: a capture wakes the resident up.
 fn clipboard_stream() -> impl iced::futures::Stream<Item = Message> {
     iced::stream::channel(64, async |mut output| {
         use iced::futures::{SinkExt, StreamExt};
@@ -560,7 +556,7 @@ fn clipboard_stream() -> impl iced::futures::Stream<Item = Message> {
     })
 }
 
-/// Réveils du raccourci global et de l'IPC, déposés dans `WAKE` par `main`.
+/// Wake-ups from the global shortcut and the IPC, parked in `WAKE` by `main`.
 fn wake_stream() -> impl iced::futures::Stream<Item = Message> {
     iced::stream::channel(16, async |mut output| {
         use iced::futures::{SinkExt, StreamExt};
@@ -590,9 +586,9 @@ fn wake_stream() -> impl iced::futures::Stream<Item = Message> {
 
 fn subscription(state: &State) -> Subscription<Message> {
     let mut subs = vec![
-        // `keyboard::listen()` ne voit que les événements ignorés par les
-        // widgets. Or le champ de recherche a le focus et capture Escape :
-        // la fenêtre ne se fermerait pas au premier appui.
+        // `keyboard::listen()` only sees events the widgets ignored. The
+        // search field has focus and captures Escape, so the window would not
+        // close on the first press.
         iced::event::listen_with(|event, _status, _window| match event {
             iced::Event::Keyboard(event) => Some(Message::Key(event)),
             _ => None,
@@ -638,8 +634,8 @@ fn seed_demo(history: &mut History) {
     }
 }
 
-/// Mode console : on vérifie la capture sans dépendre de l'interface. Il ne
-/// revendique pas le socket, pour pouvoir tourner à côté d'un résident.
+/// Console mode: checks capture without depending on the interface. It does
+/// not claim the socket, so it can run alongside a resident.
 fn headless(seconds: Option<u64>) {
     let backend = std::env::args()
         .position(|a| a == "--backend")
@@ -706,8 +702,8 @@ fn main() -> iced::Result {
     let wants_quit = argv.iter().any(|a| a == "--quit");
     let wants_show = argv.iter().any(|a| a == "--show");
 
-    // Instance unique. Si un résident tourne déjà, ce process n'est qu'une
-    // télécommande : il transmet la commande et s'efface.
+    // Single instance. When a resident is already running, this process is
+    // just a remote control: it forwards the command and exits.
     let listener = match ipc::claim() {
         Ok(ipc::Claim::Primary(listener)) => Some(listener),
         Ok(ipc::Claim::AlreadyRunning) => {
