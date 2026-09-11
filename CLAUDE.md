@@ -1,0 +1,95 @@
+# copycopy
+
+A clipboard manager written in Rust. A resident process captures the clipboard
+continuously and opens an iced popup on demand.
+
+## Layout
+
+| Crate | Role | Rule |
+|---|---|---|
+| `copycopy-core` | model, bounded history, dedup, classification | knows nothing about the OS or the UI |
+| `copycopy-platform` | capture, one backend per system | knows nothing about the UI |
+| `copycopy` | the binary: iced daemon, window, global shortcut | |
+
+That split was tested for real: when the toolkit changed from egui to iced,
+`core` and `platform` did not move a single line. Keep it that way.
+
+## Commands
+
+```bash
+cargo check --workspace                    # in a loop while writing
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt
+cargo test --workspace                     # 7 tests
+cargo build --release -p copycopy          # → target/release/copycopy
+```
+
+**Always run in `--release`.** Rust optimises nothing in debug, and a graphics
+stack feels it.
+
+```bash
+./target/release/copycopy --demo --open           # window with sample data
+./target/release/copycopy --headless --for 20     # console capture, no UI
+./target/release/copycopy --screenshot out.png --for 10
+```
+
+Full command reference, including every flag: `.claude/cargo.md` — local, not
+versioned.
+
+## Conventions
+
+- **English everywhere**: code, comments, commit messages, `README.md`. A
+  French translation of the README is kept as `README.fr.md`; keep the two in
+  sync when either changes.
+- **Conventional Commits**: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`,
+  `chore`. Imperative subject, and a body that explains the *why*.
+- Comments explain decisions and traps, not syntax.
+
+## Rules that must not be broken again
+
+Each of these cost real debugging time. Re-introducing them is a regression.
+
+1. **Secret content is never captured.** If the clipboard advertises
+   `x-kde-passwordManagerHint`, `org.nspasteboard.ConcealedType`,
+   `ExcludeClipboardContentFromMonitorProcessing`, or
+   `CanIncludeInClipboardHistory` set to 0, the content is dropped. A clipboard
+   manager that remembers passwords is malware by accident.
+2. **Row pitch must be exactly `ROW_H`.** The virtualisation computes which
+   rows are visible from the scroll offset. Any `spacing` on the list column,
+   or vertical margin on a row, makes the spacers drift. Spacing between
+   highlights comes from shrinking the *background* inside the row, never the
+   row itself.
+3. **Never use `stack` as an overlay.** A layer placed over a row stops that
+   row from repainting: its text freezes on the first render, then disappears.
+   Anything that must sit on top goes through layout.
+4. **Each band centres with `center_y`**, not `row.align_y(Center)`. The latter
+   aligns children relative to each other but leaves the band stuck to the top
+   of its container.
+5. **The filtered list lives in the state**, recomputed only when the query
+   changes or a capture arrives — never inside `view()`. That is what holds
+   100,000 entries at 59 fps.
+
+## Known defect
+
+When the window is opened after the resident has started — normal usage — the
+"source · age" line of each row often fails to draw, roughly 3 times out of 4.
+`view()` produces the right string; the header and footer, outside the
+`scrollable`, always draw. Not yet reduced to a minimal case. See `README.md`
+for everything already ruled out, so as not to re-test it.
+
+## What is verified, and what is not
+
+- **X11 capture**: run and tested.
+- **Wayland, Windows, macOS**: written and type-checked against their real
+  targets, but never executed. Do not describe them as working.
+- **Global shortcut**: verified on X11, including an actual trigger. Under WSL
+  it cannot fire from Windows applications — `XGrabKey` only sees keys reaching
+  the WSLg X server. That is structural.
+
+Diagnostic tools live as `examples`: `fake_owner` and `press_key` (platform),
+`band`, `pixel`, `zoom`, `compare` (app). Prefer checking a claim with one of
+them over asserting it.
+
+## Next step
+
+SQLite persistence with FTS5 — history does not survive the resident stopping.
