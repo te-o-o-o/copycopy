@@ -1,1 +1,5 @@
+# Cargo build artefacts: entirely regenerable from the sources and Cargo.lock.
 /target
+
+# Local tooling notes and settings, not part of the project.
+/.claude
