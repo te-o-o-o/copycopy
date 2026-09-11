@@ -1,15 +1,15 @@
-//! Écriture dans le presse-papier (le « coller » depuis l'historique).
+//! Writing to the clipboard, i.e. pasting from the history.
 //!
-//! On s'appuie sur `arboard` : sur X11 il faut rester propriétaire de la
-//! sélection tant que personne d'autre ne la prend, et arboard gère déjà ce
-//! thread de service. Pas la peine de le réécrire.
+//! Built on `arboard`: on X11 you have to keep owning the selection until
+//! someone else claims it, and arboard already runs that service thread. No
+//! point rewriting it.
 
 use copycopy_core::Payload;
 
 pub struct Setter {
     inner: Option<arboard::Clipboard>,
-    /// Hash de ce qu'on vient d'écrire, pour que le watcher ne le recapture pas
-    /// comme s'il venait d'une autre application.
+    /// Hash of what we just wrote, so the watcher does not capture it back as
+    /// if it came from another application.
     pub last_written: Option<u64>,
 }
 

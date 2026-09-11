@@ -1,4 +1,4 @@
-//! Empile deux recadrages pour comparer deux rendus au même endroit.
+//! Stacks two crops to compare two renderings of the same area.
 //! compare -- out.png  a.png X Y W H  b.png X Y W H  SCALE
 fn main() {
     let a: Vec<String> = std::env::args().collect();

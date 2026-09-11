@@ -1,4 +1,4 @@
-//! Palette. Tout le look du popup se règle ici.
+//! Palette. The whole look of the popup is tuned here.
 
 use iced::{Background, Border, Color, Theme};
 
@@ -29,17 +29,16 @@ pub const TINT_FILES: Color = rgb(0x6F, 0xA8, 0xDC);
 pub const ROW_H: f32 = 58.0;
 pub const HEADER_H: f32 = 58.0;
 pub const FOOTER_H: f32 = 30.0;
-/// Fenêtre à angles droits : des coins arrondis sur une fenêtre sans
-/// décorations laissent voir le fond du bureau dans les angles, ce qui ressort
-/// comme un liseré noir au lieu d'un arrondi propre.
+/// Square window: on an undecorated window, rounded corners reveal the desktop
+/// behind them, which reads as a black outline rather than a clean curve.
 pub const CARD_RADIUS: f32 = 0.0;
 pub const ROW_RADIUS: f32 = 8.0;
-/// Respiration verticale de la surbrillance à l'intérieur de sa rangée. La
-/// rangée garde sa hauteur exacte (la virtualisation en dépend) ; seul le fond
-/// est rétréci.
+/// Vertical breathing room for the highlight inside its row. The row keeps its
+/// exact height, which the virtualisation depends on; only the background is
+/// shrunk.
 pub const ROW_GAP: f32 = 3.0;
-/// Bande transparente autour de la carte : elle porte les poignées de
-/// redimensionnement, et laisse voir les coins arrondis.
+/// Band around the rim carrying the resize handles. It is invisible because it
+/// lets the card background through.
 pub const EDGE: f32 = 6.0;
 
 pub fn tint(kind: copycopy_core::Kind) -> Color {
@@ -68,7 +67,7 @@ pub fn alpha(color: Color, a: f32) -> Color {
     Color { a, ..color }
 }
 
-/// Le fond de la carte, coins arrondis et liseré compris.
+/// The card background, border included.
 pub fn card(_theme: &Theme) -> iced::widget::container::Style {
     iced::widget::container::Style {
         background: Some(Background::Color(CARD)),
@@ -81,8 +80,8 @@ pub fn card(_theme: &Theme) -> iced::widget::container::Style {
     }
 }
 
-/// Fond de l'application : opaque et de la couleur de la carte, pour qu'aucune
-/// zone transparente ne subsiste sur les bords.
+/// Application background: opaque and card-coloured, so no transparent area
+/// remains at the edges.
 pub fn root() -> iced::theme::Style {
     iced::theme::Style {
         background_color: CARD,

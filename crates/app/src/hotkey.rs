@@ -1,16 +1,15 @@
-//! Raccourci global d'ouverture.
+//! The global shortcut that opens the window.
 //!
-//! `global-hotkey` couvre Windows (`RegisterHotKey`), macOS
-//! (`RegisterEventHotKey`) et X11 (`XGrabKey`). **Wayland n'a pas de raccourci
-//! global côté client** : il faut soit le portail
-//! `org.freedesktop.portal.GlobalShortcuts`, soit — et c'est le repli universel
-//! qu'on implémente ici — un raccourci défini dans le compositeur qui lance
-//! `copycopy-iced --show`, lequel passe par l'IPC.
+//! `global-hotkey` covers Windows (`RegisterHotKey`), macOS
+//! (`RegisterEventHotKey`) and X11 (`XGrabKey`). **Wayland has no client-side
+//! global shortcut**: it takes either the
+//! `org.freedesktop.portal.GlobalShortcuts` portal, or — and this is the
+//! universal fallback implemented here — a shortcut defined in the compositor
+//! that runs `copycopy --show`, which goes through the IPC.
 //!
-//! Contrainte de thread : sur macOS le gestionnaire doit être créé sur le
-//! thread principal, sur Windows sur le thread qui porte la boucle
-//! d'événements. On le crée donc dans `boot()`, qui tourne sur le thread
-//! principal de iced, et on le garde vivant dans l'état.
+//! Thread constraint: on macOS the manager must be created on the main thread,
+//! on Windows on the thread that owns the event loop. It is therefore created
+//! in `boot()`, which runs on iced's main thread, and kept alive in the state.
 
 use std::str::FromStr;
 
@@ -18,14 +17,14 @@ use global_hotkey::hotkey::{Code, HotKey, Modifiers};
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager};
 
 pub struct Hotkeys {
-    /// Gardé vivant : le lâcher désenregistrerait le raccourci.
+    /// Kept alive: dropping it would unregister the shortcut.
     _manager: Option<GlobalHotKeyManager>,
-    /// Message affiché en pied de fenêtre et au démarrage.
+    /// Message shown in the footer and at startup.
     pub status: String,
     pub registered: bool,
 }
 
-/// « Ctrl+Alt+V » → modificateurs + code de touche.
+/// "Ctrl+Alt+V" becomes modifiers plus a key code.
 pub fn parse(spec: &str) -> Option<HotKey> {
     let mut mods = Modifiers::empty();
     let mut code = None;
@@ -58,7 +57,7 @@ fn key_code(name: &str) -> Option<Code> {
         "SPACE" => Some(Code::Space),
         "ENTER" | "RETURN" => Some(Code::Enter),
         "TAB" => Some(Code::Tab),
-        // Les noms restants suivent la nomenclature UI Events : F1, Escape…
+        // Remaining names follow the UI Events naming: F1, Escape and so on.
         _ => Code::from_str(name).ok(),
     }
 }
@@ -68,18 +67,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn raccourcis_courants() {
+    fn common_shortcuts() {
         assert!(parse("Ctrl+Alt+V").is_some());
         assert!(parse("Cmd+Shift+V").is_some());
         assert!(parse("Super+Space").is_some());
         assert!(parse("Ctrl+Alt+F1").is_some());
-        assert!(parse("Ctrl+Alt").is_none(), "aucune touche : doit échouer");
-        assert!(parse("Ctrl+Alt+Zzz").is_none(), "touche inconnue");
+        assert!(parse("Ctrl+Alt").is_none(), "no key: must fail");
+        assert!(parse("Ctrl+Alt+Zzz").is_none(), "unknown key");
     }
 }
 
-/// Sous Wayland, `XGrabKey` ne voit que les applications X11 : le raccourci ne
-/// se déclenchera pas depuis une application Wayland native.
+/// Under Wayland, `XGrabKey` only sees X11 applications, so the shortcut will
+/// not fire from a native Wayland application.
 fn wayland_session() -> bool {
     std::env::var("XDG_SESSION_TYPE")
         .map(|v| v.eq_ignore_ascii_case("wayland"))
@@ -127,15 +126,15 @@ pub fn register(spec: &str) -> Hotkeys {
     }
 }
 
-/// Le récepteur de `global-hotkey` est global et lisible depuis n'importe quel
-/// thread : on le draine dans un thread dédié.
+/// The `global-hotkey` receiver is global and readable from any thread, so it
+/// is drained on a dedicated one.
 pub fn spawn_bridge(on_press: impl Fn() + Send + 'static) {
     std::thread::Builder::new()
         .name("copycopy-hotkey".into())
         .spawn(move || {
             let receiver = GlobalHotKeyEvent::receiver();
             while let Ok(event) = receiver.recv() {
-                // Seul l'appui nous intéresse, pas le relâchement.
+                // Only the press matters, not the release.
                 if event.state == global_hotkey::HotKeyState::Pressed {
                     on_press();
                 }

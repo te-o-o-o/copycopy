@@ -1,4 +1,4 @@
-//! Modèle de données et historique. Aucune dépendance OS, aucune dépendance UI.
+//! Data model and history. No OS dependency, no UI dependency.
 
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -13,11 +13,11 @@ pub enum Kind {
     Files,
 }
 
-/// Ce qu'un backend remonte quand le presse-papier change.
+/// What a backend reports when the clipboard changes.
 #[derive(Clone, Debug)]
 pub enum ClipEvent {
     Text(String),
-    /// PNG brut tel que fourni par la sélection, + dimensions si connues.
+    /// Raw PNG as provided by the selection, plus dimensions when known.
     Image {
         png: Vec<u8>,
         size: Option<(u32, u32)>,
@@ -37,7 +37,7 @@ pub struct ClipItem {
     pub id: u64,
     pub kind: Kind,
     pub payload: Payload,
-    /// Ligne unique affichée dans la liste.
+    /// Single line shown in the list.
     pub preview: String,
     pub source: String,
     pub at: SystemTime,
@@ -61,7 +61,7 @@ impl ClipItem {
     }
 }
 
-/// Historique borné, dédupliqué par hash de contenu.
+/// Bounded history, deduplicated by content hash.
 pub struct History {
     items: VecDeque<ClipItem>,
     capacity: usize,
@@ -93,8 +93,8 @@ impl History {
         self.items.get(index)
     }
 
-    /// Insère un événement. Renvoie `false` si c'était un doublon de contenu :
-    /// dans ce cas l'entrée existante remonte en tête au lieu d'être dupliquée.
+    /// Inserts an event. Returns `false` when the content was a duplicate: the
+    /// existing entry then moves back to the top instead of being duplicated.
     pub fn push(&mut self, event: ClipEvent, source: String) -> bool {
         let hash = hash_event(&event);
 
@@ -145,7 +145,7 @@ impl History {
         });
 
         while self.items.len() > self.capacity {
-            // On ne jette jamais une entrée épinglée.
+            // A pinned entry is never discarded.
             match self.items.iter().rposition(|i| !i.pinned) {
                 Some(pos) => {
                     self.items.remove(pos);
@@ -171,8 +171,8 @@ impl History {
     }
 }
 
-/// FNV-1a 64 bits : stable entre exécutions (contrairement à `DefaultHasher`),
-/// donc réutilisable tel quel quand on passera à la persistance SQLite.
+/// 64-bit FNV-1a: stable across runs, unlike `DefaultHasher`, so it can be
+/// reused as-is once we move to SQLite persistence.
 fn fnv1a(bytes: &[u8]) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     for b in bytes {
@@ -184,7 +184,7 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 
 pub fn hash_event(event: &ClipEvent) -> u64 {
     match event {
-        // Le texte est normalisé : « Bonjour » et « Bonjour\n » sont le même clip.
+        // Text is normalised: "Hello" and "Hello\n" are the same clip.
         ClipEvent::Text(t) => fnv1a(t.trim().as_bytes()),
         ClipEvent::Image { png, .. } => fnv1a(png),
         ClipEvent::Files(paths) => {
@@ -198,8 +198,8 @@ pub fn hash_event(event: &ClipEvent) -> u64 {
     }
 }
 
-/// Aperçu sur une seule ligne : les retours et tabulations deviennent des
-/// espaces, les blancs consécutifs sont écrasés.
+/// Single-line preview: newlines and tabs become spaces, and consecutive
+/// whitespace is collapsed.
 fn one_line(text: &str) -> String {
     let mut out = String::with_capacity(text.len().min(256));
     let mut last_space = false;
@@ -230,8 +230,8 @@ fn classify(text: &str) -> Kind {
     if is_url {
         return Kind::Url;
     }
-    // Heuristique volontairement grossière : on préfère rater du code que de
-    // taguer du texte courant comme du code.
+    // Deliberately coarse heuristic: better to miss some code than to tag
+    // ordinary prose as code.
     let code_markers = [
         "fn ", "let ", "const ", "function ", "class ", "def ", "import ", "SELECT ", "#include",
         "=>", "->", "();", "{\n", ";\n",
@@ -267,23 +267,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dedup_remonte_en_tete_sans_dupliquer() {
+    fn dedup_moves_to_top_without_duplicating() {
         let mut h = History::new(10);
         assert!(h.push(ClipEvent::Text("a".into()), "t".into()));
         assert!(h.push(ClipEvent::Text("b".into()), "t".into()));
-        // Même contenu, aux blancs près.
+        // Same content, whitespace aside.
         assert!(!h.push(ClipEvent::Text("a\n".into()), "t".into()));
         assert_eq!(h.len(), 2);
         assert_eq!(h.get(0).unwrap().preview, "a");
     }
 
     #[test]
-    fn capacite_respectee_et_epingles_preserves() {
+    fn capacity_is_honoured_and_pinned_entries_survive() {
         let mut h = History::new(3);
         for i in 0..3 {
             h.push(ClipEvent::Text(format!("t{i}")), "t".into());
         }
-        h.toggle_pin(2); // « t0 », le plus ancien
+        h.toggle_pin(2); // "t0", the oldest one
         for i in 3..8 {
             h.push(ClipEvent::Text(format!("t{i}")), "t".into());
         }
@@ -300,7 +300,7 @@ mod tests {
     }
 
     #[test]
-    fn apercu_sur_une_ligne() {
+    fn single_line_preview() {
         assert_eq!(one_line("  a\n\n\tb  "), "a b");
     }
 }

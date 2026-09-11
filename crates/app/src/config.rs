@@ -1,8 +1,8 @@
-//! Configuration : un fichier `clé = valeur`, volontairement minimal.
+//! Configuration: a deliberately minimal `key = value` file.
 //!
-//! Pas de TOML ni de serde pour l'instant — cinq clés ne justifient pas la
-//! dépendance ni le temps de compilation. À remplacer le jour où la config
-//! devient structurée.
+//! No TOML and no serde for now — five keys do not justify the dependency nor
+//! the compile time. To be replaced the day the configuration becomes
+//! structured.
 
 use std::path::PathBuf;
 
@@ -14,14 +14,14 @@ pub const DEFAULT_HOTKEY: &str = if cfg!(target_os = "macos") {
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    /// Raccourci global d'ouverture, p. ex. « Ctrl+Alt+V ».
+    /// Global shortcut that opens the window, e.g. "Ctrl+Alt+V".
     pub hotkey: String,
-    /// Taille retenue. Toujours fiable : tout système la rapporte.
+    /// Remembered size. Always reliable: every system reports it.
     pub size: Option<(f32, f32)>,
-    /// Position retenue. Volontairement distincte de la taille : certains
-    /// environnements (WSLg) ne rapportent jamais de position réelle et
-    /// renverraient 0,0 — la fenêtre s'ouvrirait alors dans un coin au lieu
-    /// d'être centrée. On ne l'écrit que si un déplacement a été observé.
+    /// Remembered position, deliberately kept apart from the size: some
+    /// environments (WSLg) never report a real position and would return 0,0,
+    /// which would open the window in a corner instead of centred. It is only
+    /// written once an actual move has been observed.
     pub position: Option<(f32, f32)>,
 }
 
@@ -41,9 +41,9 @@ pub fn path() -> Option<PathBuf> {
 }
 
 impl Config {
-    /// Charge la configuration, ou renvoie les valeurs par défaut. Une clé
-    /// inconnue ou une ligne illisible est ignorée : un fichier abîmé ne doit
-    /// jamais empêcher l'application de démarrer.
+    /// Loads the configuration, or returns the defaults. An unknown key or an
+    /// unreadable line is ignored: a damaged file must never stop the
+    /// application from starting.
     pub fn load() -> Self {
         let mut config = Self::default();
         let Some(path) = path() else {
@@ -71,8 +71,8 @@ impl Config {
         config
     }
 
-    /// Écrit le fichier s'il n'existe pas encore, pour que l'utilisateur ait
-    /// quelque chose à modifier plutôt qu'une page blanche.
+    /// Writes the file when it does not exist yet, so the user has something
+    /// to edit rather than a blank page.
     pub fn write_default_if_missing(&self) -> Option<PathBuf> {
         let path = path()?;
         if path.exists() {
@@ -82,8 +82,8 @@ impl Config {
         Some(path)
     }
 
-    /// Réécrit le fichier entier. Perdre la configuration n'est jamais une
-    /// raison de faire échouer quoi que ce soit : on ignore les erreurs.
+    /// Rewrites the whole file. Losing the configuration is never a reason to
+    /// fail anything, so errors are ignored.
     pub fn save(&self) {
         let Some(path) = path() else { return };
         let Some(parent) = path.parent() else { return };
@@ -124,14 +124,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn paires() {
+    fn pairs() {
         assert_eq!(parse_pair("760, 520"), Some((760.0, 520.0)));
         assert_eq!(parse_pair("abc"), None);
         assert_eq!(parse_pair("1,2,3"), None);
     }
 
     #[test]
-    fn taille_absurde_refusee() {
+    fn absurd_size_is_rejected() {
         let mut c = Config::default();
         for line in ["size = 10,10", "size = 760,520"] {
             let (k, v) = line.split_once('=').expect("format");

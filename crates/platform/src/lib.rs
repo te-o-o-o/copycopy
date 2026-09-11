@@ -1,11 +1,10 @@
-//! Capture du presse-papier. Une seule abstraction, plusieurs implémentations.
+//! Clipboard capture. One abstraction, several implementations.
 //!
-//! - `x11` : événementiel via l'extension XFixes. Zéro sondage, latence nulle,
-//!   et on récupère l'application source via WM_CLASS.
-//! - `poll` : repli universel via `arboard` (Wayland, Windows, macOS).
-//!
-//! À venir : Wayland natif (`ext-data-control-v1`), Windows
-//! (`AddClipboardFormatListener`), macOS (`NSPasteboard.changeCount`).
+//! - `x11`: event-driven through the XFixes extension. No polling, no latency,
+//!   and the source application comes from WM_CLASS.
+//! - `wayland`: event-driven through a data-control protocol.
+//! - `windows`, `macos`: the native mechanism of each platform.
+//! - `poll`: universal fallback through `arboard`.
 
 use std::sync::mpsc::Receiver;
 
@@ -25,7 +24,7 @@ mod setter;
 
 pub use setter::Setter;
 
-/// Un événement capturé, avec l'application qui en est à l'origine.
+/// A captured event, along with the application it came from.
 #[derive(Clone, Debug)]
 pub struct Capture {
     pub event: ClipEvent,
@@ -34,15 +33,15 @@ pub struct Capture {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum BackendKind {
-    /// Événementiel : le backend est réveillé par le système.
+    /// Event-driven: the system wakes the backend up.
     X11Fixes,
     WaylandExt,
     WaylandWlr,
     Windows,
-    /// macOS n'a pas d'événement de changement : `NSPasteboard` ne propose que
-    /// `changeCount`. Le sondage n'y est pas un pis-aller, c'est l'API.
+    /// macOS has no change event: `NSPasteboard` only offers `changeCount`.
+    /// Polling is not a workaround there, it is the API.
     MacOs,
-    /// Repli universel.
+    /// Universal fallback.
     Poll,
 }
 
@@ -58,7 +57,7 @@ impl BackendKind {
         }
     }
 
-    /// Vrai si l'OS nous réveille au lieu qu'on sonde.
+    /// True when the OS wakes us up instead of us polling.
     pub fn is_event_driven(self) -> bool {
         !matches!(self, BackendKind::Poll | BackendKind::MacOs)
     }
@@ -69,11 +68,11 @@ pub struct Watcher {
     pub kind: BackendKind,
 }
 
-/// Démarre la capture dans un thread dédié.
+/// Starts capture on a dedicated thread.
 ///
-/// `prefer` force un backend (`"wayland"`, `"x11"`, `"poll"`) ; sinon on choisit
-/// le meilleur disponible pour la session courante. Le repli par sondage est
-/// toujours le dernier recours : mieux vaut sonder que ne rien capturer.
+/// `prefer` forces a backend (`"wayland"`, `"x11"`, `"poll"`); otherwise the
+/// best one available for the current session is chosen. Polling is always the
+/// last resort: better to poll than to capture nothing at all.
 pub fn start(prefer: Option<&str>) -> Result<Watcher, String> {
     let (tx, rx) = std::sync::mpsc::channel();
 
@@ -83,8 +82,8 @@ pub fn start(prefer: Option<&str>) -> Result<Watcher, String> {
         let has_wayland = std::env::var_os("WAYLAND_DISPLAY").is_some();
         let has_x11 = std::env::var_os("DISPLAY").is_some();
 
-        // Sous une session Wayland, Xwayland ne voit que le presse-papier des
-        // applications X11 : data-control d'abord, toujours.
+        // In a Wayland session, Xwayland only sees the clipboard of X11
+        // applications: always try data-control first.
         if forced == Some("wayland") || (forced.is_none() && has_wayland) {
             match wayland::probe() {
                 Ok(variant) => match wayland::spawn(variant, tx.clone()) {
@@ -150,7 +149,7 @@ pub fn start(prefer: Option<&str>) -> Result<Watcher, String> {
     })
 }
 
-/// Dimensions lues directement dans l'en-tête IHDR, sans décoder l'image.
+/// Dimensions read straight from the IHDR header, without decoding the image.
 pub(crate) fn png_size(png: &[u8]) -> Option<(u32, u32)> {
     if png.len() < 24 || &png[..8] != b"\x89PNG\r\n\x1a\n" || &png[12..16] != b"IHDR" {
         return None;

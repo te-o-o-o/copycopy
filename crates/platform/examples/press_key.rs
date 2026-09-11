@@ -1,5 +1,5 @@
-//! Synthétise une frappe clavier via l'extension XTEST, pour tester un
-//! raccourci global sans clavier physique.
+//! Synthesises a keystroke through the XTEST extension, to test a global
+//! shortcut without a physical keyboard.
 //!
 //!   cargo run -p copycopy-platform --example press_key -- ctrl alt v
 
@@ -7,7 +7,7 @@ use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{ConnectionExt as _, KEY_PRESS_EVENT, KEY_RELEASE_EVENT};
 use x11rb::protocol::xtest::ConnectionExt as _;
 
-/// Quelques keysyms X11 usuels.
+/// A few common X11 keysyms.
 fn keysym(name: &str) -> Option<u32> {
     Some(match name.to_ascii_lowercase().as_str() {
         "ctrl" | "control" => 0xffe3, // Control_L
@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     conn.xtest_get_version(2, 2)?.reply()?;
     let root = conn.setup().roots[screen_num].root;
 
-    // Table keysym → keycode, pour traduire « v » en code matériel.
+    // keysym-to-keycode table, to turn "v" into a hardware code.
     let setup = conn.setup();
     let (min, max) = (setup.min_keycode, setup.max_keycode);
     let mapping = conn
@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("frappe : {} → keycodes {codes:?}", args.join("+"));
 
-    // Enfoncement dans l'ordre donné, relâchement dans l'ordre inverse.
+    // Press in the given order, release in reverse.
     for code in &codes {
         conn.xtest_fake_input(KEY_PRESS_EVENT, *code, 0, root, 0, 0, 0)?;
     }

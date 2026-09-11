@@ -1,8 +1,8 @@
-//! Backend X11 événementiel.
+//! Event-driven X11 backend.
 //!
-//! XFixes nous réveille quand un autre client prend possession de la sélection
-//! CLIPBOARD ; on demande alors TARGETS, on choisit le meilleur format
-//! disponible, et on lit la propriété (INCR compris, pour les gros contenus).
+//! XFixes wakes us up when another client takes ownership of the CLIPBOARD
+//! selection; we then ask for TARGETS, pick the best available format and read
+//! the property, INCR included for large payloads.
 
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -22,9 +22,9 @@ use copycopy_core::ClipEvent;
 
 use crate::Capture;
 
-/// Au-delà, on ignore : un presse-papier n'est pas un système de fichiers.
+/// Beyond this we ignore the content: a clipboard is not a file system.
 const MAX_BYTES: usize = 32 * 1024 * 1024;
-/// Un client qui ne répond pas ne doit pas bloquer la capture suivante.
+/// An unresponsive client must not block the next capture.
 const REPLY_TIMEOUT: Duration = Duration::from_millis(1500);
 
 struct Atoms {
@@ -37,7 +37,7 @@ struct Atoms {
     uri_list: u32,
     dest: u32,
     net_wm_pid: u32,
-    /// Marqueurs des gestionnaires de mots de passe : on ne capture pas.
+    /// Password-manager markers: such content is never captured.
     kde_password_hint: u32,
     concealed: u32,
 }
@@ -68,8 +68,8 @@ impl Atoms {
 }
 
 pub fn spawn(tx: Sender<Capture>) -> Result<(), String> {
-    // On se connecte ici pour échouer immédiatement si X11 n'est pas là,
-    // et laisser `start()` basculer sur le sondage.
+    // Connecting here fails immediately when X11 is absent, which lets
+    // `start()` fall back to polling.
     let (conn, screen_num) = x11rb::connect(None).map_err(|e| e.to_string())?;
     let atoms = Atoms::intern(&conn)?;
 
@@ -117,13 +117,13 @@ fn run(conn: RustConnection, window: u32, atoms: Atoms, tx: Sender<Capture>) {
         atoms,
         deferred: VecDeque::new(),
     };
-    // Les changements de sélection survenus pendant qu'on lisait : les traiter
-    // en différé plutôt que les perdre (copies en rafale).
+    // Selection changes that happened while we were reading: handle them
+    // afterwards rather than lose them, which matters for rapid copies.
     let mut queue: VecDeque<u32> = VecDeque::new();
-    // Certains environnements (le pont presse-papier de WSLg, les gestionnaires
-    // de presse-papier tiers) reprennent la sélection juste après l'application
-    // source : on reçoit alors plusieurs notifications pour une seule copie. On
-    // n'en renvoie une deuxième que si elle apporte l'attribution qui manquait.
+    // Some environments (the WSLg clipboard bridge, third-party clipboard
+    // managers) take the selection back right after the source application, so
+    // several notifications arrive for a single copy. A repeat is only
+    // forwarded when it brings the source attribution that was missing.
     let mut last_hash: Option<u64> = None;
     let mut last_attributed = false;
 
@@ -146,8 +146,8 @@ fn run(conn: RustConnection, window: u32, atoms: Atoms, tx: Sender<Capture>) {
             },
         };
 
-        // L'attribution se fait AVANT la lecture : une appli qui se ferme juste
-        // après la copie ferait disparaître sa fenêtre entre-temps.
+        // Attribution happens BEFORE reading: an application closing right
+        // after the copy would have taken its window away by then.
         let source = reader.describe_owner(owner).unwrap_or_default();
 
         match reader.read_clipboard() {
@@ -182,7 +182,7 @@ struct Reader {
     conn: RustConnection,
     window: u32,
     atoms: Atoms,
-    /// Propriétaires signalés pendant une lecture, à traiter juste après.
+    /// Owners announced during a read, to be handled right after it.
     deferred: VecDeque<u32>,
 }
 
@@ -195,8 +195,8 @@ fn read_clipboard(&mut self) -> Result<Option<ClipEvent>, String> {
         .map(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]]))
         .collect();
 
-    // Un gestionnaire de mots de passe annonce que le contenu est secret :
-    // on n'y touche pas. C'est la règle la plus importante du projet.
+    // A password manager is announcing that the content is secret, so we
+    // leave it alone. This is the most important rule in the project.
     if targets.contains(&self.atoms.kde_password_hint) || targets.contains(&self.atoms.concealed) {
         return Ok(None);
     }
@@ -230,8 +230,8 @@ fn read_clipboard(&mut self) -> Result<Option<ClipEvent>, String> {
     ]
         .into_iter()
         .find(|t| targets.contains(t))
-        // Certains clients n'annoncent pas TARGETS correctement : on tente
-        // UTF8_STRING quand même plutôt que de ne rien capturer.
+        // Some clients do not advertise TARGETS properly, so UTF8_STRING is
+        // attempted anyway rather than capturing nothing.
         .unwrap_or(self.atoms.utf8_string);
 
     let (_, raw) = self.convert_and_read(text_target)?;
@@ -242,11 +242,11 @@ fn read_clipboard(&mut self) -> Result<Option<ClipEvent>, String> {
     Ok(Some(ClipEvent::Text(text)))
 }
 
-/// Demande une cible, attend le `SelectionNotify`, puis lit la propriété.
+/// Requests a target, waits for the `SelectionNotify`, then reads the property.
 fn convert_and_read(&mut self, target: u32) -> Result<(u32, Vec<u8>), String> {
     let (conn, window, atoms) = (&self.conn, self.window, &self.atoms);
-    // On efface d'abord : une propriété restée d'un échec précédent ferait
-    // croire à une réponse.
+    // Clear first: a property left over from an earlier failure would look
+    // like a reply.
     let _ = conn.delete_property(window, atoms.dest);
     conn.convert_selection(window, atoms.clipboard, target, atoms.dest, x11rb::CURRENT_TIME)
         .map_err(|e| e.to_string())?;
@@ -260,7 +260,7 @@ fn convert_and_read(&mut self, target: u32) -> Result<(u32, Vec<u8>), String> {
     })?;
     let (conn, window, atoms) = (&self.conn, self.window, &self.atoms);
     if notify == x11rb::NONE {
-        // Le propriétaire ne sait pas produire ce format.
+        // The owner cannot produce this format.
         return Ok((x11rb::NONE, Vec::new()));
     }
 
@@ -269,8 +269,8 @@ fn convert_and_read(&mut self, target: u32) -> Result<(u32, Vec<u8>), String> {
         return Ok((type_, data));
     }
 
-    // Transfert incrémental : le contenu arrive en tranches, chaque tranche
-    // signalée par un PropertyNotify, et une tranche vide termine.
+    // Incremental transfer: the content arrives in chunks, each announced by
+    // a PropertyNotify, and an empty chunk ends the sequence.
     let mut out = Vec::new();
     loop {
         let dest = atoms.dest;
@@ -291,7 +291,7 @@ fn convert_and_read(&mut self, target: u32) -> Result<(u32, Vec<u8>), String> {
     Ok((type_, out))
 }
 
-/// Lit une propriété en entier puis la supprime (nécessaire pour INCR).
+/// Reads a property in full, then deletes it, which INCR requires.
 fn read_property(conn: &RustConnection, window: u32, prop: u32) -> Result<(u32, Vec<u8>), String> {
     let mut out = Vec::new();
     let mut offset = 0u32;
@@ -318,7 +318,7 @@ fn read_property(conn: &RustConnection, window: u32, prop: u32) -> Result<(u32, 
     Ok((type_, out))
 }
 
-/// Attend un événement qui satisfait `pick`, en laissant filer les autres.
+/// Waits for an event matching `pick`, letting the others through.
 fn wait_for<T>(
     conn: &RustConnection,
     deferred: &mut VecDeque<u32>,
@@ -332,8 +332,8 @@ fn wait_for<T>(
             if let Some(v) = pick(&event) {
                 return Ok(v);
             }
-            // Une copie est survenue pendant qu'on lisait : surtout ne pas la
-            // jeter, c'est un élément d'historique qu'on perdrait.
+            // A copy happened while we were reading. Dropping it would lose a
+            // history entry, so it is queued instead.
             if let Event::XfixesSelectionNotify(ev) = &event {
                 if ev.selection == clipboard && ev.owner != x11rb::NONE && ev.owner != self_window {
                     deferred.push_back(ev.owner);
@@ -347,9 +347,9 @@ fn wait_for<T>(
     }
 }
 
-/// Nom de l'application source : WM_CLASS, sinon le nom du process via
-/// `_NET_WM_PID`. La fenêtre propriétaire est souvent une fenêtre technique
-/// non mappée, donc on remonte l'arbre.
+/// Name of the source application: WM_CLASS, falling back to the process name
+/// through `_NET_WM_PID`. The owning window is often an unmapped utility
+/// window, so we walk up the tree.
 fn describe_owner(&self, owner: u32) -> Option<String> {
     let (conn, atoms) = (&self.conn, &self.atoms);
     let mut win = owner;
