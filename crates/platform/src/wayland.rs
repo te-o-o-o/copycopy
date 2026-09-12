@@ -42,6 +42,9 @@ const SECRET_MIMES: &[&str] = &[
 fn pick_mime(mimes: &[String]) -> Option<&String> {
     const ORDER: &[&str] = &[
         "image/png",
+        "image/bmp",
+        "image/jpeg",
+        "image/tiff",
         "text/uri-list",
         "text/plain;charset=utf-8",
         "UTF8_STRING",
@@ -56,12 +59,11 @@ fn pick_mime(mimes: &[String]) -> Option<&String> {
 }
 
 fn to_event(mime: &str, data: Vec<u8>) -> Option<ClipEvent> {
-    if mime.eq_ignore_ascii_case("image/png") {
-        if data.is_empty() {
-            return None;
-        }
-        let size = crate::png_size(&data);
-        return Some(ClipEvent::Image { png: data, size });
+    if mime.to_ascii_lowercase().starts_with("image/") {
+        // No text fallback for an image we cannot decode: the raw bytes would
+        // land in the history as an unreadable entry.
+        let (png, size) = crate::to_png(data)?;
+        return Some(ClipEvent::Image { png, size });
     }
     let text = String::from_utf8_lossy(&data).into_owned();
     if mime.eq_ignore_ascii_case("text/uri-list") {
@@ -74,10 +76,7 @@ fn to_event(mime: &str, data: Vec<u8>) -> Option<ClipEvent> {
             return Some(ClipEvent::Files(paths));
         }
     }
-    if text.trim().is_empty() {
-        return None;
-    }
-    Some(ClipEvent::Text(text))
+    crate::sane_text(text.as_bytes()).map(ClipEvent::Text)
 }
 
 /// The body of the backend, identical for both protocols. The names `Manager`,

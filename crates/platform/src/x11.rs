@@ -34,6 +34,9 @@ struct Atoms {
     utf8_string: u32,
     text_plain_utf8: u32,
     image_png: u32,
+    image_bmp: u32,
+    image_jpeg: u32,
+    image_tiff: u32,
     uri_list: u32,
     dest: u32,
     net_wm_pid: u32,
@@ -58,6 +61,9 @@ impl Atoms {
             utf8_string: get("UTF8_STRING")?,
             text_plain_utf8: get("text/plain;charset=utf-8")?,
             image_png: get("image/png")?,
+            image_bmp: get("image/bmp")?,
+            image_jpeg: get("image/jpeg")?,
+            image_tiff: get("image/tiff")?,
             uri_list: get("text/uri-list")?,
             dest: get("COPYCOPY_SELECTION")?,
             net_wm_pid: get("_NET_WM_PID")?,
@@ -201,13 +207,25 @@ fn read_clipboard(&mut self) -> Result<Option<ClipEvent>, String> {
         return Ok(None);
     }
 
-    if targets.contains(&self.atoms.image_png) {
-        let (_, png) = self.convert_and_read(self.atoms.image_png)?;
-        if png.is_empty() {
-            return Ok(None);
+    // Preference order, then whatever the owner offered. Anything that is not
+    // PNG gets converted, so only one format ever reaches the history.
+    let image_targets = [
+        self.atoms.image_png,
+        self.atoms.image_bmp,
+        self.atoms.image_jpeg,
+        self.atoms.image_tiff,
+    ];
+    let offers_image = image_targets.iter().any(|t| targets.contains(t));
+    for target in image_targets.into_iter().filter(|t| targets.contains(t)) {
+        let (_, bytes) = self.convert_and_read(target)?;
+        if let Some((png, size)) = crate::to_png(bytes) {
+            return Ok(Some(ClipEvent::Image { png, size }));
         }
-        let size = crate::png_size(&png);
-        return Ok(Some(ClipEvent::Image { png, size }));
+    }
+    if offers_image {
+        // The owner advertises an image we could not decode. Falling through to
+        // the text branch would store the raw bytes as an unreadable entry.
+        return Ok(None);
     }
 
     if targets.contains(&self.atoms.uri_list) {
@@ -235,11 +253,7 @@ fn read_clipboard(&mut self) -> Result<Option<ClipEvent>, String> {
         .unwrap_or(self.atoms.utf8_string);
 
     let (_, raw) = self.convert_and_read(text_target)?;
-    let text = String::from_utf8_lossy(&raw).into_owned();
-    if text.trim().is_empty() {
-        return Ok(None);
-    }
-    Ok(Some(ClipEvent::Text(text)))
+    Ok(crate::sane_text(&raw).map(ClipEvent::Text))
 }
 
 /// Requests a target, waits for the `SelectionNotify`, then reads the property.
