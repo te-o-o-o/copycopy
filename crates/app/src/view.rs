@@ -215,14 +215,24 @@ fn list(state: &State) -> Element<'_, Message> {
         rows = rows.push(Space::new().height(Length::Fixed(after as f32 * t::ROW_H)));
     }
 
-    scrollable(rows.padding(Padding::from([0, 8])))
+    // Left margin only: on the right the scrollbar reserves its own through
+    // `spacing`, otherwise it ends up touching the highlight. The left value is
+    // chosen so both margins of the highlight come out equal, with the
+    // scrollbar floating inside the right one.
+    scrollable(rows.padding(Padding {
+        top: 0.0,
+        right: 0.0,
+        bottom: 0.0,
+        left: 14.0,
+    }))
         .id(SCROLL_ID)
         .height(Length::Fill)
         .direction(scrollable::Direction::Vertical(
             scrollable::Scrollbar::new()
                 .width(5)
                 .scroller_width(5)
-                .margin(3),
+                .margin(3)
+                .spacing(4),
         ))
         .style(|theme, status| scrollable::Style {
             vertical_rail: scrollable::Rail {
