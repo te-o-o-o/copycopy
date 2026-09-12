@@ -69,16 +69,33 @@ Each of these cost real debugging time. Re-introducing them is a regression.
    changes or a capture arrives — never inside `view()`. That is what holds
    100,000 entries at 59 fps.
 
-## Known defect — no longer reproducible
+## Known defect — still open
 
-The "source · age" line of each row used to fail to draw roughly 3 times out of
-4 when the window was opened after the resident had started. Six consecutive
-runs of that exact scenario now draw it every time.
+The "source · age" line of a row sometimes fails to draw. It was declared fixed
+after six consecutive passes of one scenario; that was premature — the scenario
+had simply stopped triggering it. It still occurs, intermittently, on other
+paths: freshly captured entries lose the line in some runs and keep it in
+others, with no difference in the data.
 
-The likely cause is that rows are no longer indexed into the in-memory history:
-`refilter()` materialises a `Vec<ClipItem>` and the list is rebuilt from it,
-which changed how iced diffs the widget tree. This was never isolated, so treat
-it as fixed but not explained — if it reappears, that is where to look.
+Ruled out, each by isolating it: `clip`, the resize frame, a `stack` overlay, an
+empty source, the payload type, and an image thumbnail in the badge slot.
+`view()` always produces the right string — verified by tracing — and the header
+and footer, outside the `scrollable`, always draw.
+
+**Next step is a minimal reproduction**, roughly twenty lines with a scrollable
+whose rows hold two stacked texts, to find out whether this is an iced bug worth
+reporting upstream or a misuse. Chasing it inside the application has cost
+several sessions and produced only eliminations.
+
+Weighed against that: **this has only ever been seen under WSLg, by tooling,
+never by someone using the application.** The same workbench has produced three
+other phantoms — cursor shapes that never apply, a shortcut invisible to Windows
+applications, a Wayland surface XTEST cannot drive. Treat it as a likely fourth
+until someone sees it on a target platform. Do not spend another session on it
+without that.
+
+`cargo run --release -p copycopy --example band -- shot.png X0 X1 Y0 Y1` counts
+lit pixels in a band, which detects the line without visual inspection.
 
 ## What is verified, and what is not
 
