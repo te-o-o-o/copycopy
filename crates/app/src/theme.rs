@@ -16,7 +16,6 @@ pub const BORDER: Color = rgb(0x2A, 0x2D, 0x36);
 pub const SELECTED: Color = rgb(0x24, 0x27, 0x31);
 pub const HOVER: Color = rgb(0x1B, 0x1E, 0x25);
 pub const TEXT: Color = rgb(0xE7, 0xE9, 0xEF);
-pub const DIM: Color = rgb(0x9A, 0xA0, 0xB0);
 pub const FAINT: Color = rgb(0x5E, 0x64, 0x75);
 pub const ACCENT: Color = rgb(0x7C, 0x8C, 0xFF);
 
@@ -36,7 +35,7 @@ pub const PIN: Color = rgb(0x4F, 0xC3, 0xA1);
 /// selection, and a confirmation has to read as different, not as more.
 pub const COPIED: Color = rgb(0x3E, 0x8B, 0x6E);
 
-pub const ROW_H: f32 = 58.0;
+pub const ROW_H: f32 = 50.0;
 pub const HEADER_H: f32 = 58.0;
 pub const FOOTER_H: f32 = 30.0;
 /// Square window: on an undecorated window, rounded corners reveal the desktop
