@@ -331,6 +331,19 @@ An image comes back re-encoded, so its bytes differ from the ones that went in
 and content hashing cannot recognise it. Without that check, every paste-back
 landed in the history as a new entry.
 
+`targets` answers the other question — why a copy produced no entry at all. It
+lists what the clipboard owner advertises and what our reader gets out of each
+format, timings included:
+
+```bash
+# copy something, then:
+cargo run --release -p copycopy-platform --example targets
+```
+
+It exists because the backend is silent on that path: when an owner advertises
+an image it then fails to deliver, the whole copy is dropped, text alternatives
+included, and nothing is logged.
+
 ## Layout
 
 ```
