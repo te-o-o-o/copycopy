@@ -326,6 +326,18 @@ raccourci global a été testé sans clavier physique.
 cargo run -p copycopy-platform --example press_key -- ctrl alt v
 ```
 
+`echo` couvre l'autre sens, l'écriture. Il pose un contenu sur le presse-papier
+par le `Setter` même qu'utilise l'application, puis écoute avec le vrai
+observateur et dit si chaque capture a été reconnue comme notre propre écriture :
+
+```bash
+cargo run --release -p copycopy-platform --example echo -- shot.png
+```
+
+Une image revient ré-encodée : ses octets diffèrent de ceux qui sont entrés, et
+le hachage du contenu ne peut pas la reconnaître. Sans ce contrôle, chaque
+recopie atterrissait dans l'historique comme une nouvelle entrée.
+
 ## Structure
 
 ```

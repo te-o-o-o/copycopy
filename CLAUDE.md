@@ -115,10 +115,17 @@ proof that a target platform works.
   to move or resize cannot be exercised here. WSLg also never applies requested
   cursor shapes, so a cursor that does not change proves nothing about the
   code. Do not chase either of these again.
+- **Nor is anything the window's keyboard triggers.** XTEST can fire the global
+  shortcut, because `XGrabKey` lives in the X server — but it cannot deliver a
+  key *to the window*, which is a Wayland surface. So Enter-to-copy cannot be
+  driven from here, and the X11 winit backend is not a way round it: it aborts
+  on a missing `libxkbcommon-x11.so`. Test what the window triggers through the
+  layer underneath instead — `Setter` and the watcher, as the `echo` example
+  does.
 
-Diagnostic tools live as `examples`: `fake_owner` and `press_key` (platform),
-`band`, `edges`, `pixel`, `zoom`, `compare` (app). Prefer checking a claim with one of
-them over asserting it.
+Diagnostic tools live as `examples`: `fake_owner`, `press_key` and `echo`
+(platform), `band`, `edges`, `pixel`, `zoom`, `compare` (app). Prefer checking a
+claim with one of them over asserting it.
 
 ## Next step
 
