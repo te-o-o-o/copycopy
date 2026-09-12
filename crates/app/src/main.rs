@@ -114,6 +114,8 @@ impl State {
                         .is_some_and(|it| subsequence(&it.preview.to_lowercase(), &q))
             })
             .collect();
+
+        pinned_first(&self.history, &mut self.filtered);
         self.selected = self.selected.min(self.filtered.len().saturating_sub(1));
     }
 
@@ -241,6 +243,14 @@ impl State {
             }
         }
     }
+}
+
+/// Pinned entries float to the top. The sort is stable, so recency is preserved
+/// inside each group. Ordering lives here rather than in `History`, which stays
+/// purely chronological — that is what a SQL `ORDER BY pinned DESC, at DESC`
+/// will express once persistence lands.
+fn pinned_first(history: &History, indices: &mut [usize]) {
+    indices.sort_by_key(|&i| !history.get(i).is_some_and(|it| it.pinned));
 }
 
 fn subsequence(haystack: &str, needle: &str) -> bool {
@@ -694,6 +704,31 @@ fn headless(seconds: Option<u64>) {
         }
     }
     println!("\n{} entrées retenues", history.len());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pinned_entries_float_to_the_top() {
+        let mut history = History::new(10);
+        for name in ["a", "b", "c", "d"] {
+            history.push(ClipEvent::Text(name.into()), "test".into());
+        }
+        // Newest first at this point: d, c, b, a.
+        history.toggle_pin(3); // "a", the oldest
+        history.toggle_pin(1); // "c"
+
+        let mut indices: Vec<usize> = (0..history.len()).collect();
+        pinned_first(&history, &mut indices);
+
+        let order: Vec<&str> = indices
+            .iter()
+            .map(|&i| history.get(i).expect("entry").preview.as_str())
+            .collect();
+        assert_eq!(order, ["c", "a", "d", "b"], "pinned first, recency kept inside each group");
+    }
 }
 
 fn main() -> iced::Result {
