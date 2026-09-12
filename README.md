@@ -366,7 +366,8 @@ cargo run -p copycopy-platform --example wl_globals   # Wayland globals exposed
 SQLite through rusqlite's `bundled` feature: the database ships inside the
 binary, with no system library to install anywhere. Images are written as files
 beside it and their bytes are read only when an entry is copied — reading every
-PNG back to draw a list of text rows would make each keystroke hit the disk.
+PNG back to draw a list of text rows would make each keystroke hit the disk. An
+entry drops its bytes as soon as its file is written, so nothing is held twice.
 
 Search splits at three characters. Below that it filters the loaded window in
 memory, which a trigram index cannot answer. At three or more it queries the

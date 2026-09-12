@@ -25,7 +25,7 @@ mod view;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use copycopy_core::{store::Store, ClipEvent, ClipItem, History};
+use copycopy_core::{store::Store, ClipEvent, ClipItem, History, Payload};
 use copycopy_platform::{BackendKind, Capture, Setter};
 use iced::widget::scrollable;
 use iced::Animation;
@@ -549,10 +549,24 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                 return Task::none();
             }
             state.history.push(capture.event, capture.source);
-            if let (Some(store), Some(item)) = (&state.store, state.history.get(0)) {
-                if let Err(e) = store.insert(item).and_then(|_| store.prune(CAPACITY)) {
-                    eprintln!("could not persist the entry: {e}");
+            let written = match (&state.store, state.history.get(0)) {
+                (Some(store), Some(item)) => {
+                    match store.insert(item).and_then(|_| store.prune(CAPACITY)) {
+                        Ok(_) => matches!(item.payload, Payload::Image { .. })
+                            .then(|| store.image_path(item.hash)),
+                        Err(e) => {
+                            eprintln!("could not persist the entry: {e}");
+                            None
+                        }
+                    }
                 }
+                _ => None,
+            };
+            // The picture is on disk now, so the entry can point at the file
+            // instead of carrying the bytes: `refilter` clones what it keeps,
+            // and it runs on every keystroke.
+            if let Some(path) = written {
+                state.history.offload_image(0, path);
             }
             state.refilter();
             Task::none()
