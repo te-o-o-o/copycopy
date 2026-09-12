@@ -41,8 +41,9 @@ const WINDOW_SIZE: (f32, f32) = (760.0, 520.0);
 /// grace period the window would close again immediately.
 const FOCUS_GRACE: Duration = Duration::from_millis(600);
 /// How long the copied row stays highlighted before the window closes. Long
-/// enough to register, short enough not to feel like a wait.
-const COPY_FLASH: Duration = Duration::from_millis(160);
+/// enough to register, short enough not to feel like a wait — 160 ms was the
+/// former, and it is below what the eye catches on a colour change alone.
+const COPY_FLASH: Duration = Duration::from_millis(260);
 /// Cross-fade of the selection highlight. Short enough to feel immediate,
 /// long enough to read as a movement rather than a jump.
 const SELECT_FADE: Duration = Duration::from_millis(110);
