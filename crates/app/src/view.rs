@@ -766,12 +766,30 @@ fn plural(n: usize, one: &'static str, many: &'static str) -> &'static str {
 }
 
 /// A Carbon-style window around a text preview: rounded, lifted off the panel
-/// by a shadow, three dots on top. Built through layout like everything else —
-/// the dots are a row above the text, not a layer laid over it.
+/// by a shadow, a copy button in its title bar. Built through layout like
+/// everything else — the button sits in a row above the text, not in a layer
+/// laid over it.
 fn framed<'a>(inner: Element<'a, Message>, p: Palette) -> Element<'a, Message> {
-    let dots = canvas(WindowDots)
-        .width(Length::Fixed(52.0))
-        .height(Length::Fixed(12.0));
+    // The title bar keeps a single control: copying what the window shows.
+    // It is the selected entry, so this is the same as pressing Enter.
+    let bar = row![
+        Space::new().width(Length::Fill),
+        mouse_area(
+            canvas(CopyMark {
+                color: t::alpha(p.text, 0.55),
+            })
+            .width(Length::Fixed(t::SLOT))
+            .height(Length::Fixed(t::SLOT)),
+        )
+        .interaction(mouse::Interaction::Pointer)
+        .on_press(Message::Activate),
+    ]
+    .padding(Padding {
+        top: 0.0,
+        right: 10.0,
+        bottom: 0.0,
+        left: 0.0,
+    });
 
     let body = scrollable(container(inner).padding(Padding {
         top: 0.0,
@@ -786,7 +804,7 @@ fn framed<'a>(inner: Element<'a, Message>, p: Palette) -> Element<'a, Message> {
     .direction(thin_scrollbar())
     .style(quiet_scroll(p));
 
-    let window = container(column![dots, body].spacing(14))
+    let window = container(column![bar, body].spacing(10))
         .padding(Padding {
             top: 14.0,
             right: 6.0,
@@ -819,36 +837,6 @@ fn framed<'a>(inner: Element<'a, Message>, p: Palette) -> Element<'a, Message> {
         })
         .width(Length::Fill)
         .into()
-}
-
-/// The three dots of Carbon's window — macOS's close, minimise and zoom
-/// colours. Fixed rather than taken from the palette: they quote that window
-/// chrome, and read as a quotation in either theme.
-struct WindowDots;
-
-impl canvas::Program<Message> for WindowDots {
-    type State = ();
-
-    fn draw(
-        &self,
-        _state: &Self::State,
-        renderer: &iced::Renderer,
-        _theme: &iced::Theme,
-        bounds: Rectangle,
-        _cursor: iced::mouse::Cursor,
-    ) -> Vec<canvas::Geometry> {
-        let mut frame = canvas::Frame::new(renderer, bounds.size());
-        let colours = [
-            iced::Color::from_rgb8(0xFF, 0x5F, 0x56),
-            iced::Color::from_rgb8(0xFF, 0xBD, 0x2E),
-            iced::Color::from_rgb8(0x27, 0xC9, 0x3F),
-        ];
-        for (i, colour) in colours.into_iter().enumerate() {
-            let centre = Point::new(6.0 + i as f32 * 19.0, 6.0);
-            frame.fill(&canvas::Path::circle(centre, 5.5), colour);
-        }
-        vec![frame.into_geometry()]
-    }
 }
 
 /// The list's scrollbar, shared with the panel: thin, and only the scroller
