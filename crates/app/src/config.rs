@@ -23,6 +23,8 @@ pub struct Config {
     /// which would open the window in a corner instead of centred. It is only
     /// written once an actual move has been observed.
     pub position: Option<(f32, f32)>,
+    /// Light or dark palette, switched from the header icon.
+    pub theme: crate::theme::Mode,
 }
 
 impl Default for Config {
@@ -31,6 +33,7 @@ impl Default for Config {
             hotkey: DEFAULT_HOTKEY.to_string(),
             size: None,
             position: None,
+            theme: crate::theme::Mode::Dark,
         }
     }
 }
@@ -84,6 +87,7 @@ impl Config {
                 "hotkey" if !value.is_empty() => config.hotkey = value.to_string(),
                 "size" => config.size = parse_pair(value).filter(|(w, h)| *w >= 320.0 && *h >= 200.0),
                 "position" => config.position = parse_pair(value),
+                "theme" => config.theme = crate::theme::Mode::parse(value).unwrap_or(config.theme),
                 _ => {}
             }
         }
@@ -123,6 +127,8 @@ impl Config {
             body.push_str("# Position retenue : x,y\n");
             body.push_str(&format!("position = {x:.0},{y:.0}\n"));
         }
+        body.push_str("# Thème : dark ou light\n");
+        body.push_str(&format!("theme = {}\n", self.theme.name()));
         let _ = std::fs::write(&path, body);
     }
 }
