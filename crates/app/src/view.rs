@@ -15,16 +15,20 @@ use iced::{
 
 use copycopy_core::ClipItem;
 
-use crate::theme as t;
+use crate::theme::{self as t, Palette};
 use crate::{Message, State, SCROLL_ID, SEARCH_ID};
 
 pub fn view(state: &State, _window: iced::window::Id) -> Element<'_, Message> {
+    // Read once per frame and handed down: every function below draws with
+    // it, and a theme switch is nothing more than the next frame using the
+    // other one.
+    let p = state.palette();
     let content = column![
-        header(state),
-        hairline(),
-        list(state),
-        hairline(),
-        footer(state),
+        header(state, p),
+        hairline(p),
+        list(state, p),
+        hairline(p),
+        footer(state, p),
     ];
 
     // The card is on the outside and the handles inside, which keeps the
@@ -32,7 +36,7 @@ pub fn view(state: &State, _window: iced::window::Id) -> Element<'_, Message> {
     container(resize_frame(content.into()))
         .width(Length::Fill)
         .height(Length::Fill)
-        .style(t::card)
+        .style(t::card(p))
         .into()
 }
 
@@ -87,10 +91,10 @@ fn handle<'a>(
         .into()
 }
 
-fn hairline<'a>() -> Element<'a, Message> {
+fn hairline<'a>(p: Palette) -> Element<'a, Message> {
     container(Space::new().height(Length::Fixed(1.0)))
         .width(Length::Fill)
-        .style(t::separator)
+        .style(t::separator(p))
         .into()
 }
 
@@ -98,7 +102,9 @@ fn hairline<'a>() -> Element<'a, Message> {
 
 /// Hand-drawn magnifier: independent of which glyphs the font happens to have,
 /// and crisp at every scale.
-struct Magnifier;
+struct Magnifier {
+    color: iced::Color,
+}
 
 impl canvas::Program<Message> for Magnifier {
     type State = ();
@@ -114,7 +120,7 @@ impl canvas::Program<Message> for Magnifier {
         let mut frame = canvas::Frame::new(renderer, bounds.size());
         let stroke = || {
             canvas::Stroke::default()
-                .with_color(t::FAINT)
+                .with_color(self.color)
                 .with_width(1.5)
         };
         frame.stroke(&canvas::Path::circle(Point::new(6.5, 6.5), 5.0), stroke());
@@ -128,7 +134,12 @@ impl canvas::Program<Message> for Magnifier {
 
 /// Pin marker, drawn for the same reason as the magnifier: full control of
 /// size and colour, and no dependence on which glyphs a font happens to ship.
-struct Pin;
+struct Pin {
+    color: iced::Color,
+    /// The card colour, to punch the hole in the head. Passed in rather than
+    /// read from a constant: it changes with the theme.
+    hole: iced::Color,
+}
 
 impl canvas::Program<Message> for Pin {
     type State = ();
@@ -146,7 +157,7 @@ impl canvas::Program<Message> for Pin {
         // reads as a pin at 16 px, where a head on a straight needle reads as
         // a balloon.
         let head = Point::new(8.0, 6.4);
-        frame.fill(&canvas::Path::circle(head, 5.0), t::PIN);
+        frame.fill(&canvas::Path::circle(head, 5.0), self.color);
         frame.fill(
             &canvas::Path::new(|b| {
                 b.move_to(Point::new(3.6, 9.0));
@@ -154,10 +165,54 @@ impl canvas::Program<Message> for Pin {
                 b.line_to(Point::new(8.0, 17.0));
                 b.close();
             }),
-            t::PIN,
+            self.color,
         );
         // Hollow centre, so the shape stays legible against a light row.
-        frame.fill(&canvas::Path::circle(head, 1.9), t::CARD);
+        frame.fill(&canvas::Path::circle(head, 1.9), self.hole);
+        vec![frame.into_geometry()]
+    }
+}
+
+/// Theme switch. The glyph names the theme in use — a moon while dark, a sun
+/// while light — which is what most applications have taught people to read.
+struct ThemeMark {
+    light: bool,
+    ink: iced::Color,
+    /// The header background, to carve the crescent out of a full disc.
+    ground: iced::Color,
+}
+
+impl canvas::Program<Message> for ThemeMark {
+    type State = ();
+
+    fn draw(
+        &self,
+        _state: &Self::State,
+        renderer: &iced::Renderer,
+        _theme: &iced::Theme,
+        bounds: Rectangle,
+        _cursor: iced::mouse::Cursor,
+    ) -> Vec<canvas::Geometry> {
+        let mut frame = canvas::Frame::new(renderer, bounds.size());
+        let centre = Point::new(8.0, 8.0);
+        if self.light {
+            frame.fill(&canvas::Path::circle(centre, 3.0), self.ink);
+            let ray = canvas::Stroke::default().with_color(self.ink).with_width(1.4);
+            for i in 0..8 {
+                let angle = i as f32 * std::f32::consts::FRAC_PI_4;
+                let (sin, cos) = angle.sin_cos();
+                frame.stroke(
+                    &canvas::Path::line(
+                        Point::new(8.0 + 5.0 * cos, 8.0 + 5.0 * sin),
+                        Point::new(8.0 + 7.0 * cos, 8.0 + 7.0 * sin),
+                    ),
+                    ray,
+                );
+            }
+        } else {
+            frame.fill(&canvas::Path::circle(centre, 5.6), self.ink);
+            frame.fill(&canvas::Path::circle(Point::new(10.6, 5.8), 4.8), self.ground);
+        }
         vec![frame.into_geometry()]
     }
 }
@@ -237,7 +292,7 @@ impl canvas::Program<Message> for Cross {
     }
 }
 
-fn header(state: &State) -> Element<'_, Message> {
+fn header(state: &State, p: Palette) -> Element<'_, Message> {
     // No `on_submit`: Enter goes through the global keyboard listener, or it
     // would be handled twice.
     let field = text_input("Rechercher dans le presse-papier…", &state.query)
@@ -245,13 +300,13 @@ fn header(state: &State) -> Element<'_, Message> {
         .on_input(Message::Query)
         .size(15.5)
         .padding(0)
-        .style(|_theme, _status| text_input::Style {
+        .style(move |_theme, _status| text_input::Style {
             background: Background::Color(iced::Color::TRANSPARENT),
             border: Border::default(),
-            icon: t::FAINT,
-            placeholder: t::FAINT,
-            value: t::TEXT,
-            selection: t::alpha(t::ACCENT, 0.35),
+            icon: p.faint,
+            placeholder: p.faint,
+            value: p.text,
+            selection: t::alpha(p.accent, 0.35),
         });
 
     // `mouse_area` lets the child capture first, so clicking the search field
@@ -259,7 +314,7 @@ fn header(state: &State) -> Element<'_, Message> {
     mouse_area(
         container(
             row![
-                canvas(Magnifier)
+                canvas(Magnifier { color: p.faint })
                     .width(Length::Fixed(16.0))
                     .height(Length::Fixed(16.0)),
                 Space::new().width(Length::Fixed(12.0)),
@@ -269,7 +324,19 @@ fn header(state: &State) -> Element<'_, Message> {
                 // else in the window hints that it is possible.
                 text("Enter copier   ·   Ctrl-B épingler   ·   Suppr supprimer   ·   Esc")
                     .size(11.0)
-                    .color(t::FAINT),
+                    .color(p.faint),
+                Space::new().width(Length::Fixed(16.0)),
+                mouse_area(
+                    canvas(ThemeMark {
+                        light: p.light,
+                        ink: t::alpha(p.text, 0.55),
+                        ground: p.card,
+                    })
+                    .width(Length::Fixed(t::SLOT))
+                    .height(Length::Fixed(t::SLOT)),
+                )
+                .interaction(mouse::Interaction::Pointer)
+                .on_press(Message::ToggleTheme),
             ]
             .align_y(iced::Alignment::Center),
         )
@@ -286,7 +353,7 @@ fn header(state: &State) -> Element<'_, Message> {
 /// Manual virtualisation: iced does not do it, but with fixed-height rows we
 /// know exactly which ones are visible. That is what holds 100,000 entries at
 /// 59 fps instead of collapsing from 5,000 onwards.
-fn list(state: &State) -> Element<'_, Message> {
+fn list(state: &State, p: Palette) -> Element<'_, Message> {
     let total = state.visible.len();
     if total == 0 {
         let msg = if state.history.is_empty() {
@@ -294,7 +361,7 @@ fn list(state: &State) -> Element<'_, Message> {
         } else {
             "Aucun résultat"
         };
-        return container(text(msg).size(14.0).color(t::FAINT))
+        return container(text(msg).size(14.0).color(p.faint))
             .width(Length::Fill)
             .height(Length::Fill)
             .center_x(Length::Fill)
@@ -332,6 +399,7 @@ fn list(state: &State) -> Element<'_, Message> {
             weight,
             state.hovered == Some(index),
             state.copied.is_some_and(|c| c.id == item.id),
+            p,
         ));
     }
     if after > 0 {
@@ -357,12 +425,12 @@ fn list(state: &State) -> Element<'_, Message> {
                 .margin(3)
                 .spacing(4),
         ))
-        .style(|theme, status| scrollable::Style {
+        .style(move |theme, status| scrollable::Style {
             vertical_rail: scrollable::Rail {
                 background: None,
                 border: Border::default(),
                 scroller: scrollable::Scroller {
-                    background: Background::Color(t::alpha(t::TEXT, 0.13)),
+                    background: Background::Color(t::alpha(p.text, 0.13)),
                     border: Border::default().rounded(3),
                 },
             },
@@ -378,8 +446,9 @@ fn row_widget(
     selected: f32,
     hovered: bool,
     copied: bool,
+    p: Palette,
 ) -> Element<'_, Message> {
-    let tint = t::tint(item.kind);
+    let tint = p.tint(item.kind);
 
     // Always present, transparent when the row is not selected, so the content
     // width does not shift from one row to the next.
@@ -388,9 +457,9 @@ fn row_widget(
         .height(Length::Fixed(24.0))
         .style(move |_| container::Style {
             background: if copied {
-                Some(Background::Color(t::COPIED))
+                Some(Background::Color(p.copied))
             } else if selected > 0.0 {
-                Some(Background::Color(t::alpha(t::ACCENT, selected)))
+                Some(Background::Color(t::alpha(p.accent, selected)))
             } else {
                 None
             },
@@ -421,7 +490,10 @@ fn row_widget(
     // laid out; only what they contain is conditional, so the preview always
     // clips at the same x.
     let pin_slot: Element<'_, Message> = if item.pinned {
-        canvas(Pin)
+        canvas(Pin {
+            color: p.pin,
+            hole: p.card,
+        })
             .width(Length::Fixed(t::SLOT))
             .height(Length::Fixed(t::SLOT))
             .into()
@@ -434,7 +506,7 @@ fn row_widget(
     let cross_slot: Element<'_, Message> = if hovered || selected > 0.5 {
         mouse_area(
             canvas(Cross {
-                color: if hovered { t::TEXT } else { t::alpha(t::TEXT, 0.45) },
+                color: if hovered { p.text } else { t::alpha(p.text, 0.45) },
             })
             .width(Length::Fixed(t::SLOT))
             .height(Length::Fixed(t::SLOT)),
@@ -451,7 +523,7 @@ fn row_widget(
     // brightens with the row, to say which one it would act on.
     let copy_slot: Element<'_, Message> = mouse_area(
         canvas(CopyMark {
-            color: if hovered { t::TEXT } else { t::alpha(t::TEXT, 0.30) },
+            color: if hovered { p.text } else { t::alpha(p.text, 0.30) },
         })
         .width(Length::Fixed(t::SLOT))
         .height(Length::Fixed(t::SLOT)),
@@ -467,7 +539,7 @@ fn row_widget(
                 weight: font::Weight::Semibold,
                 ..Font::DEFAULT
             })
-            .color(t::TEXT)
+            .color(p.text)
             .wrapping(text::Wrapping::None),
     )
     .width(Length::Fill)
@@ -485,7 +557,7 @@ fn row_widget(
             None => format!("{}  ·  {}", source, item.age()),
         })
             .size(11.0)
-            .color(t::alpha(t::TEXT, 0.42))
+            .color(t::alpha(p.text, 0.42))
             .wrapping(text::Wrapping::None),
     )
     .width(Length::Fill)
@@ -510,11 +582,11 @@ fn row_widget(
     // first the green was never reached: the confirmation came down to a three
     // pixel accent bar, and a copy read as nothing happening at all.
     let background = if copied {
-        Some(Background::Color(t::alpha(t::COPIED, 0.38)))
+        Some(Background::Color(t::alpha(p.copied, 0.38)))
     } else if selected > 0.0 {
-        Some(Background::Color(t::alpha(t::SELECTED, selected)))
+        Some(Background::Color(t::alpha(p.selected, selected)))
     } else if hovered {
-        Some(Background::Color(t::HOVER))
+        Some(Background::Color(p.hover))
     } else {
         None
     };
@@ -561,13 +633,13 @@ fn row_widget(
 
 // ----------------------------------------------------------------- footer
 
-fn footer(state: &State) -> Element<'_, Message> {
+fn footer(state: &State, p: Palette) -> Element<'_, Message> {
     let left = match &state.flash {
         Some((msg, at)) if at.elapsed().as_secs_f32() < 3.0 => msg.clone(),
         _ => format!("{} éléments", state.history.len()),
     };
 
-    container(row![text(left).size(11.0).color(t::alpha(t::TEXT, 0.40))])
+    container(row![text(left).size(11.0).color(t::alpha(p.text, 0.40))])
     .width(Length::Fill)
     .center_y(Length::Fixed(t::FOOTER_H))
     .padding(Padding::from([0, 18]))

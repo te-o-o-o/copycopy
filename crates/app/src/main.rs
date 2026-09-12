@@ -123,6 +123,8 @@ pub enum Message {
     Delete(usize),
     /// Copy the entry at that row, from its copy button.
     CopyRow(usize),
+    /// Switch between the light and dark palettes, from the header icon.
+    ToggleTheme,
     Hover(usize),
     Unhover(usize),
     Activate,
@@ -215,6 +217,12 @@ impl State {
     fn select(&mut self, index: usize) {
         self.selected = index;
         self.selection.go_mut(index as f32, Instant::now());
+    }
+
+    /// The colours of the active theme. Read from the configuration, so the
+    /// choice lives in one place only.
+    pub fn palette(&self) -> theme::Palette {
+        self.config.theme.palette()
     }
 
     fn flash(&mut self, msg: impl Into<String>) {
@@ -590,6 +598,13 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             state.select(index);
             state.activate()
         }
+        Message::ToggleTheme => {
+            state.config.theme = state.config.theme.toggled();
+            // Saved at once, unlike the geometry which waits for the window to
+            // close: a toggle is one deliberate click, not a stream of events.
+            state.config.save();
+            Task::none()
+        }
         Message::Hover(index) => {
             state.hovered = Some(index);
             Task::none()
@@ -896,12 +911,17 @@ fn subscription(state: &State) -> Subscription<Message> {
     Subscription::batch(subs)
 }
 
-fn theme_of(_state: &State, _window: window::Id) -> Theme {
-    Theme::Dark
+/// Drives the defaults of the widgets iced styles itself — the caret and the
+/// text selection of the search field — so they follow the palette too.
+fn theme_of(state: &State, _window: window::Id) -> Theme {
+    match state.config.theme {
+        theme::Mode::Dark => Theme::Dark,
+        theme::Mode::Light => Theme::Light,
+    }
 }
 
-fn root_style(_state: &State, _theme: &Theme) -> iced::theme::Style {
-    theme::root()
+fn root_style(state: &State, _theme: &Theme) -> iced::theme::Style {
+    theme::root(state.palette())
 }
 
 fn title(_state: &State, _window: window::Id) -> String {
