@@ -71,6 +71,32 @@ pub struct ClipItem {
 }
 
 impl ClipItem {
+    /// How much content the row is not showing, when there is enough of it to
+    /// be worth saying. Counted on the **full payload**, not on the preview,
+    /// which is itself capped — the useful answer is "how big is this", not
+    /// "how much did the preview keep".
+    ///
+    /// Returned as `None` below the threshold: a count on a short entry would
+    /// be noise, and claiming truncation that did not happen would be a lie.
+    pub fn overflow_hint(&self) -> Option<String> {
+        /// Roughly what a row shows at the default window width. Deliberately
+        /// conservative: better to stay silent on a borderline entry than to
+        /// announce more where there is none.
+        const VISIBLE: usize = 60;
+
+        match &self.payload {
+            Payload::Text(text) => {
+                let count = text.chars().count();
+                (count > VISIBLE).then(|| format!("… {} caractères", grouped(count)))
+            }
+            Payload::Files(paths) if paths.len() > 1 => {
+                Some(format!("… {} fichiers", paths.len()))
+            }
+            // An image already states its dimensions and weight in the preview.
+            _ => None,
+        }
+    }
+
     pub fn age(&self) -> String {
         let secs = SystemTime::now()
             .duration_since(self.at)
@@ -291,6 +317,19 @@ fn classify(text: &str) -> Kind {
     Kind::Text
 }
 
+/// Thousands separated by a non-breaking space, as French typography does.
+fn grouped(n: usize) -> String {
+    let digits = n.to_string();
+    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
+    for (i, c) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i) % 3 == 0 {
+            out.push('\u{202f}');
+        }
+        out.push(c);
+    }
+    out
+}
+
 fn human_bytes(n: usize) -> String {
     const K: f64 = 1024.0;
     let n = n as f64;
@@ -337,6 +376,32 @@ mod tests {
         }
         assert_eq!(h.len(), 3);
         assert!(h.items().iter().any(|i| i.preview == "t0" && i.pinned));
+    }
+
+    #[test]
+    fn overflow_hint_counts_the_payload_not_the_preview() {
+        let mut h = History::new(10);
+        h.push(ClipEvent::Text("court".into()), "t".into());
+        assert_eq!(h.get(0).unwrap().overflow_hint(), None, "short entries stay silent");
+
+        // Long enough to be cut, and with newlines the preview collapses: the
+        // count must follow the payload, not what the preview kept.
+        let long = "ligne\n".repeat(400);
+        let expected = long.chars().count();
+        h.push(ClipEvent::Text(long), "t".into());
+        let hint = h.get(0).unwrap().overflow_hint().expect("hint");
+        assert!(hint.starts_with('…'));
+        assert!(
+            hint.contains(&grouped(expected)),
+            "counts the payload ({expected}), got {hint}"
+        );
+    }
+
+    #[test]
+    fn thousands_are_grouped() {
+        assert_eq!(grouped(42), "42");
+        assert_eq!(grouped(1234), "1\u{202f}234");
+        assert_eq!(grouped(1234567), "1\u{202f}234\u{202f}567");
     }
 
     #[test]
