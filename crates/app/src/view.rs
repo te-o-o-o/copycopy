@@ -488,8 +488,8 @@ fn row_widget(
     mouse_area(styled)
         .on_press(Message::Select(index))
         .on_double_click(Message::Activate)
-        .on_enter(Message::Hover(Some(index)))
-        .on_exit(Message::Hover(None))
+        .on_enter(Message::Hover(index))
+        .on_exit(Message::Unhover(index))
         .into()
 }
 
