@@ -778,13 +778,19 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         item.source.as_str()
     };
     let detail = match &state.preview {
-        Preview::Text { chars, lines, .. } => {
-            format!(
+        Preview::Text {
+            chars, lines, lang, ..
+        } => {
+            let counts = format!(
                 "{} car.  ·  {} {}",
                 copycopy_core::grouped(*chars),
                 copycopy_core::grouped(*lines),
                 plural(*lines, "ligne", "lignes")
-            )
+            );
+            match lang {
+                Some(lang) => format!("{}  ·  {counts}", lang.name()),
+                None => counts,
+            }
         }
         Preview::Image {
             size: Some((w, h)), ..

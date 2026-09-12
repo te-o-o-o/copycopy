@@ -144,6 +144,8 @@ pub enum Preview {
         /// At most `PREVIEW_CHARS` characters of the entry.
         body: String,
         code: bool,
+        /// The language the detector recognised, when it was sure of one.
+        lang: Option<copycopy_core::lang::Lang>,
         /// Counted once, on the whole entry, when the preview is built.
         chars: usize,
         lines: usize,
@@ -166,13 +168,17 @@ impl Preview {
         match &item.payload {
             Payload::Text(text) => {
                 let chars = text.chars().count();
+                // Bounded to the opening of the text, so this costs the same on
+                // a line as on a megabyte of log.
+                let lang = copycopy_core::lang::detect(text);
                 let body = match text.char_indices().nth(PREVIEW_CHARS) {
                     Some((end, _)) => text[..end].to_string(),
                     None => text.clone(),
                 };
                 Preview::Text {
                     body,
-                    code: item.kind == copycopy_core::Kind::Code,
+                    code: lang.is_some() || item.kind == copycopy_core::Kind::Code,
+                    lang,
                     chars,
                     lines: text.lines().count().max(1),
                     cut: chars > PREVIEW_CHARS,
