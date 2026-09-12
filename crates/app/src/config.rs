@@ -4,7 +4,7 @@
 //! the compile time. To be replaced the day the configuration becomes
 //! structured.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub const DEFAULT_HOTKEY: &str = if cfg!(target_os = "macos") {
     "Cmd+Shift+V"
@@ -35,9 +35,28 @@ impl Default for Config {
     }
 }
 
+const FILE: &str = "copycopy.conf";
+
+/// Where everything lives: configuration, database, images.
+///
+/// **Portable mode**: if a configuration file sits next to the executable, that
+/// directory is used for all of it — drop the binary on a USB stick, create an
+/// empty `copycopy.conf` beside it, and nothing touches the host machine.
+/// Otherwise the usual per-user directories apply.
+pub fn base_dir() -> Option<PathBuf> {
+    if let Some(beside) = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(Path::to_path_buf))
+    {
+        if beside.join(FILE).exists() {
+            return Some(beside);
+        }
+    }
+    directories::ProjectDirs::from("", "", "copycopy").map(|d| d.config_dir().to_path_buf())
+}
+
 pub fn path() -> Option<PathBuf> {
-    directories::ProjectDirs::from("", "", "copycopy")
-        .map(|dirs| dirs.config_dir().join("copycopy.conf"))
+    base_dir().map(|dir| dir.join(FILE))
 }
 
 impl Config {

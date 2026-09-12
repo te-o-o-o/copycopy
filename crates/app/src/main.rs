@@ -25,7 +25,7 @@ mod view;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use copycopy_core::{ClipEvent, History};
+use copycopy_core::{store::Store, ClipEvent, ClipItem, History};
 use copycopy_platform::{BackendKind, Capture, Setter};
 use iced::widget::scrollable;
 use iced::Animation;
@@ -62,9 +62,12 @@ pub enum Wake {
 
 pub struct State {
     pub history: History,
-    /// Indices into `history`, recomputed only when the query changes or a
-    /// capture arrives — never inside `view()`.
-    pub filtered: Vec<usize>,
+    /// What the list shows, materialised. Below three characters it is the
+    /// in-memory window filtered; at three or more it is the answer of a
+    /// trigram query over the whole database — which is what lets the history
+    /// outgrow memory. Rebuilt only on a query change or a capture, never in
+    /// `view()`.
+    pub visible: Vec<ClipItem>,
     pub query: String,
     pub selected: usize,
     /// The selected index, animated. Each row derives its highlight from the
@@ -81,12 +84,15 @@ pub struct State {
     /// reordering.
     pub copied: Option<u64>,
     setter: Setter,
+    /// Absent when the database could not be opened: the application keeps
+    /// working in memory rather than refusing to start.
+    store: Option<Store>,
     config: Config,
     /// The window is created **once**, on the first open, then shown and
     /// hidden rather than destroyed: a palette has to appear instantly, and
     /// recreating a surface on every shortcut press is not free.
     window: Option<window::Id>,
-    visible: bool,
+    window_shown: bool,
     opened_at: Option<Instant>,
     close_on_blur: bool,
     shot_path: Option<std::path::PathBuf>,
@@ -121,19 +127,61 @@ pub enum Message {
 
 impl State {
     fn refilter(&mut self) {
-        let q = self.query.trim().to_lowercase();
-        self.filtered = (0..self.history.len())
-            .filter(|&i| {
-                q.is_empty()
-                    || self
-                        .history
-                        .get(i)
-                        .is_some_and(|it| subsequence(&it.preview.to_lowercase(), &q))
-            })
-            .collect();
+        let query = self.query.trim();
+        let long_enough = query.chars().count() >= Store::MIN_QUERY;
 
-        pinned_first(&self.history, &mut self.filtered);
-        self.selected = self.selected.min(self.filtered.len().saturating_sub(1));
+        self.visible = match (&self.store, long_enough) {
+            // Long enough for the trigram index: ask the database, so entries
+            // older than the in-memory window are found too.
+            (Some(store), true) => match store.search(query, CAPACITY) {
+                Ok(items) => items,
+                Err(e) => {
+                    eprintln!("search failed ({e}) — falling back to memory");
+                    self.filter_memory(query)
+                }
+            },
+            _ => self.filter_memory(query),
+        };
+
+        pinned_first(&mut self.visible);
+        self.selected = self.selected.min(self.visible.len().saturating_sub(1));
+    }
+
+    /// Pins or unpins an entry in the database and in the loaded window, so
+    /// both agree without reloading.
+    fn set_pinned(&mut self, hash: u64, pinned: bool) {
+        if let Some(store) = &self.store {
+            if let Err(e) = store.set_pinned(hash, pinned) {
+                eprintln!("could not persist the pin: {e}");
+            }
+        }
+        if let Some(index) = self.history.items().iter().position(|it| it.hash == hash) {
+            self.history.toggle_pin(index);
+        }
+    }
+
+    /// Removes an entry from the database and from the loaded window.
+    fn forget(&mut self, hash: u64) {
+        if let Some(store) = &self.store {
+            if let Err(e) = store.delete(hash) {
+                eprintln!("could not delete the entry: {e}");
+            }
+        }
+        if let Some(index) = self.history.items().iter().position(|it| it.hash == hash) {
+            self.history.remove(index);
+        }
+    }
+
+    /// The loaded window, filtered by subsequence. Permissive on purpose: it
+    /// answers the first two characters, where a trigram index cannot.
+    fn filter_memory(&self, query: &str) -> Vec<ClipItem> {
+        let q = query.to_lowercase();
+        self.history
+            .items()
+            .iter()
+            .filter(|it| q.is_empty() || subsequence(&it.preview.to_lowercase(), &q))
+            .cloned()
+            .collect()
     }
 
     /// Moves the selection and starts the cross-fade.
@@ -166,7 +214,7 @@ impl State {
     }
 
     fn move_selection(&mut self, delta: isize) -> Task<Message> {
-        let len = self.filtered.len();
+        let len = self.visible.len();
         if len == 0 {
             return Task::none();
         }
@@ -177,10 +225,10 @@ impl State {
 
     fn show(&mut self) -> Task<Message> {
         if let Some(id) = self.window {
-            if self.visible {
+            if self.window_shown {
                 return Task::none();
             }
-            self.visible = true;
+            self.window_shown = true;
             self.opened_at = Some(Instant::now());
             return Task::batch([
                 window::set_mode(id, window::Mode::Windowed),
@@ -216,7 +264,7 @@ impl State {
             ..Default::default()
         });
         self.window = Some(id);
-        self.visible = visible;
+        self.window_shown = visible;
         self.opened_at = Some(Instant::now());
         task.map(Message::WindowOpened)
     }
@@ -233,10 +281,10 @@ impl State {
         self.hovered = None;
         self.scroll_y = 0.0;
         self.refilter();
-        if !self.visible {
+        if !self.window_shown {
             return Task::none();
         }
-        self.visible = false;
+        self.window_shown = false;
         match self.window {
             Some(id) => window::set_mode(id, window::Mode::Hidden),
             None => Task::none(),
@@ -244,7 +292,7 @@ impl State {
     }
 
     fn toggle(&mut self) -> Task<Message> {
-        if self.visible {
+        if self.window_shown {
             self.hide()
         } else {
             self.show()
@@ -255,10 +303,7 @@ impl State {
         if self.copied.is_some() {
             return Task::none(); // Already confirming; ignore a second Enter.
         }
-        let Some(&idx) = self.filtered.get(self.selected) else {
-            return Task::none();
-        };
-        let Some(item) = self.history.get(idx) else {
+        let Some(item) = self.visible.get(self.selected) else {
             return Task::none();
         };
         let payload = item.payload.clone();
@@ -280,11 +325,10 @@ impl State {
 }
 
 /// Pinned entries float to the top. The sort is stable, so recency is preserved
-/// inside each group. Ordering lives here rather than in `History`, which stays
-/// purely chronological — that is what a SQL `ORDER BY pinned DESC, at DESC`
-/// will express once persistence lands.
-fn pinned_first(history: &History, indices: &mut [usize]) {
-    indices.sort_by_key(|&i| !history.get(i).is_some_and(|it| it.pinned));
+/// inside each group. The database already returns rows in this order; this
+/// keeps the in-memory path consistent with it.
+fn pinned_first(items: &mut [ClipItem]) {
+    items.sort_by_key(|it| !it.pinned);
 }
 
 fn subsequence(haystack: &str, needle: &str) -> bool {
@@ -352,14 +396,40 @@ fn boot() -> (State, Task<Message>) {
         }
     );
 
+    let store = match config::base_dir() {
+        Some(dir) => match Store::open(&dir) {
+            Ok(store) => {
+                println!("database: {}", dir.join("copycopy.db").display());
+                Some(store)
+            }
+            Err(e) => {
+                eprintln!("database unavailable ({e}) — history will not persist");
+                None
+            }
+        },
+        None => None,
+    };
+
     let mut history = History::new(CAPACITY);
     if args.demo {
         seed_demo(&mut history);
+    } else if let Some(store) = &store {
+        // Oldest first, so pushing them replays the original order and the
+        // in-memory list comes out newest first, as it would have live.
+        match store.recent(CAPACITY) {
+            Ok(items) => {
+                for item in items.into_iter().rev() {
+                    history.push_stored(item);
+                }
+                println!("{} entries restored", history.len());
+            }
+            Err(e) => eprintln!("could not read the history: {e}"),
+        }
     }
 
     let mut state = State {
         history,
-        filtered: Vec::new(),
+        visible: Vec::new(),
         query: args.query,
         selected: 0,
         selection: Animation::new(0.0).duration(SELECT_FADE),
@@ -369,9 +439,10 @@ fn boot() -> (State, Task<Message>) {
         flash: None,
         copied: None,
         setter: Setter::new(),
+        store,
         config: config.clone(),
         window: None,
-        visible: false,
+        window_shown: false,
         opened_at: None,
         // In screenshot mode the window must not close on its own for lack of
         // focus.
@@ -428,6 +499,11 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::Captured(capture) => {
             state.history.push(capture.event, capture.source);
+            if let (Some(store), Some(item)) = (&state.store, state.history.get(0)) {
+                if let Err(e) = store.insert(item).and_then(|_| store.prune(CAPACITY)) {
+                    eprintln!("could not persist the entry: {e}");
+                }
+            }
             state.refilter();
             Task::none()
         }
@@ -449,7 +525,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::WindowOpened(id) => {
             state.window = Some(id);
             state.opened_at = Some(Instant::now());
-            state.visible = true;
+            state.window_shown = true;
             Task::batch([
                 window::gain_focus(id),
                 iced::widget::operation::focus(SEARCH_ID),
@@ -475,7 +551,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             window::Event::Closed => {
                 if state.window == Some(id) {
                     state.window = None;
-                    state.visible = false;
+                    state.window_shown = false;
                 }
                 Task::none()
             }
@@ -484,7 +560,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                 let settled = state
                     .opened_at
                     .is_some_and(|t| t.elapsed() > FOCUS_GRACE);
-                if state.close_on_blur && settled && state.visible && state.window == Some(id) {
+                if state.close_on_blur && settled && state.window_shown && state.window == Some(id) {
                     state.hide()
                 } else {
                     Task::none()
@@ -559,29 +635,24 @@ fn handle_key(state: &mut State, event: keyboard::Event) -> Task<Message> {
             "n" => state.move_selection(1),
             "p" => state.move_selection(-1),
             "b" => {
-                let Some(&idx) = state.filtered.get(state.selected) else {
+                let Some(item) = state.visible.get(state.selected) else {
                     return Task::none();
                 };
-                let id = state.history.get(idx).map(|it| it.id);
-                state.history.toggle_pin(idx);
-                // Without this the order would only change on the next query
-                // or capture — the entry would appear to stay put.
+                let (hash, pinned) = (item.hash, !item.pinned);
+                state.set_pinned(hash, pinned);
+                // Without refiltering, the order would only change on the next
+                // query or capture — the entry would appear to stay put.
                 state.refilter();
                 // It has just moved to the top, or back down: keep the cursor
                 // on the entry rather than on the position it used to hold.
-                if let Some(pos) = id.and_then(|id| {
-                    state
-                        .filtered
-                        .iter()
-                        .position(|&i| state.history.get(i).is_some_and(|it| it.id == id))
-                }) {
+                if let Some(pos) = state.visible.iter().position(|it| it.hash == hash) {
                     state.select(pos);
                 }
                 state.reveal_selected()
             }
             "d" => {
-                if let Some(&idx) = state.filtered.get(state.selected) {
-                    state.history.remove(idx);
+                if let Some(hash) = state.visible.get(state.selected).map(|it| it.hash) {
+                    state.forget(hash);
                     state.refilter();
                 }
                 Task::none()
@@ -786,14 +857,15 @@ mod tests {
         history.toggle_pin(3); // "a", the oldest
         history.toggle_pin(1); // "c"
 
-        let mut indices: Vec<usize> = (0..history.len()).collect();
-        pinned_first(&history, &mut indices);
+        let mut items: Vec<ClipItem> = history.items().iter().cloned().collect();
+        pinned_first(&mut items);
 
-        let order: Vec<&str> = indices
-            .iter()
-            .map(|&i| history.get(i).expect("entry").preview.as_str())
-            .collect();
-        assert_eq!(order, ["c", "a", "d", "b"], "pinned first, recency kept inside each group");
+        let order: Vec<&str> = items.iter().map(|it| it.preview.as_str()).collect();
+        assert_eq!(
+            order,
+            ["c", "a", "d", "b"],
+            "pinned first, recency kept inside each group"
+        );
     }
 }
 

@@ -1,7 +1,7 @@
 //! Data model and history. No OS dependency, no UI dependency.
 
 use std::collections::VecDeque;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -25,10 +25,35 @@ pub enum ClipEvent {
     Files(Vec<PathBuf>),
 }
 
+/// Where an image's bytes are. Freshly captured entries carry them; entries
+/// read back from storage carry only a path, and the file is opened when the
+/// image is actually needed — never to draw a list row, which only shows text.
+#[derive(Clone, Debug)]
+pub enum Image {
+    Bytes(Vec<u8>),
+    File(PathBuf),
+}
+
+impl Image {
+    pub fn load(&self) -> Result<Vec<u8>, String> {
+        match self {
+            Image::Bytes(bytes) => Ok(bytes.clone()),
+            Image::File(path) => std::fs::read(path).map_err(|e| e.to_string()),
+        }
+    }
+
+    pub fn path(&self) -> Option<&Path> {
+        match self {
+            Image::File(path) => Some(path),
+            Image::Bytes(_) => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Payload {
     Text(String),
-    Image { png: Vec<u8>, size: Option<(u32, u32)> },
+    Image { data: Image, size: Option<(u32, u32)> },
     Files(Vec<PathBuf>),
 }
 
@@ -117,7 +142,14 @@ impl History {
                     Some((w, h)) => format!("Image {w}×{h} · PNG · {}", human_bytes(png.len())),
                     None => format!("Image · PNG · {}", human_bytes(png.len())),
                 };
-                (Kind::Image, preview, Payload::Image { png, size })
+                (
+                    Kind::Image,
+                    preview,
+                    Payload::Image {
+                        data: Image::Bytes(png),
+                        size,
+                    },
+                )
             }
             ClipEvent::Files(paths) => {
                 let preview = match paths.split_first() {
@@ -154,6 +186,22 @@ impl History {
             }
         }
         true
+    }
+
+    /// Re-inserts an entry read back from storage, keeping its preview,
+    /// timestamp and pinned flag as they were written.
+    pub fn push_stored(&mut self, item: ClipItem) {
+        let id = self.next_id;
+        self.next_id += 1;
+        self.items.push_front(ClipItem { id, ..item });
+        while self.items.len() > self.capacity {
+            match self.items.iter().rposition(|i| !i.pinned) {
+                Some(pos) => {
+                    self.items.remove(pos);
+                }
+                None => break,
+            }
+        }
     }
 
     pub fn toggle_pin(&mut self, index: usize) {
@@ -304,3 +352,4 @@ mod tests {
         assert_eq!(one_line("  a\n\n\tb  "), "a b");
     }
 }
+pub mod store;

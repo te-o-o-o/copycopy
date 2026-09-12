@@ -40,8 +40,11 @@ impl Setter {
                     .join("\n");
                 clip.set_text(joined).map_err(|e| e.to_string())
             }
-            Payload::Image { png, .. } => {
-                let decoded = image::load_from_memory(png).map_err(|e| e.to_string())?;
+            Payload::Image { data, .. } => {
+                // The bytes are fetched here and nowhere else: this is the one
+                // moment an image is actually needed.
+                let bytes = data.load()?;
+                let decoded = image::load_from_memory(&bytes).map_err(|e| e.to_string())?;
                 let rgba = decoded.to_rgba8();
                 let (w, h) = rgba.dimensions();
                 clip.set_image(arboard::ImageData {
