@@ -247,8 +247,15 @@ impl History {
 
 /// 64-bit FNV-1a: stable across runs, unlike `DefaultHasher`, so it can be
 /// reused as-is once we move to SQLite persistence.
-fn fnv1a(bytes: &[u8]) -> u64 {
-    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+pub fn fnv1a(bytes: &[u8]) -> u64 {
+    fnv1a_from(0xcbf2_9ce4_8422_2325, bytes)
+}
+
+/// The same, continued from an existing state, so one hash can cover several
+/// pieces without concatenating them into a buffer first — which matters when
+/// one of those pieces is a decoded image.
+pub fn fnv1a_from(seed: u64, bytes: &[u8]) -> u64 {
+    let mut h = seed;
     for b in bytes {
         h ^= *b as u64;
         h = h.wrapping_mul(0x0000_0100_0000_01b3);

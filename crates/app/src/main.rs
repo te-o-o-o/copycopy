@@ -541,6 +541,13 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             Task::none()
         }
         Message::Captured(capture) => {
+            // What we wrote to the clipboard ourselves is not a capture. The
+            // content hash cannot tell: an image goes out re-encoded, so it
+            // comes back with different bytes and used to land in the history
+            // as a new entry on every paste-back.
+            if state.setter.echoes(&capture.event) {
+                return Task::none();
+            }
             state.history.push(capture.event, capture.source);
             if let (Some(store), Some(item)) = (&state.store, state.history.get(0)) {
                 if let Err(e) = store.insert(item).and_then(|_| store.prune(CAPACITY)) {

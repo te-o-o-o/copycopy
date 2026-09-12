@@ -319,6 +319,18 @@ the global shortcut was tested without a physical keyboard:
 cargo run -p copycopy-platform --example press_key -- ctrl alt v
 ```
 
+`echo` covers the other direction — writing. It puts a payload on the clipboard
+through the very `Setter` the application uses, then listens with the real
+watcher and reports whether each capture was recognised as our own write:
+
+```bash
+cargo run --release -p copycopy-platform --example echo -- shot.png
+```
+
+An image comes back re-encoded, so its bytes differ from the ones that went in
+and content hashing cannot recognise it. Without that check, every paste-back
+landed in the history as a new entry.
+
 ## Layout
 
 ```
