@@ -6,7 +6,8 @@
 //! other but leaves the row stuck to the top of its container.
 
 use iced::widget::{
-    canvas, column, container, image, mouse_area, row, scrollable, text, text_input, Space,
+    canvas, column, container, image, mouse_area, row, scrollable, stack, text, text_input,
+    Space,
 };
 use iced::{
     font, mouse, window, Background, Border, Element, Font, Length, Padding, Point, Rectangle,
@@ -31,9 +32,29 @@ pub fn view(state: &State, _window: iced::window::Id) -> Element<'_, Message> {
         footer(state, p),
     ];
 
+    // The rain is the one `stack` in the application, and it only exists in the
+    // Matrix theme. It sits *under* the interface, never over it: a layer laid
+    // over a row stops that row from repainting (rule 3), and whether a layer
+    // underneath is safe is exactly what this is trying out. The other themes
+    // keep the layout-only tree, untouched.
+    let inside: Element<'_, Message> = if p.matrix {
+        stack![
+            canvas(Rain {
+                t: state.rain_t,
+                ink: p.text,
+            })
+            .width(Length::Fill)
+            .height(Length::Fill),
+            resize_frame(content.into()),
+        ]
+        .into()
+    } else {
+        resize_frame(content.into())
+    };
+
     // The card is on the outside and the handles inside, which keeps the
     // window opaque all the way to the edge with no transparent margin.
-    container(resize_frame(content.into()))
+    container(inside)
         .width(Length::Fill)
         .height(Length::Fill)
         .style(t::card(p))
@@ -169,6 +190,91 @@ impl canvas::Program<Message> for Pin {
         );
         // Hollow centre, so the shape stays legible against a light row.
         frame.fill(&canvas::Path::circle(head, 1.9), self.hole);
+        vec![frame.into_geometry()]
+    }
+}
+
+/// Matrix rain: columns of glyphs falling slowly and fading along their trail.
+///
+/// Stateless. Each column takes its speed, length and phase from a hash of its
+/// index, and every position follows from the time alone — there is no list of
+/// drops to keep up to date, and a frame draws a few hundred glyphs at most.
+struct Rain {
+    t: f32,
+    ink: iced::Color,
+}
+
+/// Half-width katakana and a few digits and signs, as in the film.
+const RAIN_GLYPHS: &str = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789:.=*+-<>";
+/// Horizontal pitch of the columns, and vertical pitch of the glyphs.
+const RAIN_COLUMN: f32 = 22.0;
+const RAIN_ROW: f32 = 17.0;
+
+/// SplitMix64's finaliser: a cheap, well-spread hash, so neighbouring columns
+/// get unrelated speeds without pulling a random number crate in.
+fn scramble(mut x: u64) -> u64 {
+    x = x.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    x ^ (x >> 31)
+}
+
+impl canvas::Program<Message> for Rain {
+    type State = ();
+
+    fn draw(
+        &self,
+        _state: &Self::State,
+        renderer: &iced::Renderer,
+        _theme: &iced::Theme,
+        bounds: Rectangle,
+        _cursor: iced::mouse::Cursor,
+    ) -> Vec<canvas::Geometry> {
+        let mut frame = canvas::Frame::new(renderer, bounds.size());
+        let glyphs: Vec<char> = RAIN_GLYPHS.chars().collect();
+        let columns = (bounds.width / RAIN_COLUMN) as u64 + 1;
+        let rows = (bounds.height / RAIN_ROW) as i64 + 1;
+
+        for column in 0..columns {
+            let seed = scramble(column);
+            // About one column in two stays dry: sparse rain reads as
+            // atmosphere, dense rain as noise laid over the list.
+            if seed.is_multiple_of(2) {
+                continue;
+            }
+            let speed = 1.0 + ((seed >> 8) % 200) as f32 / 100.0; // 1 to 3 rows a second
+            let length = 6 + ((seed >> 20) % 10) as i64; // 6 to 15 glyphs
+            let cycle = rows + length + 8 + ((seed >> 32) % 24) as i64;
+            let offset = ((seed >> 40) % 1000) as f32;
+            let head = ((self.t * speed + offset) % cycle as f32).floor() as i64;
+            let x = column as f32 * RAIN_COLUMN + 4.0;
+
+            for k in 0..length {
+                let row = head - k;
+                if !(0..rows).contains(&row) {
+                    continue;
+                }
+                let alpha = if k == 0 {
+                    0.42
+                } else {
+                    0.24 * (1.0 - k as f32 / length as f32)
+                };
+                // Each cell changes glyph about every two seconds, each on its
+                // own beat: a slow flicker rather than the whole screen pulsing.
+                let cell = seed ^ (row as u64).wrapping_mul(0x9E37_79B9);
+                let beat = (self.t * 0.5 + (cell % 100) as f32 / 50.0) as u64;
+                let pick = scramble(cell ^ beat);
+                frame.fill_text(canvas::Text {
+                    content: glyphs[(pick % glyphs.len() as u64) as usize].to_string(),
+                    position: Point::new(x, row as f32 * RAIN_ROW),
+                    color: t::alpha(self.ink, alpha),
+                    size: iced::Pixels(13.0),
+                    font: Font::MONOSPACE,
+                    shaping: text::Shaping::Advanced,
+                    ..canvas::Text::default()
+                });
+            }
+        }
         vec![frame.into_geometry()]
     }
 }
