@@ -39,6 +39,9 @@ const WINDOW_SIZE: (f32, f32) = (760.0, 520.0);
 /// A compositor may report a focus loss right after opening; without this
 /// grace period the window would close again immediately.
 const FOCUS_GRACE: Duration = Duration::from_millis(600);
+/// How long the copied row stays highlighted before the window closes. Long
+/// enough to register, short enough not to feel like a wait.
+const COPY_FLASH: Duration = Duration::from_millis(160);
 
 static BOOT: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
 /// Wake-ups from the global shortcut and from the IPC. Parked here because
@@ -65,6 +68,10 @@ pub struct State {
     pub viewport_h: f32,
     pub backend: Option<BackendKind>,
     pub flash: Option<(String, Instant)>,
+    /// Id of the entry that was just copied, highlighted until the window
+    /// closes. Stored as an id rather than a row index so it survives any
+    /// reordering.
+    pub copied: Option<u64>,
     pub fonts_note: String,
     pub hotkey_note: String,
     setter: Setter,
@@ -89,6 +96,8 @@ pub enum Message {
     Select(usize),
     Hover(Option<usize>),
     Activate,
+    /// The copy confirmation has been shown long enough; close.
+    FinishCopy,
     Scrolled(scrollable::Viewport),
     Key(keyboard::Event),
     Backend(BackendKind),
@@ -203,6 +212,7 @@ impl State {
         // Geometry is only written here: no need to touch the disk on every
         // pixel while the window is being dragged.
         self.config.save();
+        self.copied = None;
         self.query.clear();
         self.selected = 0;
         self.hovered = None;
@@ -227,6 +237,9 @@ impl State {
     }
 
     fn activate(&mut self) -> Task<Message> {
+        if self.copied.is_some() {
+            return Task::none(); // Already confirming; ignore a second Enter.
+        }
         let Some(&idx) = self.filtered.get(self.selected) else {
             return Task::none();
         };
@@ -234,9 +247,15 @@ impl State {
             return Task::none();
         };
         let payload = item.payload.clone();
+        let id = item.id;
         match self.setter.set(&payload) {
-            // The window disappearing is the confirmation; no toast needed.
-            Ok(()) => self.hide(),
+            Ok(()) => {
+                // Flash the row, then close. The window disappearing is the
+                // real confirmation, but on its own it leaves a doubt about
+                // *which* entry went to the clipboard.
+                self.copied = Some(id);
+                Task::none()
+            }
             Err(e) => {
                 self.flash(format!("échec de la copie : {e}"));
                 Task::none()
@@ -330,6 +349,7 @@ fn boot() -> (State, Task<Message>) {
         viewport_h: 430.0,
         backend: None,
         flash: None,
+        copied: None,
         fonts_note,
         hotkey_note: hotkeys.status.clone(),
         setter: Setter::new(),
@@ -377,6 +397,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             Task::none()
         }
         Message::Activate => state.activate(),
+        Message::FinishCopy => state.hide(),
         Message::Scrolled(viewport) => {
             state.scroll_y = viewport.absolute_offset().y;
             state.viewport_h = viewport.bounds().height;
@@ -519,10 +540,25 @@ fn handle_key(state: &mut State, event: keyboard::Event) -> Task<Message> {
             "n" => state.move_selection(1),
             "p" => state.move_selection(-1),
             "b" => {
-                if let Some(&idx) = state.filtered.get(state.selected) {
-                    state.history.toggle_pin(idx);
+                let Some(&idx) = state.filtered.get(state.selected) else {
+                    return Task::none();
+                };
+                let id = state.history.get(idx).map(|it| it.id);
+                state.history.toggle_pin(idx);
+                // Without this the order would only change on the next query
+                // or capture — the entry would appear to stay put.
+                state.refilter();
+                // It has just moved to the top, or back down: keep the cursor
+                // on the entry rather than on the position it used to hold.
+                if let Some(pos) = id.and_then(|id| {
+                    state
+                        .filtered
+                        .iter()
+                        .position(|&i| state.history.get(i).is_some_and(|it| it.id == id))
+                }) {
+                    state.selected = pos;
                 }
-                Task::none()
+                state.reveal_selected()
             }
             "d" => {
                 if let Some(&idx) = state.filtered.get(state.selected) {
@@ -618,6 +654,11 @@ fn subscription(state: &State) -> Subscription<Message> {
         Subscription::run(clipboard_stream),
         Subscription::run(wake_stream),
     ];
+    if state.copied.is_some() {
+        // Fires once: the subscription disappears with `copied` when the
+        // window closes.
+        subs.push(iced::time::every(COPY_FLASH).map(|_| Message::FinishCopy));
+    }
     if state.shot_path.is_some() && !state.shot_done {
         subs.push(iced::time::every(Duration::from_millis(300)).map(|_| Message::Shot));
     }
@@ -653,6 +694,9 @@ fn seed_demo(history: &mut History) {
     for (text, source) in SEED.iter().rev() {
         history.push(ClipEvent::Text((*text).to_string()), (*source).to_string());
     }
+    // One pinned entry, so the demo exercises the marker and the reordering
+    // rather than only the text rendering.
+    history.toggle_pin(4);
 }
 
 /// Console mode: checks capture without depending on the interface. It does
