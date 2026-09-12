@@ -209,7 +209,7 @@ fn header(state: &State) -> Element<'_, Message> {
 /// know exactly which ones are visible. That is what holds 100,000 entries at
 /// 59 fps instead of collapsing from 5,000 onwards.
 fn list(state: &State) -> Element<'_, Message> {
-    let total = state.filtered.len();
+    let total = state.visible.len();
     if total == 0 {
         let msg = if state.history.is_empty() {
             "Rien de capturé pour l'instant — copiez quelque chose"
@@ -242,7 +242,7 @@ fn list(state: &State) -> Element<'_, Message> {
         rows = rows.push(Space::new().height(Length::Fixed(skip as f32 * t::ROW_H)));
     }
     for index in skip..skip + take {
-        let Some(item) = state.history.get(state.filtered[index]) else {
+        let Some(item) = state.visible.get(index) else {
             continue;
         };
         // Distance to the animated selection: 1 on the incoming row, 0 once

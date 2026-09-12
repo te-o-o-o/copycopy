@@ -6,3 +6,6 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+# `bundled` compiles SQLite into the binary: no system library to install, on
+# any OS. That is the whole point — the database must come with the app.
+rusqlite = { version = "0.40", features = ["bundled"] }
