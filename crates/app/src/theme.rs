@@ -51,6 +51,10 @@ pub const ROW_GAP: f32 = 3.0;
 /// undecorated window gives no other affordance, and a thin band is hard to
 /// aim at.
 pub const EDGE: f32 = 10.0;
+/// Width of one slot in the right-hand gutter of a row. The gutter is always
+/// laid out, whether or not anything is drawn in it, so the preview always
+/// clips at the same x instead of shifting when a row is hovered or pinned.
+pub const SLOT: f32 = 16.0;
 
 pub fn tint(kind: copycopy_core::Kind) -> Color {
     use copycopy_core::Kind;

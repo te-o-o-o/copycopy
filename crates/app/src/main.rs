@@ -106,6 +106,8 @@ pub struct State {
 pub enum Message {
     Query(String),
     Select(usize),
+    /// Delete the entry at that row, from the cross.
+    Delete(usize),
     Hover(Option<usize>),
     Activate,
     /// The copy confirmation has been shown long enough; close.
@@ -158,6 +160,15 @@ impl State {
         if let Some(index) = self.history.items().iter().position(|it| it.hash == hash) {
             self.history.toggle_pin(index);
         }
+    }
+
+    /// Drops the selected entry, from the database and from the loaded window.
+    fn delete_selected(&mut self) -> Task<Message> {
+        if let Some(hash) = self.visible.get(self.selected).map(|it| it.hash) {
+            self.forget(hash);
+            self.refilter();
+        }
+        Task::none()
     }
 
     /// Removes an entry from the database and from the loaded window.
@@ -496,6 +507,10 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             state.select(i);
             Task::none()
         }
+        Message::Delete(index) => {
+            state.select(index);
+            state.delete_selected()
+        }
         Message::Hover(i) => {
             state.hovered = i;
             Task::none()
@@ -645,6 +660,8 @@ fn handle_key(state: &mut State, event: keyboard::Event) -> Task<Message> {
         Key::Named(Named::ArrowDown) => state.move_selection(1),
         Key::Named(Named::ArrowUp) => state.move_selection(-1),
         Key::Named(Named::PageDown) => state.move_selection(6),
+        // Delete alongside Ctrl-D: it is the key one reaches for.
+        Key::Named(Named::Delete) => state.delete_selected(),
         Key::Named(Named::PageUp) => state.move_selection(-6),
         // Home and End are left to the search field: inside a text input,
         // moving the caret is what you expect.
@@ -667,13 +684,7 @@ fn handle_key(state: &mut State, event: keyboard::Event) -> Task<Message> {
                 }
                 state.reveal_selected()
             }
-            "d" => {
-                if let Some(hash) = state.visible.get(state.selected).map(|it| it.hash) {
-                    state.forget(hash);
-                    state.refilter();
-                }
-                Task::none()
-            }
+            "d" => state.delete_selected(),
             _ => Task::none(),
         },
         _ => Task::none(),
