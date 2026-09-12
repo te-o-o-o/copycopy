@@ -150,11 +150,17 @@ pub fn start(prefer: Option<&str>) -> Result<Watcher, String> {
 }
 
 /// A normalised picture: PNG bytes, plus its dimensions when they are known.
+///
+/// This and the two helpers below serve the Linux backends only: X11 and
+/// Wayland receive MIME types and have to sort bytes out themselves, whereas
+/// Windows and macOS are handed typed formats and convert in their own module.
+#[cfg(target_os = "linux")]
 pub(crate) type Png = (Vec<u8>, Option<(u32, u32)>);
 
 /// Normalises whatever image bytes the clipboard offered into PNG, which is the
 /// single format kept internally. PNG is passed through untouched; anything
 /// else is decoded and re-encoded.
+#[cfg(target_os = "linux")]
 pub(crate) fn to_png(bytes: Vec<u8>) -> Option<Png> {
     if bytes.is_empty() {
         return None;
@@ -175,6 +181,7 @@ pub(crate) fn to_png(bytes: Vec<u8>) -> Option<Png> {
 /// Clipboard text that is not valid UTF-8, or carries NUL bytes, is not text:
 /// it is binary that reached the wrong branch. Storing it would fill the
 /// history with unreadable entries.
+#[cfg(target_os = "linux")]
 pub(crate) fn sane_text(bytes: &[u8]) -> Option<String> {
     let text = String::from_utf8(bytes.to_vec()).ok()?;
     if text.trim().is_empty() || text.contains('\0') {
