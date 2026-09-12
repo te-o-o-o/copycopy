@@ -36,7 +36,16 @@ use config::Config;
 const CAPACITY: usize = 1000;
 const SEARCH_ID: &str = "search";
 const SCROLL_ID: &str = "clips";
-const WINDOW_SIZE: (f32, f32) = (760.0, 520.0);
+const PREVIEW_ID: &str = "preview";
+/// Wide enough for the list and the detail panel side by side.
+const WINDOW_SIZE: (f32, f32) = (980.0, 560.0);
+/// Below this, the panel squeezes the list under what a row needs. A width
+/// remembered from before the panel existed is widened to it on open.
+const MIN_WIDTH: f32 = 860.0;
+/// Past this, the panel stops at a notice. A text widget lays out everything it
+/// is given, and a clipboard can hold megabytes: previewing a whole log file
+/// would stall every resize.
+const PREVIEW_CHARS: usize = 10_000;
 /// A compositor may report a focus loss right after opening; without this
 /// grace period the window would close again immediately.
 const FOCUS_GRACE: Duration = Duration::from_millis(600);
@@ -70,6 +79,12 @@ pub struct State {
     /// `view()`.
     pub visible: Vec<ClipItem>,
     pub query: String,
+    /// What the detail panel shows for the selected entry.
+    pub preview: Preview,
+    /// Content hash of the entry `preview` was built for, so it is rebuilt only
+    /// when the selection really lands on another entry — not on every arrow
+    /// press that ends where it started, nor on a refilter that kept it.
+    pub preview_key: Option<u64>,
     pub selected: usize,
     /// The selected index, animated. Each row derives its highlight from the
     /// distance to this value, so the outgoing row fades out while the
@@ -113,6 +128,61 @@ pub struct State {
 pub struct Copied {
     pub id: u64,
     pub hash: u64,
+}
+
+/// The detail panel's content, ready to draw.
+pub enum Preview {
+    Empty,
+    Text {
+        /// At most `PREVIEW_CHARS` characters of the entry.
+        body: String,
+        code: bool,
+        /// Counted once, on the whole entry, when the preview is built.
+        chars: usize,
+        lines: usize,
+        cut: bool,
+    },
+    Image {
+        /// Holds the PNG bytes; iced decodes them on its side and caches the
+        /// result, so drawing it again costs nothing.
+        handle: iced::widget::image::Handle,
+        size: Option<(u32, u32)>,
+    },
+    Files(Vec<String>),
+    /// The entry exists but its content could not be read — an image whose
+    /// file has gone, typically.
+    Unavailable(String),
+}
+
+impl Preview {
+    fn of(item: &ClipItem) -> Self {
+        match &item.payload {
+            Payload::Text(text) => {
+                let chars = text.chars().count();
+                let body = match text.char_indices().nth(PREVIEW_CHARS) {
+                    Some((end, _)) => text[..end].to_string(),
+                    None => text.clone(),
+                };
+                Preview::Text {
+                    body,
+                    code: item.kind == copycopy_core::Kind::Code,
+                    chars,
+                    lines: text.lines().count().max(1),
+                    cut: chars > PREVIEW_CHARS,
+                }
+            }
+            Payload::Image { data, size } => match data.load() {
+                Ok(bytes) => Preview::Image {
+                    handle: iced::widget::image::Handle::from_bytes(bytes),
+                    size: *size,
+                },
+                Err(e) => Preview::Unavailable(format!("image illisible : {e}")),
+            },
+            Payload::Files(paths) => {
+                Preview::Files(paths.iter().map(|p| p.display().to_string()).collect())
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -165,6 +235,7 @@ impl State {
 
         pinned_first(&mut self.visible);
         self.selected = self.selected.min(self.visible.len().saturating_sub(1));
+        self.update_preview();
     }
 
     /// Pins or unpins an entry in the database and in the loaded window, so
@@ -217,6 +288,22 @@ impl State {
     fn select(&mut self, index: usize) {
         self.selected = index;
         self.selection.go_mut(index as f32, Instant::now());
+        self.update_preview();
+    }
+
+    /// Rebuilds the panel content when the selection is on another entry.
+    ///
+    /// Here and not in `view()`: for an image it means reading a file, and for
+    /// a long text walking it to count and cut. Done per frame, either would
+    /// cost the frame rate the materialised `visible` list exists to protect.
+    fn update_preview(&mut self) {
+        let item = self.visible.get(self.selected);
+        let key = item.map(|it| it.hash);
+        if key == self.preview_key {
+            return;
+        }
+        self.preview_key = key;
+        self.preview = item.map_or(Preview::Empty, Preview::of);
     }
 
     /// The colours of the active theme. Read from the configuration, so the
@@ -292,7 +379,7 @@ impl State {
         let size = self
             .config
             .size
-            .map(|(w, h)| iced::Size::new(w, h))
+            .map(|(w, h)| iced::Size::new(w.max(MIN_WIDTH), h))
             .unwrap_or(iced::Size::new(WINDOW_SIZE.0, WINDOW_SIZE.1));
         let position = self
             .config
@@ -301,7 +388,7 @@ impl State {
             .unwrap_or(window::Position::Centered);
         let (id, task) = window::open(window::Settings {
             size,
-            min_size: Some(iced::Size::new(420.0, 220.0)),
+            min_size: Some(iced::Size::new(MIN_WIDTH, 320.0)),
             position,
             visible,
             decorations: false,
@@ -542,6 +629,8 @@ fn boot() -> (State, Task<Message>) {
         history,
         visible: Vec::new(),
         query: args.query,
+        preview: Preview::Empty,
+        preview_key: None,
         selected: 0,
         selection: Animation::new(0.0).duration(SELECT_FADE),
         hovered: None,
@@ -578,7 +667,23 @@ fn boot() -> (State, Task<Message>) {
     (state, Task::batch(tasks))
 }
 
+/// Every message passes through here. When one moved the selection onto
+/// another entry, the panel goes back to its top: the scroll offset belongs to
+/// the widget, not to the entry, so a long text read halfway down would open
+/// the next entry halfway down as well.
 fn update(state: &mut State, message: Message) -> Task<Message> {
+    let before = state.preview_key;
+    let task = handle(state, message);
+    if state.preview_key == before {
+        return task;
+    }
+    Task::batch([
+        task,
+        iced::widget::operation::snap_to(PREVIEW_ID, scrollable::RelativeOffset::START),
+    ])
+}
+
+fn handle(state: &mut State, message: Message) -> Task<Message> {
     match message {
         Message::Query(q) => {
             state.query = q;

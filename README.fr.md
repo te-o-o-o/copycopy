@@ -108,6 +108,13 @@ laissée.
   environnements (WSLg) ne rapportent jamais de position réelle et renverraient
   0,0 : la fenêtre s'ouvrirait dans un coin au lieu d'être centrée. La position
   n'est donc écrite que si un déplacement a été observé.
+- **Panneau de détail** : la partie droite montre l'entrée sélectionnée en
+  entier — texte jusqu'à 10 000 caractères, police à chasse fixe pour le code,
+  images réduites pour tenir, listes de fichiers. Il est construit quand la
+  sélection arrive sur une autre entrée, jamais dans `view()` : lire un fichier
+  image ou parcourir un long texte à chaque frame coûterait la fluidité. La
+  fenêtre s'ouvre en 980×560, et une largeur retenue d'avant le panneau est
+  élargie à 860.
 
 ## Le copier
 
@@ -409,11 +416,6 @@ Les épinglés mènent la liste, la récence ordonne à l'intérieur de chaque g
 et l'élagage ne les supprime jamais. Les rangées affichent la taille du contenu
 quand il y en a plus que la ligne n'en montre — comptée sur le contenu complet,
 pas sur l'aperçu, lui-même plafonné.
-
-## Prochaine étape
-
-Un panneau de détail : les aperçus sont coupés à largeur constante, et une image
-n'est jamais que décrite, jamais montrée.
 
 ## Crédits
 
