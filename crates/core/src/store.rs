@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS clips (
     pinned   INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS clips_order ON clips(pinned DESC, at DESC);
+CREATE INDEX IF NOT EXISTS clips_order ON clips(pinned DESC, at DESC, id DESC);
 
 -- External-content table: the text lives in `clips`, FTS only keeps the index.
 -- `trigram` rather than the default tokeniser: a clipboard search is looked up
@@ -181,7 +181,7 @@ impl Store {
     pub fn recent(&self, limit: usize) -> Result<Vec<ClipItem>, String> {
         self.collect(
             "SELECT id, hash, kind, preview, text, files, image, width, height, source, at, pinned
-             FROM clips ORDER BY pinned DESC, at DESC LIMIT ?1",
+             FROM clips ORDER BY pinned DESC, at DESC, id DESC LIMIT ?1",
             params![limit as i64],
         )
     }
@@ -204,7 +204,7 @@ impl Store {
                     c.height, c.source, c.at, c.pinned
              FROM clips_fts f JOIN clips c ON c.id = f.rowid
              WHERE clips_fts MATCH ?1
-             ORDER BY c.pinned DESC, c.at DESC LIMIT ?2",
+             ORDER BY c.pinned DESC, c.at DESC, c.id DESC LIMIT ?2",
             params![pattern, limit as i64],
         )
     }

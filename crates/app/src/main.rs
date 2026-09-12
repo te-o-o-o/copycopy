@@ -396,8 +396,12 @@ fn boot() -> (State, Task<Message>) {
         }
     );
 
-    let store = match config::base_dir() {
-        Some(dir) => match Store::open(&dir) {
+    // `--demo` gets its own database rather than bypassing persistence: the
+    // point of the demo is to exercise the real behaviour — pinning, restart,
+    // search — without pouring sample data into the real history.
+    let dir = config::base_dir().map(|dir| if args.demo { dir.join("demo") } else { dir });
+    let store = match &dir {
+        Some(dir) => match Store::open(dir) {
             Ok(store) => {
                 println!("database: {}", dir.join("copycopy.db").display());
                 Some(store)
@@ -411,20 +415,33 @@ fn boot() -> (State, Task<Message>) {
     };
 
     let mut history = History::new(CAPACITY);
-    if args.demo {
-        seed_demo(&mut history);
-    } else if let Some(store) = &store {
-        // Oldest first, so pushing them replays the original order and the
-        // in-memory list comes out newest first, as it would have live.
-        match store.recent(CAPACITY) {
-            Ok(items) => {
-                for item in items.into_iter().rev() {
-                    history.push_stored(item);
+    match &store {
+        Some(store) => {
+            if args.demo && store.count().unwrap_or(0) == 0 {
+                let mut seed = History::new(CAPACITY);
+                seed_demo(&mut seed);
+                // Oldest first, so the row ids follow the same order and break
+                // ties between entries written in the same second.
+                for item in seed.items().iter().rev() {
+                    let _ = store.insert(item);
                 }
-                println!("{} entries restored", history.len());
+                println!("demo data seeded");
             }
-            Err(e) => eprintln!("could not read the history: {e}"),
+            // Oldest first again: pushing them replays the original order and
+            // the in-memory list comes out newest first, as it would have live.
+            match store.recent(CAPACITY) {
+                Ok(items) => {
+                    for item in items.into_iter().rev() {
+                        history.push_stored(item);
+                    }
+                    println!("{} entries restored", history.len());
+                }
+                Err(e) => eprintln!("could not read the history: {e}"),
+            }
         }
+        // No database: the demo still has to show something.
+        None if args.demo => seed_demo(&mut history),
+        None => {}
     }
 
     let mut state = State {
