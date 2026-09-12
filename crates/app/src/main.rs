@@ -23,7 +23,7 @@ mod theme;
 mod view;
 
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use copycopy_core::{store::Store, ClipEvent, ClipItem, History, Payload};
 use copycopy_platform::{BackendKind, Capture, Setter};
@@ -311,6 +311,24 @@ impl State {
         }
     }
 
+    /// Sends a just-copied entry back to the top, in memory and on disk.
+    ///
+    /// The reordering used to be a side effect: our own write came back
+    /// through the clipboard and `History::push` recognised the duplicate.
+    /// Ignoring our own writes removed the duplicate and the reordering with
+    /// it. Done here it no longer rides on a clipboard notification, so it
+    /// also holds on a platform where that round trip never fires.
+    fn bump(&mut self, id: u64, hash: u64) {
+        let at = SystemTime::now();
+        if let Some(store) = &self.store {
+            if let Err(e) = store.touch(hash, at) {
+                eprintln!("could not move the entry back to the top: {e}");
+            }
+        }
+        self.history.touch(id, at);
+        self.refilter();
+    }
+
     fn activate(&mut self) -> Task<Message> {
         if self.copied.is_some() {
             return Task::none(); // Already confirming; ignore a second Enter.
@@ -320,12 +338,14 @@ impl State {
         };
         let payload = item.payload.clone();
         let id = item.id;
+        let hash = item.hash;
         match self.setter.set(&payload) {
             Ok(()) => {
                 // Flash the row, then close. The window disappearing is the
                 // real confirmation, but on its own it leaves a doubt about
                 // *which* entry went to the clipboard.
                 self.copied = Some(id);
+                self.bump(id, hash);
                 Task::none()
             }
             Err(e) => {
