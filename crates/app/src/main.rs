@@ -79,10 +79,10 @@ pub struct State {
     pub scroll_y: f32,
     pub viewport_h: f32,
     pub flash: Option<(String, Instant)>,
-    /// Id of the entry that was just copied, highlighted until the window
-    /// closes. Stored as an id rather than a row index so it survives any
-    /// reordering.
-    pub copied: Option<u64>,
+    /// The entry that was just copied: highlighted until the window closes,
+    /// and moved back to the top once it has. Held as an id rather than a row
+    /// index so it survives any reordering.
+    pub copied: Option<Copied>,
     setter: Setter,
     /// Absent when the database could not be opened: the application keeps
     /// working in memory rather than refusing to start.
@@ -100,6 +100,18 @@ pub struct State {
     shot_done: bool,
     /// Kept alive: dropping it would unregister the global shortcut.
     _hotkeys: hotkey::Hotkeys,
+}
+
+/// The entry a copy is currently confirming.
+///
+/// The hash rides along because the two things done with it need different
+/// keys: the in-memory list is addressed by id, its database row by content
+/// hash. Looking the hash up later would not work — a search result carries
+/// the row id, which matches nothing in the loaded window.
+#[derive(Debug, Clone, Copy)]
+pub struct Copied {
+    pub id: u64,
+    pub hash: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -302,6 +314,7 @@ impl State {
         // Geometry is only written here: no need to touch the disk on every
         // pixel while the window is being dragged.
         self.config.save();
+        self.bump_copied();
         // Nothing else visual is reset here. The window needs a rendered frame
         // or two to actually disappear, and whatever is reset now is drawn
         // during them: resetting the selection was seen as the highlight
@@ -319,22 +332,19 @@ impl State {
         }
     }
 
-    fn toggle(&mut self) -> Task<Message> {
-        if self.window_shown {
-            self.hide()
-        } else {
-            self.show()
-        }
-    }
-
-    /// Sends a just-copied entry back to the top, in memory and on disk.
+    /// Sends the entry that was just copied back to the top, in memory and on
+    /// disk.
     ///
-    /// The reordering used to be a side effect: our own write came back
-    /// through the clipboard and `History::push` recognised the duplicate.
-    /// Ignoring our own writes removed the duplicate and the reordering with
-    /// it. Done here it no longer rides on a clipboard notification, so it
-    /// also holds on a platform where that round trip never fires.
-    fn bump(&mut self, id: u64, hash: u64) {
+    /// Called on the way out, never when the copy happens: moving a row the
+    /// instant it is clicked makes the list slip under the cursor, which is
+    /// what made this feel wrong the first time round. `visible` is left
+    /// exactly as the closing window still shows it — `show` rebuilds it from
+    /// the new order on the next open, so the move is real but never seen
+    /// happening.
+    fn bump_copied(&mut self) {
+        let Some(Copied { id, hash }) = self.copied else {
+            return;
+        };
         let at = SystemTime::now();
         if let Some(store) = &self.store {
             if let Err(e) = store.touch(hash, at) {
@@ -342,18 +352,13 @@ impl State {
             }
         }
         self.history.touch(id, at);
-        self.refilter();
+    }
 
-        // The list has just reordered under a cursor that did not move, and
-        // both highlights are indices. The hover now points at a row the
-        // mouse was never over, and the selection at whatever entry took the
-        // copied one's place — with a pin at the top, that is a pinned entry
-        // lighting up instead of the one being copied. So the selection
-        // follows the entry, and the stale hover goes: the next mouse move
-        // re-establishes it.
-        self.hovered = None;
-        if let Some(index) = self.visible.iter().position(|it| it.id == id) {
-            self.select(index);
+    fn toggle(&mut self) -> Task<Message> {
+        if self.window_shown {
+            self.hide()
+        } else {
+            self.show()
         }
     }
 
@@ -365,15 +370,17 @@ impl State {
             return Task::none();
         };
         let payload = item.payload.clone();
-        let id = item.id;
-        let hash = item.hash;
+        let copied = Copied {
+            id: item.id,
+            hash: item.hash,
+        };
         match self.setter.set(&payload) {
             Ok(()) => {
                 // Flash the row, then close. The window disappearing is the
                 // real confirmation, but on its own it leaves a doubt about
-                // *which* entry went to the clipboard.
-                self.copied = Some(id);
-                self.bump(id, hash);
+                // *which* entry went to the clipboard. Nothing moves yet: the
+                // entry goes back to the top in `hide`, once nobody is looking.
+                self.copied = Some(copied);
                 Task::none()
             }
             Err(e) => {

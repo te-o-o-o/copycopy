@@ -244,14 +244,11 @@ impl History {
         }
     }
 
-    /// Moves an entry back to the top, as a fresh copy of the same content
-    /// would. False when the id is unknown.
+    /// Moves an entry back to the top. False when the id is unknown.
     ///
     /// Copying from the history is a use, and the list is ordered by recency.
-    /// This used to fall out of the round trip — our own write came back and
-    /// `push` recognised the duplicate — until we stopped capturing our own
-    /// writes. Asking for it is better anyway: it no longer depends on a
-    /// clipboard notification firing at all.
+    /// The caller decides *when*: doing it the instant the entry is copied
+    /// makes the list slip under the cursor.
     pub fn touch(&mut self, id: u64, at: SystemTime) -> bool {
         let Some(pos) = self.items.iter().position(|i| i.id == id) else {
             return false;

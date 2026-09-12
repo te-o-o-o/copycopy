@@ -331,7 +331,7 @@ fn list(state: &State) -> Element<'_, Message> {
             index,
             weight,
             state.hovered == Some(index),
-            state.copied == Some(item.id),
+            state.copied.is_some_and(|c| c.id == item.id),
         ));
     }
     if after > 0 {

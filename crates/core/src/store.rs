@@ -273,8 +273,8 @@ impl Store {
 
     /// Marks an entry as used again, so it leads the list on the next read.
     ///
-    /// Leaves `source` alone on purpose: copying from the history is not a
-    /// new capture, and the attribution must stay that of the application the
+    /// Leaves `source` alone on purpose: copying from the history is not a new
+    /// capture, and the attribution must stay that of the application the
     /// content actually came from.
     pub fn touch(&self, hash: u64, at: SystemTime) -> Result<(), String> {
         self.conn
