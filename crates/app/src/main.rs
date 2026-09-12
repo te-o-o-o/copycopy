@@ -235,7 +235,20 @@ impl State {
         self.reveal_selected()
     }
 
+    /// Puts the list back to its opening state: no query, no scroll, selection
+    /// on the first row. Done on the way **in**, never on the way out, so none
+    /// of it is ever drawn over a window that is still disappearing.
+    fn reset_for_open(&mut self) {
+        self.query.clear();
+        self.selected = 0;
+        self.selection = Animation::new(0.0).duration(SELECT_FADE);
+        self.hovered = None;
+        self.scroll_y = 0.0;
+        self.refilter();
+    }
+
     fn show(&mut self) -> Task<Message> {
+        self.reset_for_open();
         if let Some(id) = self.window {
             if self.window_shown {
                 return Task::none();
@@ -287,12 +300,13 @@ impl State {
         // Geometry is only written here: no need to touch the disk on every
         // pixel while the window is being dragged.
         self.config.save();
+        // Nothing else visual is reset here. The window needs a rendered frame
+        // or two to actually disappear, and whatever is reset now is drawn
+        // during them: resetting the selection was seen as the highlight
+        // leaving the row just copied and landing on the top one — the first
+        // pinned entry, when there is one. `show` starts the next open clean
+        // instead. Only `copied` goes now, so its timer stops firing.
         self.copied = None;
-        self.query.clear();
-        self.select(0);
-        self.hovered = None;
-        self.scroll_y = 0.0;
-        self.refilter();
         if !self.window_shown {
             return Task::none();
         }
@@ -327,6 +341,18 @@ impl State {
         }
         self.history.touch(id, at);
         self.refilter();
+
+        // The list has just reordered under a cursor that did not move, and
+        // both highlights are indices. The hover now points at a row the
+        // mouse was never over, and the selection at whatever entry took the
+        // copied one's place — with a pin at the top, that is a pinned entry
+        // lighting up instead of the one being copied. So the selection
+        // follows the entry, and the stale hover goes: the next mouse move
+        // re-establishes it.
+        self.hovered = None;
+        if let Some(index) = self.visible.iter().position(|it| it.id == id) {
+            self.select(index);
+        }
     }
 
     fn activate(&mut self) -> Task<Message> {
