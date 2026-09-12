@@ -108,7 +108,8 @@ pub enum Message {
     Select(usize),
     /// Delete the entry at that row, from the cross.
     Delete(usize),
-    Hover(Option<usize>),
+    Hover(usize),
+    Unhover(usize),
     Activate,
     /// The copy confirmation has been shown long enough; close.
     FinishCopy,
@@ -511,8 +512,18 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             state.select(index);
             state.delete_selected()
         }
-        Message::Hover(i) => {
-            state.hovered = i;
+        Message::Hover(index) => {
+            state.hovered = Some(index);
+            Task::none()
+        }
+        Message::Unhover(index) => {
+            // Only clear when the row being left is the one on record. Moving
+            // up the list, the row being entered publishes before the one being
+            // left — an unconditional clear would wipe the hover that just
+            // arrived, which is why hovering looked random.
+            if state.hovered == Some(index) {
+                state.hovered = None;
+            }
             Task::none()
         }
         Message::Activate => state.activate(),
