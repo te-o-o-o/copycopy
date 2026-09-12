@@ -195,6 +195,8 @@ pub enum Message {
     CopyRow(usize),
     /// Switch between the light and dark palettes, from the header icon.
     ToggleTheme,
+    /// Enter or leave the Matrix palette, from the footer.
+    ToggleMatrix,
     Hover(usize),
     Unhover(usize),
     Activate,
@@ -710,6 +712,11 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             state.config.save();
             Task::none()
         }
+        Message::ToggleMatrix => {
+            state.config.theme = state.config.theme.matrix_toggled();
+            state.config.save();
+            Task::none()
+        }
         Message::Hover(index) => {
             state.hovered = Some(index);
             Task::none()
@@ -1022,6 +1029,7 @@ fn theme_of(state: &State, _window: window::Id) -> Theme {
     match state.config.theme {
         theme::Mode::Dark => Theme::Dark,
         theme::Mode::Light => Theme::Light,
+        theme::Mode::Matrix => Theme::Dark,
     }
 }
 
