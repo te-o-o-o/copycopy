@@ -342,14 +342,19 @@ fn classify(text: &str) -> Kind {
     if is_url {
         return Kind::Url;
     }
-    // Deliberately coarse heuristic: better to miss some code than to tag
-    // ordinary prose as code.
+    // A recognised language settles it. The markers below only catch what the
+    // detector does not know — C, Java and the like — and now need two of them:
+    // one marker on a multi-line text used to be enough, which turned any note
+    // with an arrow in it into code.
+    if lang::detect(t).is_some() {
+        return Kind::Code;
+    }
     let code_markers = [
         "fn ", "let ", "const ", "function ", "class ", "def ", "import ", "SELECT ", "#include",
         "=>", "->", "();", "{\n", ";\n",
     ];
     let hits = code_markers.iter().filter(|m| t.contains(**m)).count();
-    if hits >= 2 || (hits >= 1 && t.contains('\n')) {
+    if hits >= 2 {
         return Kind::Code;
     }
     Kind::Text
@@ -484,8 +489,14 @@ mod tests {
     }
 
     #[test]
+    fn a_lone_arrow_in_a_note_is_not_code() {
+        assert_eq!(classify("étape 1 -> étape 2\nétape 3"), Kind::Text);
+    }
+
+    #[test]
     fn single_line_preview() {
         assert_eq!(one_line("  a\n\n\tb  "), "a b");
     }
 }
+pub mod lang;
 pub mod store;
