@@ -10,6 +10,7 @@ use iced::widget::{
 };
 use iced::{
     font, mouse, window, Background, Border, Element, Font, Length, Padding, Point, Rectangle,
+    Size,
 };
 
 use copycopy_core::ClipItem;
@@ -157,6 +158,51 @@ impl canvas::Program<Message> for Pin {
         );
         // Hollow centre, so the shape stays legible against a light row.
         frame.fill(&canvas::Path::circle(head, 1.9), t::CARD);
+        vec![frame.into_geometry()]
+    }
+}
+
+/// Copy affordance: the two offset sheets everyone reads as "copy". Drawn like
+/// the others, and here the reason is doubled — this one repeats on every row,
+/// so a glyph whose weight shifts with the font would be visible as noise down
+/// the whole list.
+struct CopyMark {
+    color: iced::Color,
+}
+
+impl canvas::Program<Message> for CopyMark {
+    type State = ();
+
+    fn draw(
+        &self,
+        _state: &Self::State,
+        renderer: &iced::Renderer,
+        _theme: &iced::Theme,
+        bounds: Rectangle,
+        _cursor: iced::mouse::Cursor,
+    ) -> Vec<canvas::Geometry> {
+        let mut frame = canvas::Frame::new(renderer, bounds.size());
+        let stroke = || {
+            canvas::Stroke::default()
+                .with_color(self.color)
+                .with_width(1.3)
+        };
+        // The sheet behind is reduced to the corner that actually shows. A full
+        // outline would draw its lines straight through the front sheet, and
+        // masking them would mean painting the row background — which varies
+        // with hover, selection and the copy flash, none of it known here.
+        frame.stroke(
+            &canvas::Path::new(|b| {
+                b.move_to(Point::new(5.6, 3.4));
+                b.line_to(Point::new(12.6, 3.4));
+                b.line_to(Point::new(12.6, 10.4));
+            }),
+            stroke(),
+        );
+        frame.stroke(
+            &canvas::Path::rectangle(Point::new(3.4, 5.6), Size::new(7.0, 7.0)),
+            stroke(),
+        );
         vec![frame.into_geometry()]
     }
 }
@@ -400,6 +446,20 @@ fn row_widget(
         Space::new().width(Length::Fixed(t::SLOT)).into()
     };
 
+    // Always drawn, unlike the cross: copying is the point of the application,
+    // so the affordance does not wait to be discovered by hovering. It still
+    // brightens with the row, to say which one it would act on.
+    let copy_slot: Element<'_, Message> = mouse_area(
+        canvas(CopyMark {
+            color: if hovered { t::TEXT } else { t::alpha(t::TEXT, 0.30) },
+        })
+        .width(Length::Fixed(t::SLOT))
+        .height(Length::Fixed(t::SLOT)),
+    )
+    .interaction(mouse::Interaction::Pointer)
+    .on_press(Message::CopyRow(index))
+    .into();
+
     let preview = container(
         text(item.preview.as_str())
             .size(14.0)
@@ -437,7 +497,7 @@ fn row_widget(
     let top = row![
         preview,
         Space::new().width(Length::Fixed(t::GUTTER_GAP)),
-        pin_slot,
+        copy_slot,
         Space::new().width(Length::Fixed(8.0)),
         cross_slot,
     ]
@@ -458,9 +518,14 @@ fn row_widget(
         (ground != t::CARD).then_some(Background::Color(ground))
     };
 
+    // The pin sits on the left, and its slot is laid out whether or not
+    // anything is drawn in it: pinning a row must not shift the badge and the
+    // preview of every row around it.
     let content = row![
         accent,
         Space::new().width(Length::Fixed(9.0)),
+        pin_slot,
+        Space::new().width(Length::Fixed(6.0)),
         badge,
         Space::new().width(Length::Fixed(13.0)),
         body,
