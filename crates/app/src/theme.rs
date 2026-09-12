@@ -142,8 +142,9 @@ pub const DARK: Palette = Palette {
 
 /// Aalto Light, warmed and dimmed: its cream ground (#FFFFE0) is nearly as
 /// bright as white, so it is taken a few steps down while keeping the hue.
-/// Text is the theme's dark slate grey; the badge tints come from its
-/// font-lock colours — forest green, dark goldenrod, purple, cadet blue.
+/// Text is an espresso brown rather than the theme's dark slate grey, which ran
+/// cold against the cream: ink on paper, softer than black. The badge tints come
+/// from its font-lock colours — forest green, dark goldenrod, purple, cadet blue.
 pub const LIGHT: Palette = Palette {
     light: true,
     matrix: false,
@@ -151,7 +152,7 @@ pub const LIGHT: Palette = Palette {
     border: rgb(0xD8, 0xD1, 0xB0),
     selected: rgb(0xE0, 0xD8, 0xB4),
     hover: rgb(0xE8, 0xE2, 0xC4),
-    text: rgb(0x2F, 0x4F, 0x4F),
+    text: rgb(0x3B, 0x30, 0x24),
     faint: rgb(0x8A, 0x84, 0x68),
     chrome: rgb(0x8A, 0x84, 0x68),
     accent: rgb(0x8A, 0x2B, 0xC2),
