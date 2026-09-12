@@ -38,8 +38,10 @@ pub const ROW_RADIUS: f32 = 8.0;
 /// shrunk.
 pub const ROW_GAP: f32 = 3.0;
 /// Band around the rim carrying the resize handles. It is invisible because it
-/// lets the card background through.
-pub const EDGE: f32 = 6.0;
+/// lets the card background through. Ten pixels rather than six: an
+/// undecorated window gives no other affordance, and a thin band is hard to
+/// aim at.
+pub const EDGE: f32 = 10.0;
 
 pub fn tint(kind: copycopy_core::Kind) -> Color {
     use copycopy_core::Kind;
