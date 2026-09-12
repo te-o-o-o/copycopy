@@ -338,6 +338,19 @@ Une image revient ré-encodée : ses octets diffèrent de ceux qui sont entrés,
 le hachage du contenu ne peut pas la reconnaître. Sans ce contrôle, chaque
 recopie atterrissait dans l'historique comme une nouvelle entrée.
 
+`targets` répond à l'autre question : pourquoi une copie n'a produit aucune
+entrée. Il liste ce que le propriétaire du presse-papier annonce et ce que notre
+lecteur tire de chaque format, chronométrage compris :
+
+```bash
+# copiez quelque chose, puis :
+cargo run --release -p copycopy-platform --example targets
+```
+
+Il existe parce que le backend est muet sur ce chemin : si un propriétaire
+annonce une image qu'il ne parvient ensuite pas à livrer, la copie entière est
+abandonnée, alternatives texte comprises, et rien n'est journalisé.
+
 ## Structure
 
 ```

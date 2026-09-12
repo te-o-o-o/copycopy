@@ -123,9 +123,9 @@ proof that a target platform works.
   layer underneath instead — `Setter` and the watcher, as the `echo` example
   does.
 
-Diagnostic tools live as `examples`: `fake_owner`, `press_key` and `echo`
-(platform), `band`, `edges`, `pixel`, `zoom`, `compare` (app). Prefer checking a
-claim with one of them over asserting it.
+Diagnostic tools live as `examples`: `fake_owner`, `press_key`, `echo` and
+`targets` (platform), `band`, `edges`, `pixel`, `zoom`, `compare` (app). Prefer
+checking a claim with one of them over asserting it.
 
 ## Next step
 
