@@ -206,8 +206,11 @@ struct Rain {
 
 /// Half-width katakana and a few digits and signs, as in the film.
 const RAIN_GLYPHS: &str = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789:.=*+-<>";
-/// Horizontal pitch of the columns, and vertical pitch of the glyphs.
-const RAIN_COLUMN: f32 = 22.0;
+/// Horizontal pitch of the columns, and vertical pitch of the glyphs. Twenty
+/// pixels rather than the first try's twenty-two: a column spends much of its
+/// cycle off screen between two trails, so extra rain only shows as extra
+/// columns, not as a higher share of wet ones.
+const RAIN_COLUMN: f32 = 20.0;
 const RAIN_ROW: f32 = 17.0;
 
 /// SplitMix64's finaliser: a cheap, well-spread hash, so neighbouring columns
@@ -237,9 +240,10 @@ impl canvas::Program<Message> for Rain {
 
         for column in 0..columns {
             let seed = scramble(column);
-            // About one column in two stays dry: sparse rain reads as
-            // atmosphere, dense rain as noise laid over the list.
-            if seed.is_multiple_of(2) {
+            // One column in three stays dry: enough rain to fill the window,
+            // sparse enough to read as atmosphere rather than noise laid over
+            // the list. One in two was tried first and felt too thin.
+            if seed.is_multiple_of(3) {
                 continue;
             }
             let speed = 1.0 + ((seed >> 8) % 200) as f32 / 100.0; // 1 to 3 rows a second
