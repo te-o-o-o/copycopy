@@ -105,6 +105,12 @@ and find it where you left it.
   environments (WSLg) never report a real position and would return 0,0, which
   would open the window in a corner instead of centred. Position is therefore
   only written once an actual move has been observed.
+- **Detail panel**: the right-hand side shows the selected entry in full —
+  text up to 10,000 characters, monospace for code, pictures scaled down to
+  fit, file lists. It is built when the selection lands on another entry, never
+  inside `view()`: reading an image file or walking a long text on every frame
+  would cost the frame rate. The window opens at 980×560, and a width
+  remembered from before the panel existed is widened to 860.
 
 ## Copying
 
@@ -399,11 +405,6 @@ and three do not filter alike.
 Pinned entries lead the list, recency ordering inside each group, and pruning
 never drops them. Rows carry the payload size when there is more than the line
 shows — counted on the full content, not on the preview, which is itself capped.
-
-## Next step
-
-A detail pane: previews are clipped at a constant width, and an image is only
-ever described, never shown.
 
 ## Credits
 

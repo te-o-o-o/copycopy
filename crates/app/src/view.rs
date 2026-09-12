@@ -6,17 +6,17 @@
 //! other but leaves the row stuck to the top of its container.
 
 use iced::widget::{
-    canvas, column, container, mouse_area, row, scrollable, text, text_input, Space,
+    canvas, column, container, image, mouse_area, row, scrollable, text, text_input, Space,
 };
 use iced::{
     font, mouse, window, Background, Border, Element, Font, Length, Padding, Point, Rectangle,
-    Size,
+    ContentFit, Size,
 };
 
 use copycopy_core::ClipItem;
 
 use crate::theme::{self as t, Palette};
-use crate::{Message, State, SCROLL_ID, SEARCH_ID};
+use crate::{Message, Preview, State, PREVIEW_ID, SCROLL_ID, SEARCH_ID};
 
 pub fn view(state: &State, _window: iced::window::Id) -> Element<'_, Message> {
     // Read once per frame and handed down: every function below draws with
@@ -26,7 +26,7 @@ pub fn view(state: &State, _window: iced::window::Id) -> Element<'_, Message> {
     let content = column![
         header(state, p),
         hairline(p),
-        list(state, p),
+        body(state, p),
         hairline(p),
         footer(state, p),
     ];
@@ -632,6 +632,174 @@ fn row_widget(
 }
 
 // ----------------------------------------------------------------- footer
+
+/// The list and the detail panel, side by side. Proportions rather than fixed
+/// widths, so resizing the window shares the room out instead of starving one
+/// side; the list keeps the larger share, being what you navigate.
+fn body(state: &State, p: Palette) -> Element<'_, Message> {
+    row![
+        container(list(state, p))
+            .width(Length::FillPortion(62))
+            .height(Length::Fill),
+        container(Space::new().width(Length::Fixed(1.0)))
+            .height(Length::Fill)
+            .style(t::separator(p)),
+        container(panel(state, p))
+            .width(Length::FillPortion(38))
+            .height(Length::Fill),
+    ]
+    .height(Length::Fill)
+    .into()
+}
+
+/// The selected entry in full. Everything here reads `state.preview`, built
+/// when the selection changed: nothing is loaded, counted or cut per frame.
+fn panel(state: &State, p: Palette) -> Element<'_, Message> {
+    let Some(item) = state.visible.get(state.selected) else {
+        return Space::new()
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into();
+    };
+
+    let source = if item.source.is_empty() {
+        "—"
+    } else {
+        item.source.as_str()
+    };
+    let detail = match &state.preview {
+        Preview::Text { chars, lines, .. } => {
+            format!("{chars} car.  ·  {lines} {}", plural(*lines, "ligne", "lignes"))
+        }
+        Preview::Image {
+            size: Some((w, h)), ..
+        } => format!("{w}×{h}"),
+        Preview::Files(paths) => {
+            let n = paths.len();
+            format!("{n} {}", plural(n, "fichier", "fichiers"))
+        }
+        _ => String::new(),
+    };
+    let mut caption = format!("{}  ·  {}  ·  {}", t::badge(item.kind), source, item.age());
+    if !detail.is_empty() {
+        caption.push_str("  ·  ");
+        caption.push_str(&detail);
+    }
+    let caption = container(
+        text(caption)
+            .size(11.0)
+            .color(p.faint)
+            .wrapping(text::Wrapping::None),
+    )
+    .width(Length::Fill)
+    .clip(true);
+
+    let content: Element<'_, Message> = match &state.preview {
+        Preview::Text {
+            body, code, cut, ..
+        } => {
+            let mut lines = column![text(body.as_str())
+                .size(13.0)
+                .font(if *code { Font::MONOSPACE } else { Font::DEFAULT })
+                .color(p.text)]
+            .spacing(10);
+            if *cut {
+                lines = lines.push(
+                    text("… la suite n'est pas affichée")
+                        .size(11.0)
+                        .color(p.faint),
+                );
+            }
+            scrollable(container(lines).padding(Padding {
+                top: 0.0,
+                right: 14.0,
+                bottom: 16.0,
+                left: 0.0,
+            }))
+            .id(PREVIEW_ID)
+            .height(Length::Fill)
+            .direction(thin_scrollbar())
+            .style(quiet_scroll(p))
+            .into()
+        }
+        // ScaleDown, never up: a small screenshot stays sharp at its real size
+        // instead of being blown up into a blur.
+        Preview::Image { handle, .. } => container(
+            image(handle.clone()).content_fit(ContentFit::ScaleDown),
+        )
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .center_x(Length::Fill)
+        .center_y(Length::Fill)
+        .into(),
+        Preview::Files(paths) => scrollable(
+            iced::widget::Column::with_children(paths.iter().map(|path| {
+                text(path.as_str())
+                    .size(12.5)
+                    .font(Font::MONOSPACE)
+                    .color(p.text)
+                    .into()
+            }))
+            .spacing(6),
+        )
+        .id(PREVIEW_ID)
+        .height(Length::Fill)
+        .direction(thin_scrollbar())
+        .style(quiet_scroll(p))
+        .into(),
+        Preview::Unavailable(why) => text(why.as_str()).size(12.0).color(p.faint).into(),
+        Preview::Empty => Space::new().into(),
+    };
+
+    column![caption, content]
+        .spacing(12)
+        .padding(Padding {
+            top: 14.0,
+            right: 8.0,
+            bottom: 10.0,
+            left: 16.0,
+        })
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .into()
+}
+
+/// French agreement: singular for 0 and 1, as French counts them.
+fn plural(n: usize, one: &'static str, many: &'static str) -> &'static str {
+    if n > 1 {
+        many
+    } else {
+        one
+    }
+}
+
+/// The list's scrollbar, shared with the panel: thin, and only the scroller
+/// drawn, so it never competes with the content.
+fn thin_scrollbar() -> scrollable::Direction {
+    scrollable::Direction::Vertical(
+        scrollable::Scrollbar::new()
+            .width(5)
+            .scroller_width(5)
+            .margin(3)
+            .spacing(4),
+    )
+}
+
+fn quiet_scroll(
+    p: Palette,
+) -> impl Fn(&iced::Theme, scrollable::Status) -> scrollable::Style {
+    move |theme, status| scrollable::Style {
+        vertical_rail: scrollable::Rail {
+            background: None,
+            border: Border::default(),
+            scroller: scrollable::Scroller {
+                background: Background::Color(t::alpha(p.text, 0.13)),
+                border: Border::default().rounded(3),
+            },
+        },
+        ..scrollable::default(theme, status)
+    }
+}
 
 fn footer(state: &State, p: Palette) -> Element<'_, Message> {
     let left = match &state.flash {

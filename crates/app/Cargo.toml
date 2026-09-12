@@ -12,7 +12,11 @@ path = "src/main.rs"
 [dependencies]
 copycopy-core = { path = "../core" }
 copycopy-platform = { path = "../platform" }
-iced = { version = "0.14", features = ["advanced", "tokio", "canvas"] }
+# `image-without-codecs` rather than `image`: every picture reaching the history
+# is normalised to PNG, and iced shares this crate's `image` 0.25, whose `png`
+# feature below is all the decoding the preview needs. `image` would pull every
+# codec in for nothing.
+iced = { version = "0.14", features = ["advanced", "tokio", "canvas", "image-without-codecs"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 global-hotkey = "0.8"
 interprocess = "2.4"
