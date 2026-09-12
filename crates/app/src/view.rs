@@ -434,7 +434,7 @@ fn header(state: &State, p: Palette) -> Element<'_, Message> {
                 // else in the window hints that it is possible.
                 text("Enter copier   ·   Ctrl-B épingler   ·   Suppr supprimer   ·   Esc")
                     .size(11.0)
-                    .color(p.faint),
+                    .color(p.chrome),
                 Space::new().width(Length::Fixed(16.0)),
                 mouse_area(
                     canvas(ThemeMark {
@@ -1000,7 +1000,7 @@ fn footer(state: &State, p: Palette) -> Element<'_, Message> {
 
     container(
         row![
-            text(left).size(11.0).color(t::alpha(p.text, 0.40)),
+            text(left).size(11.0).color(p.chrome),
             Space::new().width(Length::Fill),
             matrix,
         ]

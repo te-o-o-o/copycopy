@@ -80,6 +80,10 @@ pub struct Palette {
     pub hover: Color,
     pub text: Color,
     pub faint: Color,
+    /// The window's own small print: the entry count in the footer and the
+    /// shortcut legend in the header. Its own role so a theme can colour it
+    /// without touching the placeholder and icons that share `faint`.
+    pub chrome: Color,
     pub accent: Color,
     pub tint_text: Color,
     pub tint_url: Color,
@@ -103,19 +107,22 @@ pub struct Palette {
 
 /// Base16 Purpledream, by malet — values from the tinted-theming scheme, mapped
 /// onto the interface roles. The grounds walk the scheme's purple-black ramp
-/// (base00 card, base01 selection, base02 border); the one invented value is
-/// the hover, which sits between base00 and base01 because the scheme has no
-/// step there. Accent is the scheme's magenta, and the badge tints use its
-/// accent colours untouched.
+/// (base00 card, base01 selection). Three values are invented: the hover, which
+/// sits between base00 and base01 because the scheme has no step there, and a
+/// pale pink for the window's lines and small print, chosen to answer the
+/// magenta accent. The lines take a deeper pink than the text: a one-pixel line
+/// in the text's pink reads as white. The badge tints use the scheme's accent
+/// colours untouched.
 pub const DARK: Palette = Palette {
     light: false,
     matrix: false,
     card: rgb(0x10, 0x05, 0x10),     // base00
-    border: rgb(0x40, 0x30, 0x40),   // base02
+    border: rgb(0xC9, 0x8F, 0xB4),
     selected: rgb(0x30, 0x20, 0x30), // base01
     hover: rgb(0x1E, 0x10, 0x1E),
     text: rgb(0xDD, 0xD0, 0xDD),       // base05
     faint: rgb(0x60, 0x50, 0x60),      // base03
+    chrome: rgb(0xE8, 0xB4, 0xD0),
     accent: rgb(0xF0, 0x00, 0xA0),     // base0A
     tint_text: rgb(0x00, 0xA0, 0xF0),  // base0D
     tint_url: rgb(0x14, 0xCC, 0x64),   // base0B
@@ -146,6 +153,7 @@ pub const LIGHT: Palette = Palette {
     hover: rgb(0xE8, 0xE2, 0xC4),
     text: rgb(0x2F, 0x4F, 0x4F),
     faint: rgb(0x8A, 0x84, 0x68),
+    chrome: rgb(0x8A, 0x84, 0x68),
     accent: rgb(0x8A, 0x2B, 0xC2),
     tint_text: rgb(0x3B, 0x5B, 0xA8),
     tint_url: rgb(0x22, 0x8B, 0x22),
@@ -175,6 +183,7 @@ pub const MATRIX: Palette = Palette {
     hover: rgb(0x03, 0x16, 0x08),
     text: rgb(0x00, 0xFF, 0x41),
     faint: rgb(0x0E, 0x7A, 0x2C),
+    chrome: rgb(0x0E, 0x7A, 0x2C),
     accent: rgb(0x00, 0xFF, 0x41),
     tint_text: rgb(0x00, 0xFF, 0x41),
     tint_url: rgb(0x5B, 0xFF, 0x8A),
