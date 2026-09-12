@@ -405,6 +405,19 @@ shows — counted on the full content, not on the preview, which is itself cappe
 A detail pane: previews are clipped at a constant width, and an image is only
 ever described, never shown.
 
+## Credits
+
+The two colour palettes are borrowed from existing themes, adapted rather than
+copied as code:
+
+- **Dark** — [Base16 Purpledream](https://github.com/tinted-theming/schemes/blob/spec-0.11/base16/purpledream.yaml)
+  by malet, from Tinted Theming (MIT). The scheme's values are used as they are.
+- **Light** — [Aalto Light](https://github.com/emacs-jp/replace-colorthemes/blob/master/aalto-light-theme.el)
+  by Jari Aalto, ported by Syohei Yoshida (GPL-3.0+). Only colour values are
+  taken, and the ground is darkened from its original cream.
+
+`crates/app/src/theme.rs` notes where each value comes from.
+
 ## Licence
 
 MIT. See [LICENSE](LICENSE).

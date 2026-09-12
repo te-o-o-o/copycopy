@@ -415,6 +415,20 @@ pas sur l'aperçu, lui-même plafonné.
 Un panneau de détail : les aperçus sont coupés à largeur constante, et une image
 n'est jamais que décrite, jamais montrée.
 
+## Crédits
+
+Les deux palettes de couleurs sont empruntées à des thèmes existants, adaptées
+et non recopiées sous forme de code :
+
+- **Sombre** — [Base16 Purpledream](https://github.com/tinted-theming/schemes/blob/spec-0.11/base16/purpledream.yaml)
+  de malet, chez Tinted Theming (MIT). Les valeurs du schéma sont reprises telles
+  quelles.
+- **Clair** — [Aalto Light](https://github.com/emacs-jp/replace-colorthemes/blob/master/aalto-light-theme.el)
+  de Jari Aalto, porté par Syohei Yoshida (GPL-3.0+). Seules des valeurs de
+  couleur sont reprises, et le fond est assombri par rapport à la crème d'origine.
+
+`crates/app/src/theme.rs` indique la provenance de chaque valeur.
+
 ## Licence
 
 MIT. Voir [LICENSE](LICENSE).
