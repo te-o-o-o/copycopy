@@ -365,9 +365,15 @@ impl State {
 
     fn activate(&mut self) -> Task<Message> {
         if self.copied.is_some() {
+            eprintln!("copy: already confirming one, ignored");
             return Task::none(); // Already confirming; ignore a second Enter.
         }
         let Some(item) = self.visible.get(self.selected) else {
+            eprintln!(
+                "copy: nothing at row {} of {}",
+                self.selected,
+                self.visible.len()
+            );
             return Task::none();
         };
         let payload = item.payload.clone();
@@ -381,10 +387,15 @@ impl State {
                 // real confirmation, but on its own it leaves a doubt about
                 // *which* entry went to the clipboard. Nothing moves yet: the
                 // entry goes back to the top in `hide`, once nobody is looking.
+                eprintln!("copy: row {} sent to the clipboard", self.selected);
                 self.copied = Some(copied);
                 Task::none()
             }
             Err(e) => {
+                // Console as well as the footer: a footer line lasts three
+                // seconds and is easy to miss, and this is the failure that
+                // reads as "nothing happened".
+                eprintln!("copy failed: {e}");
                 self.flash(format!("échec de la copie : {e}"));
                 Task::none()
             }
