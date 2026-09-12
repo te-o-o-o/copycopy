@@ -244,6 +244,26 @@ impl History {
         }
     }
 
+    /// Moves an entry back to the top, as a fresh copy of the same content
+    /// would. False when the id is unknown.
+    ///
+    /// Copying from the history is a use, and the list is ordered by recency.
+    /// This used to fall out of the round trip — our own write came back and
+    /// `push` recognised the duplicate — until we stopped capturing our own
+    /// writes. Asking for it is better anyway: it no longer depends on a
+    /// clipboard notification firing at all.
+    pub fn touch(&mut self, id: u64, at: SystemTime) -> bool {
+        let Some(pos) = self.items.iter().position(|i| i.id == id) else {
+            return false;
+        };
+        let Some(mut item) = self.items.remove(pos) else {
+            return false;
+        };
+        item.at = at;
+        self.items.push_front(item);
+        true
+    }
+
     pub fn toggle_pin(&mut self, index: usize) {
         if let Some(item) = self.items.get_mut(index) {
             item.pinned = !item.pinned;
@@ -435,6 +455,19 @@ mod tests {
             }
             other => panic!("expected an image, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn touching_an_entry_moves_it_back_to_the_top() {
+        let mut h = History::new(10);
+        for name in ["a", "b", "c"] {
+            h.push(ClipEvent::Text(name.into()), "t".into());
+        }
+        let oldest = h.get(2).expect("item").id;
+        assert!(h.touch(oldest, SystemTime::now()));
+        assert_eq!(h.get(0).expect("item").preview, "a");
+        assert_eq!(h.len(), 3, "moved, not duplicated");
+        assert!(!h.touch(9999, SystemTime::now()), "an unknown id changes nothing");
     }
 
     #[test]

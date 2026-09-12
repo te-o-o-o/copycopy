@@ -271,6 +271,21 @@ impl Store {
             .map_err(|e| e.to_string())
     }
 
+    /// Marks an entry as used again, so it leads the list on the next read.
+    ///
+    /// Leaves `source` alone on purpose: copying from the history is not a
+    /// new capture, and the attribution must stay that of the application the
+    /// content actually came from.
+    pub fn touch(&self, hash: u64, at: SystemTime) -> Result<(), String> {
+        self.conn
+            .execute(
+                "UPDATE clips SET at = ?1 WHERE hash = ?2",
+                params![seconds(at), hash as i64],
+            )
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    }
+
     pub fn delete(&self, hash: u64) -> Result<(), String> {
         let images = self.image_paths(
             "SELECT image FROM clips WHERE hash = ?1 AND image IS NOT NULL",
@@ -514,6 +529,26 @@ mod tests {
             .expect("images dir")
             .filter_map(Result::ok)
             .count()
+    }
+
+    #[test]
+    fn touching_an_entry_reorders_it_without_rewriting_its_source() {
+        let dir = Temp::new("touch");
+        let store = Store::open(&dir.0).expect("open");
+        let items = entries(&["oldest", "newest"]);
+        for item in items.iter().rev() {
+            store.insert(item).expect("insert");
+        }
+        assert_eq!(store.recent(10).expect("recent")[0].preview, "newest");
+
+        let oldest = items.iter().find(|i| i.preview == "oldest").expect("item");
+        store
+            .touch(oldest.hash, SystemTime::now() + Duration::from_secs(60))
+            .expect("touch");
+
+        let back = store.recent(10).expect("recent");
+        assert_eq!(back[0].preview, "oldest", "it leads the list now");
+        assert_eq!(back[0].source, "test", "but it did not come from us");
     }
 
     #[test]
