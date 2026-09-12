@@ -149,6 +149,37 @@ pub fn start(prefer: Option<&str>) -> Result<Watcher, String> {
     })
 }
 
+/// Normalises whatever image bytes the clipboard offered into PNG, which is the
+/// single format kept internally. PNG is passed through untouched; anything
+/// else is decoded and re-encoded.
+pub(crate) fn to_png(bytes: Vec<u8>) -> Option<(Vec<u8>, Option<(u32, u32)>)> {
+    if bytes.is_empty() {
+        return None;
+    }
+    if png_size(&bytes).is_some() {
+        let size = png_size(&bytes);
+        return Some((bytes, size));
+    }
+    let decoded = image::load_from_memory(&bytes).ok()?;
+    let size = (decoded.width(), decoded.height());
+    let mut png = Vec::new();
+    decoded
+        .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+        .ok()?;
+    Some((png, Some(size)))
+}
+
+/// Clipboard text that is not valid UTF-8, or carries NUL bytes, is not text:
+/// it is binary that reached the wrong branch. Storing it would fill the
+/// history with unreadable entries.
+pub(crate) fn sane_text(bytes: &[u8]) -> Option<String> {
+    let text = String::from_utf8(bytes.to_vec()).ok()?;
+    if text.trim().is_empty() || text.contains('\0') {
+        return None;
+    }
+    Some(text)
+}
+
 /// Dimensions read straight from the IHDR header, without decoding the image.
 pub(crate) fn png_size(png: &[u8]) -> Option<(u32, u32)> {
     if png.len() < 24 || &png[..8] != b"\x89PNG\r\n\x1a\n" || &png[12..16] != b"IHDR" {
