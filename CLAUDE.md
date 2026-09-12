@@ -20,7 +20,7 @@ That split was tested for real: when the toolkit changed from egui to iced,
 cargo check --workspace                    # in a loop while writing
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt
-cargo test --workspace                     # 25 tests
+cargo test --workspace                     # 37 tests
 cargo build --release -p copycopy          # → target/release/copycopy
 ```
 
