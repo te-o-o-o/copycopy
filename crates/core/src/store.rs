@@ -130,7 +130,7 @@ impl Store {
             Payload::Image { data, size } => {
                 // One file per content hash: the name is reproducible, so an
                 // entry read back and re-inserted lands on the same file.
-                let path = self.images.join(format!("{:016x}.png", item.hash));
+                let path = self.image_path(item.hash);
                 if !path.exists() {
                     std::fs::write(&path, data.load()?).map_err(|e| e.to_string())?;
                 }
@@ -164,6 +164,13 @@ impl Store {
             )
             .map_err(|e| e.to_string())?;
         Ok(self.conn.last_insert_rowid() as u64)
+    }
+
+    /// Where `insert` writes an image of that hash. Derived from the hash
+    /// rather than stored, so the caller can point an in-memory entry at the
+    /// file straight after inserting it, without a query.
+    pub fn image_path(&self, hash: u64) -> PathBuf {
+        self.images.join(format!("{hash:016x}.png"))
     }
 
     fn id_for_hash(&self, hash: i64) -> Result<Option<u64>, String> {

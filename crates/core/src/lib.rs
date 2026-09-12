@@ -230,6 +230,20 @@ impl History {
         }
     }
 
+    /// Points a freshly captured image at the file the store has just written
+    /// for it, and drops the bytes.
+    ///
+    /// Without this the whole history stays in memory: every refilter clones
+    /// the entries it keeps, so a 4K screenshot would be copied again on each
+    /// keystroke in the search field.
+    pub fn offload_image(&mut self, index: usize, path: PathBuf) {
+        if let Some(item) = self.items.get_mut(index) {
+            if let Payload::Image { data, .. } = &mut item.payload {
+                *data = Image::File(path);
+            }
+        }
+    }
+
     pub fn toggle_pin(&mut self, index: usize) {
         if let Some(item) = self.items.get_mut(index) {
             item.pinned = !item.pinned;
@@ -402,6 +416,25 @@ mod tests {
             hint.contains(&grouped(expected)),
             "counts the payload ({expected}), got {hint}"
         );
+    }
+
+    #[test]
+    fn an_offloaded_image_points_at_the_file_instead_of_the_bytes() {
+        let mut h = History::new(10);
+        h.push(
+            ClipEvent::Image {
+                png: vec![1, 2, 3],
+                size: Some((2, 2)),
+            },
+            "t".into(),
+        );
+        h.offload_image(0, PathBuf::from("/somewhere/cafe.png"));
+        match &h.get(0).expect("item").payload {
+            Payload::Image { data, .. } => {
+                assert_eq!(data.path(), Some(Path::new("/somewhere/cafe.png")))
+            }
+            other => panic!("expected an image, got {other:?}"),
+        }
     }
 
     #[test]

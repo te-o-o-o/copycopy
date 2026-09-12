@@ -374,7 +374,8 @@ SQLite via la feature `bundled` de rusqlite : la base est embarquée dans le
 binaire, aucune bibliothèque système à installer nulle part. Les images sont
 écrites en fichiers à côté, et leurs octets ne sont lus qu'au moment de copier —
 relire chaque PNG pour dessiner une liste de texte ferait taper le disque à
-chaque frappe.
+chaque frappe. Une entrée lâche ses octets dès que son fichier est écrit : rien
+n'est gardé deux fois.
 
 La recherche bascule à trois caractères. En dessous elle filtre en mémoire la
 fenêtre chargée, ce qu'un index trigram ne sait pas faire. À partir de trois elle
