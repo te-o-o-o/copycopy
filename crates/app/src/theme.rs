@@ -26,6 +26,16 @@ pub const TINT_CODE: Color = rgb(0xE0, 0xA4, 0x58);
 pub const TINT_IMAGE: Color = rgb(0xC9, 0x8B, 0xDB);
 pub const TINT_FILES: Color = rgb(0x6F, 0xA8, 0xDC);
 
+/// The pin marker. Drawn rather than taken from a font: a colour emoji such as
+/// 📌 carries its own palette and cannot be tinted, and this one has to read as
+/// green.
+pub const PIN: Color = rgb(0x4F, 0xC3, 0xA1);
+
+/// Flash shown on the row that was just copied, right before the window
+/// closes. Green rather than the accent: the accent already marks the
+/// selection, and a confirmation has to read as different, not as more.
+pub const COPIED: Color = rgb(0x3E, 0x8B, 0x6E);
+
 pub const ROW_H: f32 = 58.0;
 pub const HEADER_H: f32 = 58.0;
 pub const FOOTER_H: f32 = 30.0;

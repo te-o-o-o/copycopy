@@ -123,6 +123,42 @@ impl canvas::Program<Message> for Magnifier {
     }
 }
 
+/// Pin marker, drawn for the same reason as the magnifier: full control of
+/// size and colour, and no dependence on which glyphs a font happens to ship.
+struct Pin;
+
+impl canvas::Program<Message> for Pin {
+    type State = ();
+
+    fn draw(
+        &self,
+        _state: &Self::State,
+        renderer: &iced::Renderer,
+        _theme: &iced::Theme,
+        bounds: Rectangle,
+        _cursor: iced::mouse::Cursor,
+    ) -> Vec<canvas::Geometry> {
+        let mut frame = canvas::Frame::new(renderer, bounds.size());
+        // Teardrop silhouette: a round head closed by a point underneath. It
+        // reads as a pin at 16 px, where a head on a straight needle reads as
+        // a balloon.
+        let head = Point::new(8.0, 6.4);
+        frame.fill(&canvas::Path::circle(head, 5.0), t::PIN);
+        frame.fill(
+            &canvas::Path::new(|b| {
+                b.move_to(Point::new(3.6, 9.0));
+                b.line_to(Point::new(12.4, 9.0));
+                b.line_to(Point::new(8.0, 17.0));
+                b.close();
+            }),
+            t::PIN,
+        );
+        // Hollow centre, so the shape stays legible against a light row.
+        frame.fill(&canvas::Path::circle(head, 1.9), t::CARD);
+        vec![frame.into_geometry()]
+    }
+}
+
 fn header(state: &State) -> Element<'_, Message> {
     // No `on_submit`: Enter goes through the global keyboard listener, or it
     // would be handled twice.
@@ -209,6 +245,7 @@ fn list(state: &State) -> Element<'_, Message> {
             index,
             index == state.selected,
             state.hovered == Some(index),
+            state.copied == Some(item.id),
         ));
     }
     if after > 0 {
@@ -254,6 +291,7 @@ fn row_widget(
     index: usize,
     selected: bool,
     hovered: bool,
+    copied: bool,
 ) -> Element<'_, Message> {
     let tint = t::tint(item.kind);
 
@@ -263,7 +301,11 @@ fn row_widget(
         .width(Length::Fixed(3.0))
         .height(Length::Fixed(24.0))
         .style(move |_| container::Style {
-            background: selected.then(|| Background::Color(t::ACCENT)),
+            background: match (copied, selected) {
+                (true, _) => Some(Background::Color(t::COPIED)),
+                (false, true) => Some(Background::Color(t::ACCENT)),
+                _ => None,
+            },
             border: Border::default().rounded(2),
             ..Default::default()
         });
@@ -310,15 +352,21 @@ fn row_widget(
     .align_y(iced::Alignment::Center);
 
     if item.pinned {
-        content = content.push(text("◆").size(10).color(t::ACCENT));
-        content = content.push(Space::new().width(Length::Fixed(8.0)));
+        content = content.push(
+            canvas(Pin)
+                .width(Length::Fixed(16.0))
+                .height(Length::Fixed(18.0)),
+        );
+        content = content.push(Space::new().width(Length::Fixed(10.0)));
     }
 
     // No end-of-line fade: the `stack` overlay that produced it stopped the
     // row from repainting — the text stayed frozen on its first render, then
     // vanished. Previews are therefore cut off flat at the edge, at a constant
     // x, which reads as a column boundary.
-    let ground = if selected {
+    let ground = if copied {
+        t::alpha(t::COPIED, 0.30)
+    } else if selected {
         t::SELECTED
     } else if hovered {
         t::HOVER
