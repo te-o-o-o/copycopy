@@ -377,6 +377,13 @@ relire chaque PNG pour dessiner une liste de texte ferait taper le disque à
 chaque frappe. Une entrée lâche ses octets dès que son fichier est écrit : rien
 n'est gardé deux fois.
 
+Une image porte le nom de son hash de contenu, et deux lignes n'en partagent
+jamais une : un fichier que plus rien ne désigne est donc définitivement hors
+d'atteinte. Supprimer une entrée et élaguer l'historique emportent le fichier
+avec la ligne, et le démarrage balaie ce qui traîne — d'un arrêt brutal entre
+l'écriture du fichier et l'insertion de sa ligne, et de toutes les versions qui
+élaguaient les lignes sans toucher au disque.
+
 La recherche bascule à trois caractères. En dessous elle filtre en mémoire la
 fenêtre chargée, ce qu'un index trigram ne sait pas faire. À partir de trois elle
 interroge la base, donc les entrées plus anciennes que cette fenêtre sont
