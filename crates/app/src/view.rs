@@ -669,7 +669,12 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
     };
     let detail = match &state.preview {
         Preview::Text { chars, lines, .. } => {
-            format!("{chars} car.  ·  {lines} {}", plural(*lines, "ligne", "lignes"))
+            format!(
+                "{} car.  ·  {} {}",
+                copycopy_core::grouped(*chars),
+                copycopy_core::grouped(*lines),
+                plural(*lines, "ligne", "lignes")
+            )
         }
         Preview::Image {
             size: Some((w, h)), ..
