@@ -15,13 +15,25 @@ const fn rgb(r: u8, g: u8, b: u8) -> Color {
 pub enum Mode {
     Dark,
     Light,
+    /// Green on black. Reached from the footer rather than the header icon,
+    /// which keeps alternating between the two everyday themes.
+    Matrix,
 }
 
 impl Mode {
     pub fn toggled(self) -> Self {
         match self {
             Mode::Dark => Mode::Light,
-            Mode::Light => Mode::Dark,
+            Mode::Light | Mode::Matrix => Mode::Dark,
+        }
+    }
+
+    /// In and out of Matrix. Leaving it lands on the dark theme, whichever one
+    /// was active before: the closest to where Matrix left you.
+    pub fn matrix_toggled(self) -> Self {
+        match self {
+            Mode::Matrix => Mode::Dark,
+            Mode::Dark | Mode::Light => Mode::Matrix,
         }
     }
 
@@ -29,6 +41,7 @@ impl Mode {
         match self {
             Mode::Dark => DARK,
             Mode::Light => LIGHT,
+            Mode::Matrix => MATRIX,
         }
     }
 
@@ -36,6 +49,7 @@ impl Mode {
         match self {
             Mode::Dark => "dark",
             Mode::Light => "light",
+            Mode::Matrix => "matrix",
         }
     }
 
@@ -43,6 +57,7 @@ impl Mode {
         match value.trim().to_ascii_lowercase().as_str() {
             "dark" => Some(Mode::Dark),
             "light" => Some(Mode::Light),
+            "matrix" => Some(Mode::Matrix),
             _ => None,
         }
     }
@@ -57,6 +72,8 @@ impl Mode {
 pub struct Palette {
     /// Tells icons that change shape with the theme which one to draw.
     pub light: bool,
+    /// Tells the footer switch which way it goes.
+    pub matrix: bool,
     pub card: Color,
     pub border: Color,
     pub selected: Color,
@@ -92,6 +109,7 @@ pub struct Palette {
 /// accent colours untouched.
 pub const DARK: Palette = Palette {
     light: false,
+    matrix: false,
     card: rgb(0x10, 0x05, 0x10),     // base00
     border: rgb(0x40, 0x30, 0x40),   // base02
     selected: rgb(0x30, 0x20, 0x30), // base01
@@ -121,6 +139,7 @@ pub const DARK: Palette = Palette {
 /// font-lock colours — forest green, dark goldenrod, purple, cadet blue.
 pub const LIGHT: Palette = Palette {
     light: true,
+    matrix: false,
     card: rgb(0xF0, 0xEB, 0xCF),
     border: rgb(0xD8, 0xD1, 0xB0),
     selected: rgb(0xE0, 0xD8, 0xB4),
@@ -141,6 +160,36 @@ pub const LIGHT: Palette = Palette {
         g: 0.27,
         b: 0.08,
         a: 0.22,
+    },
+};
+
+/// Green on black, after the film's falling code. Borrowed from no scheme: the
+/// green is the #00FF41 usually quoted for it, and every other colour is that
+/// same green at a lower intensity, so the whole window stays a single hue.
+pub const MATRIX: Palette = Palette {
+    light: false,
+    matrix: true,
+    card: rgb(0x00, 0x05, 0x00),
+    border: rgb(0x0B, 0x3D, 0x16),
+    selected: rgb(0x06, 0x2B, 0x10),
+    hover: rgb(0x03, 0x16, 0x08),
+    text: rgb(0x00, 0xFF, 0x41),
+    faint: rgb(0x0E, 0x7A, 0x2C),
+    accent: rgb(0x00, 0xFF, 0x41),
+    tint_text: rgb(0x00, 0xFF, 0x41),
+    tint_url: rgb(0x5B, 0xFF, 0x8A),
+    tint_code: rgb(0x9C, 0xFF, 0x57),
+    tint_image: rgb(0x00, 0xC8, 0x3A),
+    tint_files: rgb(0x3F, 0xD4, 0x6B),
+    pin: rgb(0x00, 0xFF, 0x41),
+    copied: rgb(0x00, 0xFF, 0x41),
+    frame: rgb(0x01, 0x10, 0x04),
+    // A green glow rather than a shadow: on black, darkness casts nothing.
+    shadow: Color {
+        r: 0.0,
+        g: 1.0,
+        b: 0.25,
+        a: 0.18,
     },
 };
 

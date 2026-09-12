@@ -873,7 +873,29 @@ fn footer(state: &State, p: Palette) -> Element<'_, Message> {
         _ => format!("{} éléments", state.history.len()),
     };
 
-    container(row![text(left).size(11.0).color(t::alpha(p.text, 0.40))])
+    // A wink rather than a setting: the Matrix palette is one click away, and
+    // the same click brings the usual dark theme back.
+    let matrix = mouse_area(
+        text(if p.matrix { "exit matrix" } else { "matrix" })
+            .size(11.0)
+            .font(Font::MONOSPACE)
+            .color(if p.matrix {
+                p.accent
+            } else {
+                t::alpha(p.text, 0.28)
+            }),
+    )
+    .interaction(mouse::Interaction::Pointer)
+    .on_press(Message::ToggleMatrix);
+
+    container(
+        row![
+            text(left).size(11.0).color(t::alpha(p.text, 0.40)),
+            Space::new().width(Length::Fill),
+            matrix,
+        ]
+        .align_y(iced::Alignment::Center),
+    )
     .width(Length::Fill)
     .center_y(Length::Fixed(t::FOOTER_H))
     .padding(Padding::from([0, 18]))
