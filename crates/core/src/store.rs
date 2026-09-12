@@ -9,6 +9,8 @@
 //! files, never as blobs: a blob would bloat every query with bytes nobody
 //! asked for.
 
+use std::collections::HashSet;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -270,23 +272,88 @@ impl Store {
     }
 
     pub fn delete(&self, hash: u64) -> Result<(), String> {
+        let images = self.image_paths(
+            "SELECT image FROM clips WHERE hash = ?1 AND image IS NOT NULL",
+            params![hash as i64],
+        )?;
         self.conn
             .execute("DELETE FROM clips WHERE hash = ?1", params![hash as i64])
-            .map(|_| ())
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?;
+        self.forget_images(&images);
+        Ok(())
     }
 
     /// Drops the oldest unpinned entries beyond `keep`. Pinned ones are never
     /// dropped, whatever their age.
     pub fn prune(&self, keep: usize) -> Result<usize, String> {
-        self.conn
+        const DOOMED: &str = "pinned = 0 AND id NOT IN (
+                 SELECT id FROM clips WHERE pinned = 0 ORDER BY at DESC LIMIT ?1
+             )";
+        let images = self.image_paths(
+            &format!("SELECT image FROM clips WHERE {DOOMED} AND image IS NOT NULL"),
+            params![keep as i64],
+        )?;
+        let dropped = self
+            .conn
             .execute(
-                "DELETE FROM clips WHERE pinned = 0 AND id NOT IN (
-                     SELECT id FROM clips WHERE pinned = 0 ORDER BY at DESC LIMIT ?1
-                 )",
+                &format!("DELETE FROM clips WHERE {DOOMED}"),
                 params![keep as i64],
             )
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?;
+        self.forget_images(&images);
+        Ok(dropped)
+    }
+
+    /// Removes image files no row points at any more, and says how many.
+    ///
+    /// Two sources feed that pile: a crash between writing the file and
+    /// inserting its row, and every run of this program from before deletion
+    /// and pruning learnt to take the file with the row. Meant to be called
+    /// once at startup, when nothing else is touching the directory.
+    pub fn sweep_orphan_images(&self) -> Result<usize, String> {
+        let kept: HashSet<OsString> = self
+            .image_paths("SELECT image FROM clips WHERE image IS NOT NULL", [])?
+            .iter()
+            .filter_map(|p| Path::new(p).file_name().map(OsStr::to_os_string))
+            .collect();
+
+        let mut removed = 0;
+        for entry in std::fs::read_dir(&self.images)
+            .map_err(|e| e.to_string())?
+            .filter_map(Result::ok)
+        {
+            let name = entry.file_name();
+            if Path::new(&name).extension().is_some_and(|e| e == "png")
+                && !kept.contains(&name)
+                && std::fs::remove_file(entry.path()).is_ok()
+            {
+                removed += 1;
+            }
+        }
+        Ok(removed)
+    }
+
+    /// The image column of whatever rows the query selects.
+    fn image_paths(&self, sql: &str, args: impl rusqlite::Params) -> Result<Vec<String>, String> {
+        let mut stmt = self.conn.prepare(sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(args, |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+    }
+
+    /// Deletes image files whose rows have just gone. Called **after** the
+    /// rows, never before: an orphan file is invisible and recoverable, while
+    /// a row pointing at a file that is gone is an entry that fails when the
+    /// user tries to copy it.
+    fn forget_images(&self, paths: &[String]) {
+        for path in paths {
+            match std::fs::remove_file(path) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => eprintln!("could not remove {path}: {e}"),
+            }
+        }
     }
 
     pub fn count(&self) -> Result<usize, String> {
@@ -421,6 +488,89 @@ mod tests {
             "the full-text index must forget it too"
         );
         assert_eq!(store.search("keep", 10).expect("search").len(), 1);
+    }
+
+    /// Inserts `count` distinct pictures and returns them, newest first.
+    fn images(store: &Store, count: usize) -> Vec<ClipItem> {
+        let mut history = History::new(100);
+        for i in 0..count {
+            history.push(
+                ClipEvent::Image {
+                    png: format!("not really a picture, only entry {i}").into_bytes(),
+                    size: Some((10 + i as u32, 20)),
+                },
+                "test".into(),
+            );
+        }
+        let items: Vec<ClipItem> = history.items().iter().cloned().collect();
+        for item in items.iter().rev() {
+            store.insert(item).expect("insert");
+        }
+        items
+    }
+
+    fn image_files(dir: &Path) -> usize {
+        std::fs::read_dir(dir.join("images"))
+            .expect("images dir")
+            .filter_map(Result::ok)
+            .count()
+    }
+
+    #[test]
+    fn deleting_an_entry_takes_its_image_file_with_it() {
+        let dir = Temp::new("image-delete");
+        let store = Store::open(&dir.0).expect("open");
+        let items = images(&store, 3);
+        assert_eq!(image_files(&dir.0), 3);
+
+        store.delete(items[1].hash).expect("delete");
+        assert_eq!(image_files(&dir.0), 2, "the file goes with the row");
+        assert!(
+            !store.image_path(items[1].hash).exists(),
+            "and it is the right one"
+        );
+        assert!(store.image_path(items[0].hash).exists());
+    }
+
+    #[test]
+    fn pruning_takes_the_image_files_it_drops() {
+        let dir = Temp::new("image-prune");
+        let store = Store::open(&dir.0).expect("open");
+        let items = images(&store, 4);
+        store.set_pinned(items[3].hash, true).expect("pin");
+
+        store.prune(1).expect("prune");
+        // One unpinned kept, plus the pinned one: two files, two rows.
+        assert_eq!(store.count().expect("count"), 2);
+        assert_eq!(image_files(&dir.0), 2);
+        assert!(
+            store.image_path(items[3].hash).exists(),
+            "a pinned entry keeps its picture whatever its age"
+        );
+    }
+
+    #[test]
+    fn opening_sweeps_pictures_no_row_points_at() {
+        let dir = Temp::new("image-sweep");
+        let store = Store::open(&dir.0).expect("open");
+        let items = images(&store, 2);
+
+        // What every version before this one left behind: a file whose row was
+        // pruned away, and one written just before a crash.
+        std::fs::write(dir.0.join("images").join("deadbeefdeadbeef.png"), b"orphan")
+            .expect("write");
+        std::fs::write(dir.0.join("images").join("0123456789abcdef.png"), b"orphan")
+            .expect("write");
+        assert_eq!(image_files(&dir.0), 4);
+
+        assert_eq!(store.sweep_orphan_images().expect("sweep"), 2);
+        assert_eq!(image_files(&dir.0), 2);
+        for item in &items {
+            assert!(
+                store.image_path(item.hash).exists(),
+                "a picture with a row is never swept"
+            );
+        }
     }
 
     #[test]

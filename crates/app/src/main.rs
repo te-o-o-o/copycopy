@@ -416,6 +416,13 @@ fn boot() -> (State, Task<Message>) {
         Some(dir) => match Store::open(dir) {
             Ok(store) => {
                 println!("database: {}", dir.join("copycopy.db").display());
+                // Pictures whose rows are long gone: nothing can reach them,
+                // and nothing else would ever remove them.
+                match store.sweep_orphan_images() {
+                    Ok(0) => {}
+                    Ok(n) => println!("{n} orphan image file(s) removed"),
+                    Err(e) => eprintln!("could not sweep orphan images: {e}"),
+                }
                 Some(store)
             }
             Err(e) => {

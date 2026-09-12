@@ -369,6 +369,12 @@ beside it and their bytes are read only when an entry is copied — reading ever
 PNG back to draw a list of text rows would make each keystroke hit the disk. An
 entry drops its bytes as soon as its file is written, so nothing is held twice.
 
+A picture is named after its content hash, and no two rows share one, so a file
+nothing points at can never be reached again. Deleting an entry and pruning the
+history therefore take the file with the row, and startup sweeps whatever is
+left over — from a crash between writing the file and inserting its row, and
+from every version that pruned rows without touching the disk.
+
 Search splits at three characters. Below that it filters the loaded window in
 memory, which a trigram index cannot answer. At three or more it queries the
 database, so entries older than that window are found too. The **trigram**
