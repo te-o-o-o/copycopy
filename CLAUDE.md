@@ -105,8 +105,12 @@ workbench, never as product defects — but equally, never take a WSL success as
 proof that a target platform works.
 
 - **X11 capture**: run and tested.
-- **Wayland, Windows, macOS**: written and type-checked against their real
-  targets, but never executed. Do not describe them as working.
+- **Windows**: run for real — text and image capture, and copying back, work.
+  Built from WSL with MinGW (`--target x86_64-pc-windows-gnu`); WSL launches
+  the `.exe` directly as a native Windows process.
+- **Wayland, macOS**: written, never executed. Do not describe them as working.
+  Since rusqlite `bundled` they no longer type-check from Linux either: SQLite
+  is C, and compiling it needs the target's own toolchain.
 - **Global shortcut**: verified on X11, including an actual trigger. Under WSL
   it cannot fire from Windows applications — `XGrabKey` only sees keys reaching
   the WSLg X server. That is structural.
@@ -126,7 +130,3 @@ proof that a target platform works.
 Diagnostic tools live as `examples`: `fake_owner`, `press_key`, `echo` and
 `targets` (platform), `band`, `edges`, `pixel`, `zoom`, `compare` (app). Prefer
 checking a claim with one of them over asserting it.
-
-## Next step
-
-SQLite persistence with FTS5 — history does not survive the resident stopping.
