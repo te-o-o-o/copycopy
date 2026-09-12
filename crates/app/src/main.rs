@@ -108,6 +108,8 @@ pub enum Message {
     Select(usize),
     /// Delete the entry at that row, from the cross.
     Delete(usize),
+    /// Copy the entry at that row, from its copy button.
+    CopyRow(usize),
     Hover(usize),
     Unhover(usize),
     Activate,
@@ -564,6 +566,10 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::Delete(index) => {
             state.select(index);
             state.delete_selected()
+        }
+        Message::CopyRow(index) => {
+            state.select(index);
+            state.activate()
         }
         Message::Hover(index) => {
             state.hovered = Some(index);
