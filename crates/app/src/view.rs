@@ -505,17 +505,18 @@ fn row_widget(
 
     let body = column![top, meta].spacing(2);
 
-    let ground = if copied {
-        t::alpha(t::COPIED, 0.30)
-    } else if hovered {
-        t::HOVER
-    } else {
-        t::CARD
-    };
-    let background = if selected > 0.0 {
+    // Ranked, and the order is the whole point. The row being copied is almost
+    // always the selected one — you press Enter on it — so with the selection
+    // first the green was never reached: the confirmation came down to a three
+    // pixel accent bar, and a copy read as nothing happening at all.
+    let background = if copied {
+        Some(Background::Color(t::alpha(t::COPIED, 0.38)))
+    } else if selected > 0.0 {
         Some(Background::Color(t::alpha(t::SELECTED, selected)))
+    } else if hovered {
+        Some(Background::Color(t::HOVER))
     } else {
-        (ground != t::CARD).then_some(Background::Color(ground))
+        None
     };
 
     // The pin sits on the left, and its slot is laid out whether or not
