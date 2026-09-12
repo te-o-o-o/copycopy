@@ -395,6 +395,28 @@ mod tests {
     }
 
     #[test]
+    fn deleting_removes_the_row_and_its_index_entry() {
+        let dir = Temp::new("delete");
+        let store = Store::open(&dir.0).expect("open");
+        let items = entries(&["keep this one", "delete that one"]);
+        for item in &items {
+            store.insert(item).expect("insert");
+        }
+        let doomed = items
+            .iter()
+            .find(|i| i.preview.contains("delete"))
+            .expect("item");
+        store.delete(doomed.hash).expect("delete");
+
+        assert_eq!(store.count().expect("count"), 1);
+        assert!(
+            store.search("delete", 10).expect("search").is_empty(),
+            "the full-text index must forget it too"
+        );
+        assert_eq!(store.search("keep", 10).expect("search").len(), 1);
+    }
+
+    #[test]
     fn images_go_to_disk_not_into_the_database() {
         let dir = Temp::new("image");
         let store = Store::open(&dir.0).expect("open");

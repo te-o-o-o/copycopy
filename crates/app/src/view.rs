@@ -161,6 +161,36 @@ impl canvas::Program<Message> for Pin {
     }
 }
 
+/// Delete affordance. Drawn rather than a glyph: `×` and `✕` differ wildly in
+/// weight from one font to the next, and this one has to stay discreet.
+struct Cross {
+    color: iced::Color,
+}
+
+impl canvas::Program<Message> for Cross {
+    type State = ();
+
+    fn draw(
+        &self,
+        _state: &Self::State,
+        renderer: &iced::Renderer,
+        _theme: &iced::Theme,
+        bounds: Rectangle,
+        _cursor: iced::mouse::Cursor,
+    ) -> Vec<canvas::Geometry> {
+        let mut frame = canvas::Frame::new(renderer, bounds.size());
+        let stroke = || {
+            canvas::Stroke::default()
+                .with_color(self.color)
+                .with_width(1.6)
+        };
+        let (a, b) = (4.5, 11.5);
+        frame.stroke(&canvas::Path::line(Point::new(a, a), Point::new(b, b)), stroke());
+        frame.stroke(&canvas::Path::line(Point::new(b, a), Point::new(a, b)), stroke());
+        vec![frame.into_geometry()]
+    }
+}
+
 fn header(state: &State) -> Element<'_, Message> {
     // No `on_submit`: Enter goes through the global keyboard listener, or it
     // would be handled twice.
@@ -189,7 +219,9 @@ fn header(state: &State) -> Element<'_, Message> {
                 Space::new().width(Length::Fixed(12.0)),
                 field,
                 Space::new().width(Length::Fixed(20.0)),
-                text("↑↓ naviguer   ·   Enter copier   ·   Ctrl-B épingler   ·   Esc")
+                // The arrows need no caption; deleting does, since nothing
+                // else in the window hints that it is possible.
+                text("Enter copier   ·   Ctrl-B épingler   ·   Suppr supprimer   ·   Esc")
                     .size(11.0)
                     .color(t::FAINT),
             ]
@@ -368,14 +400,41 @@ fn row_widget(
     ]
     .align_y(iced::Alignment::Center);
 
-    if item.pinned {
-        content = content.push(
-            canvas(Pin)
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(18.0)),
-        );
-        content = content.push(Space::new().width(Length::Fixed(10.0)));
-    }
+    // Right-hand gutter: the pin slot, then the cross slot. Both are always
+    // laid out; only what they contain is conditional.
+    let pin_slot: Element<'_, Message> = if item.pinned {
+        canvas(Pin)
+            .width(Length::Fixed(t::SLOT))
+            .height(Length::Fixed(18.0))
+            .into()
+    } else {
+        Space::new().width(Length::Fixed(t::SLOT)).into()
+    };
+
+    // Shown on the row under the pointer, and on the selected row, so one is
+    // always visible without repeating a cross on every line.
+    let show_cross = hovered || selected > 0.5;
+    let cross_slot: Element<'_, Message> = if show_cross {
+        mouse_area(
+            container(
+                canvas(Cross {
+                    color: if hovered { t::TEXT } else { t::alpha(t::TEXT, 0.45) },
+                })
+                .width(Length::Fixed(t::SLOT))
+                .height(Length::Fixed(t::SLOT)),
+            )
+            .center_y(Length::Fixed(t::ROW_H - 2.0 * t::ROW_GAP)),
+        )
+        .interaction(mouse::Interaction::Pointer)
+        .on_press(Message::Delete(index))
+        .into()
+    } else {
+        Space::new().width(Length::Fixed(t::SLOT)).into()
+    };
+
+    content = content.push(pin_slot);
+    content = content.push(Space::new().width(Length::Fixed(8.0)));
+    content = content.push(cross_slot);
 
     // No end-of-line fade: the `stack` overlay that produced it stopped the
     // row from repainting — the text stayed frozen on its first render, then
