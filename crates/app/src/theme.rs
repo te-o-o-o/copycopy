@@ -107,22 +107,20 @@ pub struct Palette {
 
 /// Base16 Purpledream, by malet — values from the tinted-theming scheme, mapped
 /// onto the interface roles. The grounds walk the scheme's purple-black ramp
-/// (base00 card, base01 selection). Three values are invented: the hover, which
-/// sits between base00 and base01 because the scheme has no step there, and a
-/// pale pink for the window's lines and small print, chosen to answer the
-/// magenta accent. The lines take a deeper pink than the text: a one-pixel line
-/// in the text's pink reads as white. The badge tints use the scheme's accent
-/// colours untouched.
+/// (base00 card, base01 selection, base02 border); the one invented value is
+/// the hover, which sits between base00 and base01 because the scheme has no
+/// step there. The window's small print takes the scheme's gold, base09, and
+/// the badge tints use its accent colours untouched.
 pub const DARK: Palette = Palette {
     light: false,
     matrix: false,
     card: rgb(0x10, 0x05, 0x10),     // base00
-    border: rgb(0xC9, 0x8F, 0xB4),
+    border: rgb(0x40, 0x30, 0x40),   // base02
     selected: rgb(0x30, 0x20, 0x30), // base01
     hover: rgb(0x1E, 0x10, 0x1E),
     text: rgb(0xDD, 0xD0, 0xDD),       // base05
     faint: rgb(0x60, 0x50, 0x60),      // base03
-    chrome: rgb(0xE8, 0xB4, 0xD0),
+    chrome: rgb(0xCC, 0xAE, 0x14),     // base09
     accent: rgb(0xF0, 0x00, 0xA0),     // base0A
     tint_text: rgb(0x00, 0xA0, 0xF0),  // base0D
     tint_url: rgb(0x14, 0xCC, 0x64),   // base0B
