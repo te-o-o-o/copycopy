@@ -8,7 +8,9 @@
 use iced::widget::{
     canvas, column, container, mouse_area, row, scrollable, text, text_input, Space,
 };
-use iced::{mouse, window, Background, Border, Element, Length, Padding, Point, Rectangle};
+use iced::{
+    font, mouse, window, Background, Border, Element, Font, Length, Padding, Point, Rectangle,
+};
 
 use copycopy_core::ClipItem;
 
@@ -232,6 +234,9 @@ fn list(state: &State) -> Element<'_, Message> {
     // Neither `spacing` nor vertical margin: the pitch from one row to the
     // next must be exactly ROW_H, otherwise the virtualisation spacers drift
     // away from the real scroll position.
+    let position = state
+        .selection
+        .interpolate_with(|v| v, std::time::Instant::now());
     let mut rows = column![];
     if skip > 0 {
         rows = rows.push(Space::new().height(Length::Fixed(skip as f32 * t::ROW_H)));
@@ -240,10 +245,13 @@ fn list(state: &State) -> Element<'_, Message> {
         let Some(item) = state.history.get(state.filtered[index]) else {
             continue;
         };
+        // Distance to the animated selection: 1 on the incoming row, 0 once
+        // it has moved away, and a blend in between.
+        let weight = (1.0 - (index as f32 - position).abs()).clamp(0.0, 1.0);
         rows = rows.push(row_widget(
             item,
             index,
-            index == state.selected,
+            weight,
             state.hovered == Some(index),
             state.copied == Some(item.id),
         ));
@@ -289,7 +297,7 @@ fn list(state: &State) -> Element<'_, Message> {
 fn row_widget(
     item: &ClipItem,
     index: usize,
-    selected: bool,
+    selected: f32,
     hovered: bool,
     copied: bool,
 ) -> Element<'_, Message> {
@@ -301,10 +309,12 @@ fn row_widget(
         .width(Length::Fixed(3.0))
         .height(Length::Fixed(24.0))
         .style(move |_| container::Style {
-            background: match (copied, selected) {
-                (true, _) => Some(Background::Color(t::COPIED)),
-                (false, true) => Some(Background::Color(t::ACCENT)),
-                _ => None,
+            background: if copied {
+                Some(Background::Color(t::COPIED))
+            } else if selected > 0.0 {
+                Some(Background::Color(t::alpha(t::ACCENT, selected)))
+            } else {
+                None
             },
             border: Border::default().rounded(2),
             ..Default::default()
@@ -330,13 +340,20 @@ fn row_widget(
     };
 
     let body = column![
+        // Weight carries the hierarchy, and the meta line recedes through
+        // opacity rather than a flat grey: it keeps the same hue as the
+        // preview, so the two read as one block seen at two depths.
         text(item.preview.as_str())
             .size(14.0)
+            .font(Font {
+                weight: font::Weight::Semibold,
+                ..Font::DEFAULT
+            })
             .color(t::TEXT)
             .wrapping(text::Wrapping::None),
         text(format!("{}  ·  {}", source, item.age()))
             .size(11.0)
-            .color(t::FAINT)
+            .color(t::alpha(t::TEXT, 0.42))
             .wrapping(text::Wrapping::None),
     ]
     .spacing(2)
@@ -366,14 +383,16 @@ fn row_widget(
     // x, which reads as a column boundary.
     let ground = if copied {
         t::alpha(t::COPIED, 0.30)
-    } else if selected {
-        t::SELECTED
     } else if hovered {
         t::HOVER
     } else {
         t::CARD
     };
-    let background = (ground != t::CARD).then(|| Background::Color(ground));
+    let background = if selected > 0.0 {
+        Some(Background::Color(t::alpha(t::SELECTED, selected)))
+    } else {
+        (ground != t::CARD).then(|| Background::Color(ground))
+    };
 
     let highlight = container(content)
         .width(Length::Fill)
@@ -406,24 +425,10 @@ fn row_widget(
 fn footer(state: &State) -> Element<'_, Message> {
     let left = match &state.flash {
         Some((msg, at)) if at.elapsed().as_secs_f32() < 3.0 => msg.clone(),
-        _ => format!(
-            "{} éléments   ·   {}",
-            state.history.len(),
-            state
-                .backend
-                .map(|b| b.label())
-                .unwrap_or("capture indisponible")
-        ),
+        _ => format!("{} éléments", state.history.len()),
     };
 
-    container(
-        row![
-            text(left).size(11.0).color(t::DIM),
-            Space::new().width(Length::Fill),
-            text(state.fonts_note.as_str()).size(11.0).color(t::FAINT),
-        ]
-        .align_y(iced::Alignment::Center),
-    )
+    container(row![text(left).size(11.0).color(t::alpha(t::TEXT, 0.40))])
     .width(Length::Fill)
     .center_y(Length::Fixed(t::FOOTER_H))
     .padding(Padding::from([0, 18]))

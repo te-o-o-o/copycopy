@@ -28,6 +28,7 @@ use std::time::{Duration, Instant};
 use copycopy_core::{ClipEvent, History};
 use copycopy_platform::{BackendKind, Capture, Setter};
 use iced::widget::scrollable;
+use iced::Animation;
 use iced::{keyboard, window, Subscription, Task, Theme};
 
 use config::Config;
@@ -42,6 +43,9 @@ const FOCUS_GRACE: Duration = Duration::from_millis(600);
 /// How long the copied row stays highlighted before the window closes. Long
 /// enough to register, short enough not to feel like a wait.
 const COPY_FLASH: Duration = Duration::from_millis(160);
+/// Cross-fade of the selection highlight. Short enough to feel immediate,
+/// long enough to read as a movement rather than a jump.
+const SELECT_FADE: Duration = Duration::from_millis(110);
 
 static BOOT: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
 /// Wake-ups from the global shortcut and from the IPC. Parked here because
@@ -63,17 +67,19 @@ pub struct State {
     pub filtered: Vec<usize>,
     pub query: String,
     pub selected: usize,
+    /// The selected index, animated. Each row derives its highlight from the
+    /// distance to this value, so the outgoing row fades out while the
+    /// incoming one fades in — a slide would need an overlay, and overlays
+    /// break repainting here.
+    pub selection: Animation<f32>,
     pub hovered: Option<usize>,
     pub scroll_y: f32,
     pub viewport_h: f32,
-    pub backend: Option<BackendKind>,
     pub flash: Option<(String, Instant)>,
     /// Id of the entry that was just copied, highlighted until the window
     /// closes. Stored as an id rather than a row index so it survives any
     /// reordering.
     pub copied: Option<u64>,
-    pub fonts_note: String,
-    pub hotkey_note: String,
     setter: Setter,
     config: Config,
     /// The window is created **once**, on the first open, then shown and
@@ -98,6 +104,8 @@ pub enum Message {
     Activate,
     /// The copy confirmation has been shown long enough; close.
     FinishCopy,
+    /// A frame tick, only while the selection is animating.
+    Redraw,
     Scrolled(scrollable::Viewport),
     Key(keyboard::Event),
     Backend(BackendKind),
@@ -128,6 +136,12 @@ impl State {
         self.selected = self.selected.min(self.filtered.len().saturating_sub(1));
     }
 
+    /// Moves the selection and starts the cross-fade.
+    fn select(&mut self, index: usize) {
+        self.selected = index;
+        self.selection.go_mut(index as f32, Instant::now());
+    }
+
     fn flash(&mut self, msg: impl Into<String>) {
         self.flash = Some((msg.into(), Instant::now()));
     }
@@ -156,7 +170,8 @@ impl State {
         if len == 0 {
             return Task::none();
         }
-        self.selected = ((self.selected as isize + delta).rem_euclid(len as isize)) as usize;
+        let next = ((self.selected as isize + delta).rem_euclid(len as isize)) as usize;
+        self.select(next);
         self.reveal_selected()
     }
 
@@ -214,7 +229,7 @@ impl State {
         self.config.save();
         self.copied = None;
         self.query.clear();
-        self.selected = 0;
+        self.select(0);
         self.hovered = None;
         self.scroll_y = 0.0;
         self.refilter();
@@ -328,11 +343,14 @@ fn boot() -> (State, Task<Message>) {
     println!("`copycopy --show` ouvre la fenêtre, `--quit` arrête le résident\n");
 
     let loaded = fonts::extra();
-    let fonts_note = if loaded.paths.is_empty() {
-        "polices : système".to_string()
-    } else {
-        format!("polices : système + {} d'appoint", loaded.paths.len())
-    };
+    println!(
+        "fonts: system{}",
+        if loaded.paths.is_empty() {
+            String::new()
+        } else {
+            format!(" + {} fallback file(s)", loaded.paths.len())
+        }
+    );
 
     let mut history = History::new(CAPACITY);
     if args.demo {
@@ -344,14 +362,12 @@ fn boot() -> (State, Task<Message>) {
         filtered: Vec::new(),
         query: args.query,
         selected: 0,
+        selection: Animation::new(0.0).duration(SELECT_FADE),
         hovered: None,
         scroll_y: 0.0,
         viewport_h: 430.0,
-        backend: None,
         flash: None,
         copied: None,
-        fonts_note,
-        hotkey_note: hotkeys.status.clone(),
         setter: Setter::new(),
         config: config.clone(),
         window: None,
@@ -384,12 +400,12 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
     match message {
         Message::Query(q) => {
             state.query = q;
-            state.selected = 0;
+            state.select(0);
             state.refilter();
             state.reveal_selected()
         }
         Message::Select(i) => {
-            state.selected = i;
+            state.select(i);
             Task::none()
         }
         Message::Hover(i) => {
@@ -398,13 +414,16 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::Activate => state.activate(),
         Message::FinishCopy => state.hide(),
+        Message::Redraw => Task::none(),
         Message::Scrolled(viewport) => {
             state.scroll_y = viewport.absolute_offset().y;
             state.viewport_h = viewport.bounds().height;
             Task::none()
         }
         Message::Backend(kind) => {
-            state.backend = Some(kind);
+            // Console rather than the footer: it tells the developer which
+            // backend won, and has no place in the window.
+            println!("capture backend: {}", kind.label());
             Task::none()
         }
         Message::Captured(capture) => {
@@ -556,7 +575,7 @@ fn handle_key(state: &mut State, event: keyboard::Event) -> Task<Message> {
                         .iter()
                         .position(|&i| state.history.get(i).is_some_and(|it| it.id == id))
                 }) {
-                    state.selected = pos;
+                    state.select(pos);
                 }
                 state.reveal_selected()
             }
@@ -654,6 +673,9 @@ fn subscription(state: &State) -> Subscription<Message> {
         Subscription::run(clipboard_stream),
         Subscription::run(wake_stream),
     ];
+    if state.selection.is_animating(Instant::now()) {
+        subs.push(window::frames().map(|_| Message::Redraw));
+    }
     if state.copied.is_some() {
         // Fires once: the subscription disappears with `copied` when the
         // window closes.
