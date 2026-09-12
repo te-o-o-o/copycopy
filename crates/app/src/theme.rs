@@ -76,6 +76,12 @@ pub struct Palette {
     /// accent: the accent already marks the selection, and a confirmation has
     /// to read as different, not as more.
     pub copied: Color,
+    /// Ground of the Carbon-style window around a text preview. A step away
+    /// from the card, so the window reads as an object set on the panel.
+    pub frame: Color,
+    /// Its drop shadow. Near-black on the dark theme, a warm brown on the light
+    /// one: a grey shadow on cream reads as dirt, not depth.
+    pub shadow: Color,
 }
 
 /// Base16 Purpledream, by malet — values from the tinted-theming scheme, mapped
@@ -100,6 +106,13 @@ pub const DARK: Palette = Palette {
     tint_files: rgb(0x00, 0x75, 0xB0), // base0C
     pin: rgb(0x14, 0xCC, 0x64),        // base0B
     copied: rgb(0x14, 0xCC, 0x64),     // base0B
+    frame: rgb(0x30, 0x20, 0x30),      // base01
+    shadow: Color {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 0.55,
+    },
 };
 
 /// Aalto Light, warmed and dimmed: its cream ground (#FFFFE0) is nearly as
@@ -122,6 +135,13 @@ pub const LIGHT: Palette = Palette {
     tint_files: rgb(0x5F, 0x9E, 0xA0),
     pin: rgb(0x22, 0x8B, 0x22),
     copied: rgb(0x22, 0x8B, 0x22),
+    frame: rgb(0xF9, 0xF5, 0xE3),
+    shadow: Color {
+        r: 0.35,
+        g: 0.27,
+        b: 0.08,
+        a: 0.22,
+    },
 };
 
 impl Palette {

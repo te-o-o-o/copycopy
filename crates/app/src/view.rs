@@ -710,17 +710,7 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
                         .color(p.faint),
                 );
             }
-            scrollable(container(lines).padding(Padding {
-                top: 0.0,
-                right: 14.0,
-                bottom: 16.0,
-                left: 0.0,
-            }))
-            .id(PREVIEW_ID)
-            .height(Length::Fill)
-            .direction(thin_scrollbar())
-            .style(quiet_scroll(p))
-            .into()
+            framed(lines.into(), p)
         }
         // ScaleDown, never up: a small screenshot stays sharp at its real size
         // instead of being blown up into a blur.
@@ -732,7 +722,7 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         .center_x(Length::Fill)
         .center_y(Length::Fill)
         .into(),
-        Preview::Files(paths) => scrollable(
+        Preview::Files(paths) => framed(
             iced::widget::Column::with_children(paths.iter().map(|path| {
                 text(path.as_str())
                     .size(12.5)
@@ -740,13 +730,10 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
                     .color(p.text)
                     .into()
             }))
-            .spacing(6),
-        )
-        .id(PREVIEW_ID)
-        .height(Length::Fill)
-        .direction(thin_scrollbar())
-        .style(quiet_scroll(p))
-        .into(),
+            .spacing(6)
+            .into(),
+            p,
+        ),
         Preview::Unavailable(why) => text(why.as_str()).size(12.0).color(p.faint).into(),
         Preview::Empty => Space::new().into(),
     };
@@ -770,6 +757,92 @@ fn plural(n: usize, one: &'static str, many: &'static str) -> &'static str {
         many
     } else {
         one
+    }
+}
+
+/// A Carbon-style window around a text preview: rounded, lifted off the panel
+/// by a shadow, three dots on top. Built through layout like everything else —
+/// the dots are a row above the text, not a layer laid over it.
+fn framed<'a>(inner: Element<'a, Message>, p: Palette) -> Element<'a, Message> {
+    let dots = canvas(WindowDots)
+        .width(Length::Fixed(52.0))
+        .height(Length::Fixed(12.0));
+
+    let body = scrollable(container(inner).padding(Padding {
+        top: 0.0,
+        right: 16.0,
+        bottom: 0.0,
+        left: 0.0,
+    }))
+    .id(PREVIEW_ID)
+    // Shrink, as in Carbon: a short entry gets a small window hugging it, a
+    // long one grows until the panel is full and then scrolls inside.
+    .height(Length::Shrink)
+    .direction(thin_scrollbar())
+    .style(quiet_scroll(p));
+
+    let window = container(column![dots, body].spacing(14))
+        .padding(Padding {
+            top: 14.0,
+            right: 6.0,
+            bottom: 18.0,
+            left: 18.0,
+        })
+        .width(Length::Fill)
+        .style(move |_| container::Style {
+            background: Some(Background::Color(p.frame)),
+            border: Border {
+                color: t::alpha(p.border, 0.6),
+                width: 1.0,
+                radius: 10.0.into(),
+            },
+            shadow: iced::Shadow {
+                color: p.shadow,
+                offset: iced::Vector::new(0.0, 8.0),
+                blur_radius: 22.0,
+            },
+            ..Default::default()
+        });
+
+    // Room around the window for the shadow to fall into, mostly below.
+    container(window)
+        .padding(Padding {
+            top: 2.0,
+            right: 12.0,
+            bottom: 24.0,
+            left: 0.0,
+        })
+        .width(Length::Fill)
+        .into()
+}
+
+/// The three dots of Carbon's window — macOS's close, minimise and zoom
+/// colours. Fixed rather than taken from the palette: they quote that window
+/// chrome, and read as a quotation in either theme.
+struct WindowDots;
+
+impl canvas::Program<Message> for WindowDots {
+    type State = ();
+
+    fn draw(
+        &self,
+        _state: &Self::State,
+        renderer: &iced::Renderer,
+        _theme: &iced::Theme,
+        bounds: Rectangle,
+        _cursor: iced::mouse::Cursor,
+    ) -> Vec<canvas::Geometry> {
+        let mut frame = canvas::Frame::new(renderer, bounds.size());
+        let colours = [
+            iced::Color::from_rgb8(0xFF, 0x5F, 0x56),
+            iced::Color::from_rgb8(0xFF, 0xBD, 0x2E),
+            iced::Color::from_rgb8(0x27, 0xC9, 0x3F),
+        ];
+        for (i, colour) in colours.into_iter().enumerate() {
+            let centre = Point::new(6.0 + i as f32 * 19.0, 6.0);
+            frame.fill(&canvas::Path::circle(centre, 5.5), colour);
+        }
+        vec![frame.into_geometry()]
     }
 }
 
