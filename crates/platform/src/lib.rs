@@ -149,10 +149,13 @@ pub fn start(prefer: Option<&str>) -> Result<Watcher, String> {
     })
 }
 
+/// A normalised picture: PNG bytes, plus its dimensions when they are known.
+pub(crate) type Png = (Vec<u8>, Option<(u32, u32)>);
+
 /// Normalises whatever image bytes the clipboard offered into PNG, which is the
 /// single format kept internally. PNG is passed through untouched; anything
 /// else is decoded and re-encoded.
-pub(crate) fn to_png(bytes: Vec<u8>) -> Option<(Vec<u8>, Option<(u32, u32)>)> {
+pub(crate) fn to_png(bytes: Vec<u8>) -> Option<Png> {
     if bytes.is_empty() {
         return None;
     }

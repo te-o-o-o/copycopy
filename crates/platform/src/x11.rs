@@ -197,8 +197,10 @@ fn read_clipboard(&mut self) -> Result<Option<ClipEvent>, String> {
     let atoms_targets = self.atoms.targets;
     let (_, targets_raw) = self.convert_and_read(atoms_targets)?;
     let targets: Vec<u32> = targets_raw
-        .chunks_exact(4)
-        .map(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]]))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|c| u32::from_ne_bytes(*c))
         .collect();
 
     // A password manager is announcing that the content is secret, so we

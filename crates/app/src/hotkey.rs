@@ -62,20 +62,6 @@ fn key_code(name: &str) -> Option<Code> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn common_shortcuts() {
-        assert!(parse("Ctrl+Alt+V").is_some());
-        assert!(parse("Cmd+Shift+V").is_some());
-        assert!(parse("Super+Space").is_some());
-        assert!(parse("Ctrl+Alt+F1").is_some());
-        assert!(parse("Ctrl+Alt").is_none(), "no key: must fail");
-        assert!(parse("Ctrl+Alt+Zzz").is_none(), "unknown key");
-    }
-}
 
 /// Under Wayland, `XGrabKey` only sees X11 applications, so the shortcut will
 /// not fire from a native Wayland application.
@@ -108,7 +94,7 @@ pub fn register(spec: &str) -> Hotkeys {
 
     match manager.register(hotkey) {
         Ok(()) => {
-            let mut status = format!("{spec}");
+            let mut status = spec.to_string();
             if cfg!(target_os = "linux") && wayland_session() {
                 status.push_str(" (X11 seulement — voir --show sous Wayland)");
             }
@@ -141,4 +127,19 @@ pub fn spawn_bridge(on_press: impl Fn() + Send + 'static) {
             }
         })
         .expect("thread raccourci");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn common_shortcuts() {
+        assert!(parse("Ctrl+Alt+V").is_some());
+        assert!(parse("Cmd+Shift+V").is_some());
+        assert!(parse("Super+Space").is_some());
+        assert!(parse("Ctrl+Alt+F1").is_some());
+        assert!(parse("Ctrl+Alt").is_none(), "no key: must fail");
+        assert!(parse("Ctrl+Alt+Zzz").is_none(), "unknown key");
+    }
 }

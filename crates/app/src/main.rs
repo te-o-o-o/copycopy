@@ -882,31 +882,6 @@ fn headless(seconds: Option<u64>) {
     println!("\n{} entrées retenues", history.len());
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn pinned_entries_float_to_the_top() {
-        let mut history = History::new(10);
-        for name in ["a", "b", "c", "d"] {
-            history.push(ClipEvent::Text(name.into()), "test".into());
-        }
-        // Newest first at this point: d, c, b, a.
-        history.toggle_pin(3); // "a", the oldest
-        history.toggle_pin(1); // "c"
-
-        let mut items: Vec<ClipItem> = history.items().iter().cloned().collect();
-        pinned_first(&mut items);
-
-        let order: Vec<&str> = items.iter().map(|it| it.preview.as_str()).collect();
-        assert_eq!(
-            order,
-            ["c", "a", "d", "b"],
-            "pinned first, recency kept inside each group"
-        );
-    }
-}
 
 fn main() -> iced::Result {
     let _ = BOOT.set(Instant::now());
@@ -973,4 +948,30 @@ fn main() -> iced::Result {
         app = app.font(font);
     }
     app.run()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pinned_entries_float_to_the_top() {
+        let mut history = History::new(10);
+        for name in ["a", "b", "c", "d"] {
+            history.push(ClipEvent::Text(name.into()), "test".into());
+        }
+        // Newest first at this point: d, c, b, a.
+        history.toggle_pin(3); // "a", the oldest
+        history.toggle_pin(1); // "c"
+
+        let mut items: Vec<ClipItem> = history.items().iter().cloned().collect();
+        pinned_first(&mut items);
+
+        let order: Vec<&str> = items.iter().map(|it| it.preview.as_str()).collect();
+        assert_eq!(
+            order,
+            ["c", "a", "d", "b"],
+            "pinned first, recency kept inside each group"
+        );
+    }
 }
