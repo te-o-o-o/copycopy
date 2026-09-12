@@ -6,8 +6,10 @@ It is a **resident process**: it captures continuously and only opens its window
 on demand. Without that it would only remember what you copy while you are
 looking at it — which was the real hole in the first version.
 
-History is in memory for now: **SQLite persistence is not written yet**, so
-everything is lost when the resident stops.
+The history is kept in a SQLite database compiled into the binary, so there is
+nothing to install on any system. **Portable mode**: put a `copycopy.conf` next
+to the executable and the configuration, the database and the images all live in
+that directory, leaving the host machine untouched.
 
 *Une version française de ce document est disponible dans [README.fr.md](README.fr.md).*
 
@@ -28,7 +30,8 @@ cargo run -p copycopy-platform --example fake_owner -- "text" Firefox 3
 ```
 
 Navigation: `↑↓` / `Ctrl-N` `Ctrl-P`, `PageUp/Down`, `Enter` to copy,
-`Ctrl-B` to pin, `Ctrl-D` to delete, `Esc` to close. `Home`/`End` are left to
+`Ctrl-B` to pin, `Delete` or `Ctrl-D` to remove — also reachable through the
+cross that appears on the hovered and selected rows. `Esc` closes. `Home`/`End` are left to
 the search field — inside a text input, moving the caret is what you expect.
 
 ## Opening: global shortcut and IPC
@@ -106,9 +109,10 @@ and find it where you left it.
 ## Copying
 
 `Enter` or double-click → the content goes to the clipboard and the window
-closes. **No "Copied" toast**: the window disappearing *is* the confirmation,
-and a toast would mean keeping the window open at the exact moment you want to
-be back in your application, pasting.
+closes. The copied row flashes green for 160 ms first: the window disappearing
+confirms that *something* happened, but not *which* entry reached the clipboard.
+No toast beyond that — one would mean keeping the window open at the exact moment
+you want to be back in your application, pasting.
 
 The real goal is still automatic **pasting** (simulating `Ctrl+V` after
 closing), still to be done: `SendInput` on Windows, XTEST on X11, CGEvent on
@@ -158,16 +162,30 @@ next must be **exactly** `ROW_H` (no `spacing` on the column, no vertical
 margin), otherwise the spacers drift away from the real scroll position.
 `--scroll N` exists to check this in a screenshot.
 
-### Defect fixed, though never explained
+### Known defect, still open
 
-The "source · age" line of each row used to fail to draw roughly 3 times out of
-4 when the window was opened after the resident had started. Six consecutive
-runs of that scenario now draw it every time.
+The "source · age" line of a row sometimes fails to draw. It was declared fixed
+after six passes of a single scenario: that was premature — the scenario had
+simply stopped triggering it. It still occurs, intermittently, on other paths:
+freshly captured entries lose the line in some runs and keep it in others, with
+identical data.
 
-The likely cause: rows are no longer indices into the in-memory history —
-`refilter()` materialises a `Vec<ClipItem>` and the list is rebuilt from it,
-which changed how iced diffs the widget tree. This was never isolated, so treat
-it as fixed but unexplained, and look there first if it returns.
+Ruled out, each by isolating it: `clip`, the resize frame, a `stack` overlay, an
+empty source, the payload type, and an image thumbnail in the badge slot.
+`view()` always produces the right string — verified by tracing — and the header
+and footer, outside the `scrollable`, always draw.
+
+Weighed against that: **this has only ever been seen under WSLg, by tooling,
+never by someone using the application.** The same workbench has produced three
+other phantoms — cursor shapes that never apply, a shortcut invisible to Windows
+applications, a Wayland surface XTEST cannot drive. Treat it as a likely fourth
+until someone sees it on a target platform. Do not spend another session on it
+without that.
+
+**Next is a minimal reproduction**, roughly twenty lines with a `scrollable`
+whose rows hold two stacked texts, to find out whether an iced bug should be
+reported or a misuse corrected. Chasing it inside the application has cost
+several sessions and produced only eliminations.
 
 ### Rendering pitfall: `stack` freezes what it covers
 
@@ -331,10 +349,29 @@ cargo check --workspace --target aarch64-apple-darwin
 cargo run -p copycopy-platform --example wl_globals   # Wayland globals exposed
 ```
 
+## Persistence and search
+
+SQLite through rusqlite's `bundled` feature: the database ships inside the
+binary, with no system library to install anywhere. Images are written as files
+beside it and their bytes are read only when an entry is copied — reading every
+PNG back to draw a list of text rows would make each keystroke hit the disk.
+
+Search splits at three characters. Below that it filters the loaded window in
+memory, which a trigram index cannot answer. At three or more it queries the
+database, so entries older than that window are found too. The **trigram**
+tokeniser rather than the default one: a clipboard is searched by fragment, not
+by word, and trigram also indexes languages without spaces, so CJK content stays
+reachable. The threshold changes engine, not just narrowness — two characters
+and three do not filter alike.
+
+Pinned entries lead the list, recency ordering inside each group, and pruning
+never drops them. Rows carry the payload size when there is more than the line
+shows — counted on the full content, not on the preview, which is itself capped.
+
 ## Next step
 
-SQLite persistence with FTS5 for search — history does not survive the resident
-stopping yet.
+A detail pane: previews are clipped at a constant width, and an image is only
+ever described, never shown.
 
 ## Licence
 

@@ -6,8 +6,10 @@ C'est un **résident** : il capture en permanence et n'ouvre sa fenêtre qu'à l
 demande. Sans ça il ne retiendrait que ce qu'on copie pendant qu'on le regarde —
 c'était le vrai trou de la première version.
 
-Historique en mémoire pour l'instant : **la persistance SQLite n'est pas encore
-écrite**, tout est perdu à l'arrêt du résident.
+L'historique est conservé dans une base SQLite compilée dans le binaire, donc
+rien à installer sur aucun système. **Mode portable** : placez un
+`copycopy.conf` à côté de l'exécutable et la configuration, la base et les images
+vivent toutes dans ce dossier, sans rien toucher sur la machine hôte.
 
 *An English version of this document is available in [README.md](README.md).*
 
@@ -28,7 +30,8 @@ cargo run -p copycopy-platform --example fake_owner -- "texte" Firefox 3
 ```
 
 Navigation : `↑↓` / `Ctrl-N` `Ctrl-P`, `PageUp/Down`, `Enter` copier,
-`Ctrl-B` épingler, `Ctrl-D` supprimer, `Esc` fermer. `Home`/`End` restent au
+`Ctrl-B` épingler, `Suppr` ou `Ctrl-D` supprimer — accessible aussi par la croix
+qui apparaît sur la rangée survolée et sur la sélectionnée. `Esc` ferme. `Home`/`End` restent au
 champ de recherche — dans une zone de saisie, c'est le curseur qu'on attend.
 
 ## Ouverture : raccourci global et IPC
@@ -109,9 +112,11 @@ laissée.
 ## Le copier
 
 `Enter` ou double-clic → le contenu part dans le presse-papier et la fenêtre se
-ferme. **Pas de « Copié »** : la disparition de la fenêtre est la confirmation,
-et un toast supposerait de garder la fenêtre ouverte alors qu'on veut justement
-être revenu dans son application, en train de coller.
+ferme. La ligne copiée passe d'abord en vert pendant 160 ms : la disparition de
+la fenêtre confirme qu'il s'est passé *quelque chose*, mais pas *laquelle* des
+entrées est partie. Rien de plus — un toast supposerait de garder la fenêtre
+ouverte alors qu'on veut justement être revenu dans son application, en train de
+coller.
 
 Le vrai objectif reste le **collage** automatique (simuler `Ctrl+V` après
 fermeture), à faire : `SendInput` sous Windows, XTEST sous X11, CGEvent sous
@@ -163,17 +168,31 @@ Deux pièges dans cette virtualisation, tous deux corrigés : le pas d'une rang�
 marge verticale), sinon les espaceurs dérivent par rapport à la position de
 défilement réelle. `--scroll N` sert à le vérifier dans une capture.
 
-### Défaut corrigé, sans avoir été expliqué
+### Défaut connu, toujours ouvert
 
-La ligne « source · âge » ne se dessinait pas environ 3 fois sur 4 quand la
-fenêtre était ouverte après le démarrage du résident. Six exécutions
-consécutives de ce scénario la dessinent désormais à chaque fois.
+La ligne « source · âge » d'une rangée ne se dessine pas toujours. Elle a été
+déclarée corrigée après six passages d'un même scénario : c'était prématuré, ce
+scénario avait simplement cessé de la déclencher. Le défaut subsiste, de façon
+intermittente, sur d'autres chemins — des entrées fraîchement capturées perdent
+la ligne dans certains essais et la gardent dans d'autres, à données identiques.
 
-La cause probable : les rangées ne sont plus des indices dans l'historique en
-mémoire — `refilter()` matérialise un `Vec<ClipItem>` et la liste est
-reconstruite à partir de lui, ce qui a changé la façon dont iced compare l'arbre
-de widgets. Ça n'a jamais été isolé : à considérer comme corrigé mais non
-expliqué, et c'est là qu'il faudra regarder si ça revient.
+Écartés, chacun en l'isolant : `clip`, le cadre de redimensionnement, un calque
+`stack`, une source vide, le type de contenu, et une vignette d'image dans
+l'emplacement du badge. `view()` produit toujours la bonne chaîne — vérifié par
+traçage — et l'en-tête comme le pied, hors du `scrollable`, se dessinent
+toujours.
+
+À mettre en balance : **ce défaut n'a jamais été observé que sous WSLg, par
+l'outillage, jamais par quelqu'un qui se sert de l'application.** Le même établi
+a déjà fabriqué trois mirages — les formes de curseur jamais appliquées, le
+raccourci invisible depuis Windows, la surface Wayland que XTEST ne pilote pas.
+À considérer comme un quatrième tant que personne ne l'a vu sur une plateforme
+cible, et à ne pas reprendre sans ça.
+
+**La suite est un cas minimal reproductible**, une vingtaine de lignes avec un
+`scrollable` dont les rangées portent deux textes empilés, pour savoir s'il faut
+signaler un bug d'iced ou corriger un mauvais usage. Le traquer à l'intérieur de
+l'application a coûté plusieurs sessions et n'a produit que des éliminations.
 
 ### Piège de rendu : `stack` fige ce qu'il recouvre
 
@@ -337,10 +356,31 @@ cargo check --workspace --target aarch64-apple-darwin
 cargo run -p copycopy-platform --example wl_globals   # globaux Wayland exposés
 ```
 
+## Persistance et recherche
+
+SQLite via la feature `bundled` de rusqlite : la base est embarquée dans le
+binaire, aucune bibliothèque système à installer nulle part. Les images sont
+écrites en fichiers à côté, et leurs octets ne sont lus qu'au moment de copier —
+relire chaque PNG pour dessiner une liste de texte ferait taper le disque à
+chaque frappe.
+
+La recherche bascule à trois caractères. En dessous elle filtre en mémoire la
+fenêtre chargée, ce qu'un index trigram ne sait pas faire. À partir de trois elle
+interroge la base, donc les entrées plus anciennes que cette fenêtre sont
+trouvées aussi. Tokeniser **trigram** plutôt que celui par défaut : on cherche un
+fragment, pas un mot, et le trigram indexe aussi les langues sans espaces, donc
+le CJK reste atteignable. Le seuil change de moteur, pas seulement de finesse —
+deux caractères et trois ne filtrent pas pareil.
+
+Les épinglés mènent la liste, la récence ordonne à l'intérieur de chaque groupe,
+et l'élagage ne les supprime jamais. Les rangées affichent la taille du contenu
+quand il y en a plus que la ligne n'en montre — comptée sur le contenu complet,
+pas sur l'aperçu, lui-même plafonné.
+
 ## Prochaine étape
 
-Persistance SQLite avec FTS5 pour la recherche — l'historique ne survit pas
-encore à l'arrêt du résident.
+Un panneau de détail : les aperçus sont coupés à largeur constante, et une image
+n'est jamais que décrite, jamais montrée.
 
 ## Licence
 
