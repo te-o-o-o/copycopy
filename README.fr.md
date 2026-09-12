@@ -163,32 +163,17 @@ Deux pièges dans cette virtualisation, tous deux corrigés : le pas d'une rang�
 marge verticale), sinon les espaceurs dérivent par rapport à la position de
 défilement réelle. `--scroll N` sert à le vérifier dans une capture.
 
-### Défaut connu : la seconde ligne des rangées
+### Défaut corrigé, sans avoir été expliqué
 
-Quand la fenêtre est ouverte **après** le démarrage du résident — c'est-à-dire
-le cas normal d'usage — la ligne « source · âge » ne se dessine pas, environ
-**3 fois sur 4** (mesuré sur quatre essais avec `cargo run --example band`).
+La ligne « source · âge » ne se dessinait pas environ 3 fois sur 4 quand la
+fenêtre était ouverte après le démarrage du résident. Six exécutions
+consécutives de ce scénario la dessinent désormais à chaque fois.
 
-Ce qui est établi :
-
-- `view()` produit la bonne chaîne, vérifié par traçage ;
-- l'en-tête et le pied, qui sont **hors** du `scrollable`, se dessinent toujours
-  correctement ;
-- avec `--open` (fenêtre créée au démarrage), le défaut ne se produit jamais ;
-- ce n'est ni `clip`, ni le cadre de redimensionnement, ni un `stack` : chacun
-  a été isolé et écarté ;
-- remplacer les deux textes par un `rich_text` à spans ne corrige rien et fait
-  disparaître les deux lignes au lieu d'une ;
-- créer la fenêtre visible puis la cacher aussitôt ne corrige rien non plus.
-
-Piste retenue : le contenu du `scrollable` n'est mis en page qu'une fois, dans
-des conditions où la fenêtre n'a pas encore sa taille réelle, et iced ne le
-refait pas tant que l'arbre de widgets ne change pas. Prochaine étape : réduire
-à un cas minimal reproductible, puis signaler en amont.
-
-`cargo run --release --example band -- capture.png X0 X1 Y0 Y1` compte les
-pixels clairs d'une bande : ça détecte la présence de la ligne sans inspection
-visuelle.
+La cause probable : les rangées ne sont plus des indices dans l'historique en
+mémoire — `refilter()` matérialise un `Vec<ClipItem>` et la liste est
+reconstruite à partir de lui, ce qui a changé la façon dont iced compare l'arbre
+de widgets. Ça n'a jamais été isolé : à considérer comme corrigé mais non
+expliqué, et c'est là qu'il faudra regarder si ça revient.
 
 ### Piège de rendu : `stack` fige ce qu'il recouvre
 
