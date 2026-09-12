@@ -355,8 +355,9 @@ fn classify(text: &str) -> Kind {
     Kind::Text
 }
 
-/// Thousands separated by a non-breaking space, as French typography does.
-fn grouped(n: usize) -> String {
+/// Thousands separated by a narrow non-breaking space, as French typography
+/// does. Public so every count the interface shows is written the same way.
+pub fn grouped(n: usize) -> String {
     let digits = n.to_string();
     let mut out = String::with_capacity(digits.len() + digits.len() / 3);
     for (i, c) in digits.chars().enumerate() {
