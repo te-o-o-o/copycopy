@@ -66,6 +66,19 @@ lui parvient jamais. C'est structurel, aucune modification du code n'y changera
 rien. La réponse est un binaire Windows natif — qui supprime au passage le pont
 presse-papier de WSLg.
 
+Deux autres limites de WSLg, découvertes à la dure :
+
+- **Les formes de curseur ne sont jamais appliquées.** Les poignées de
+  redimensionnement demandent `ResizingHorizontally` et consorts, le champ de
+  recherche demande un curseur texte ; aucun n'apparaît. Le code est correct —
+  `MouseArea` ne remplace le curseur que si son enfant renvoie
+  `Interaction::None`, ce que fait un `Space`. C'est WSLg qui ignore la demande.
+- **La fenêtre est une surface Wayland, pas X11.** Le process détient un
+  descripteur `wayland` et n'apparaît jamais dans `_NET_CLIENT_LIST`. XTEST peut
+  donc piloter le clavier, ce qui a permis de tester le raccourci global, mais
+  pas le pointeur sur cette fenêtre — le glisser pour déplacer ou redimensionner
+  est donc intestable ici.
+
 ## La fenêtre
 
 Sans décorations, toujours au-dessus. Elle se ferme sur `Esc` et à la perte du
