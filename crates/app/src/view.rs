@@ -455,7 +455,7 @@ fn row_widget(
     let background = if selected > 0.0 {
         Some(Background::Color(t::alpha(t::SELECTED, selected)))
     } else {
-        (ground != t::CARD).then(|| Background::Color(ground))
+        (ground != t::CARD).then_some(Background::Color(ground))
     };
 
     let content = row![
