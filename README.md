@@ -65,6 +65,19 @@ inside a Windows application is handled by Windows and never reaches it. This
 is structural; no code change fixes it. Running a native Windows build is the
 answer — and it removes the WSLg clipboard bridge along the way.
 
+Two further WSLg limitations, each found the hard way:
+
+- **Cursor shapes are never applied.** The resize handles ask for
+  `ResizingHorizontally` and friends, and the search field asks for a text
+  caret; neither shows up. The code is correct — `MouseArea` only overrides the
+  cursor when its child reports `Interaction::None`, which a `Space` does. It
+  is WSLg that ignores the request.
+- **The window is a Wayland surface, not an X11 one.** The process holds a
+  `wayland` file descriptor and never appears in `_NET_CLIENT_LIST`. XTEST can
+  therefore drive the keyboard, which is how the global shortcut was tested,
+  but not the pointer over this window — so drag-to-move and drag-to-resize
+  cannot be tested here at all.
+
 ## The window
 
 No decorations, always on top. It closes on `Esc` and on focus loss — that is

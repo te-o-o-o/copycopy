@@ -79,15 +79,25 @@ for everything already ruled out, so as not to re-test it.
 
 ## What is verified, and what is not
 
+WSL is the development environment, not a target. The program is meant to run
+on Windows, native Linux and macOS. Treat WSLg oddities as artefacts of the
+workbench, never as product defects — but equally, never take a WSL success as
+proof that a target platform works.
+
 - **X11 capture**: run and tested.
 - **Wayland, Windows, macOS**: written and type-checked against their real
   targets, but never executed. Do not describe them as working.
 - **Global shortcut**: verified on X11, including an actual trigger. Under WSL
   it cannot fire from Windows applications — `XGrabKey` only sees keys reaching
   the WSLg X server. That is structural.
+- **Pointer behaviour is untestable under WSLg.** The window is a Wayland
+  surface, so XTEST reaches the keyboard but not the pointer over it: dragging
+  to move or resize cannot be exercised here. WSLg also never applies requested
+  cursor shapes, so a cursor that does not change proves nothing about the
+  code. Do not chase either of these again.
 
 Diagnostic tools live as `examples`: `fake_owner` and `press_key` (platform),
-`band`, `pixel`, `zoom`, `compare` (app). Prefer checking a claim with one of
+`band`, `edges`, `pixel`, `zoom`, `compare` (app). Prefer checking a claim with one of
 them over asserting it.
 
 ## Next step
