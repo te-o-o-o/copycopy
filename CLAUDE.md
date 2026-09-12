@@ -69,13 +69,16 @@ Each of these cost real debugging time. Re-introducing them is a regression.
    changes or a capture arrives — never inside `view()`. That is what holds
    100,000 entries at 59 fps.
 
-## Known defect
+## Known defect — no longer reproducible
 
-When the window is opened after the resident has started — normal usage — the
-"source · age" line of each row often fails to draw, roughly 3 times out of 4.
-`view()` produces the right string; the header and footer, outside the
-`scrollable`, always draw. Not yet reduced to a minimal case. See `README.md`
-for everything already ruled out, so as not to re-test it.
+The "source · age" line of each row used to fail to draw roughly 3 times out of
+4 when the window was opened after the resident had started. Six consecutive
+runs of that exact scenario now draw it every time.
+
+The likely cause is that rows are no longer indexed into the in-memory history:
+`refilter()` materialises a `Vec<ClipItem>` and the list is rebuilt from it,
+which changed how iced diffs the widget tree. This was never isolated, so treat
+it as fixed but not explained — if it reappears, that is where to look.
 
 ## What is verified, and what is not
 

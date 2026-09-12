@@ -158,32 +158,16 @@ next must be **exactly** `ROW_H` (no `spacing` on the column, no vertical
 margin), otherwise the spacers drift away from the real scroll position.
 `--scroll N` exists to check this in a screenshot.
 
-### Known defect: the second line of rows
+### Defect fixed, though never explained
 
-When the window is opened **after** the resident has started — that is, normal
-usage — the "source · age" line often fails to draw, roughly **3 times out of
-4** (measured over four runs with `cargo run --example band`).
+The "source · age" line of each row used to fail to draw roughly 3 times out of
+4 when the window was opened after the resident had started. Six consecutive
+runs of that scenario now draw it every time.
 
-What is established:
-
-- `view()` produces the correct string, verified by tracing;
-- the header and footer, which are **outside** the `scrollable`, always draw
-  correctly;
-- with `--open` (window created at startup) the defect never occurs;
-- it is not `clip`, not the resize frame, not a `stack`: each was isolated and
-  ruled out;
-- replacing the two texts with a spanned `rich_text` fixes nothing and makes
-  both lines disappear instead of one;
-- creating the window visible and hiding it immediately fixes nothing either.
-
-Working hypothesis: the `scrollable` content is laid out once, under conditions
-where the window does not yet have its real size, and iced does not redo it
-until the widget tree changes. Next step: reduce to a minimal reproducible case,
-then report upstream.
-
-`cargo run --release --example band -- shot.png X0 X1 Y0 Y1` counts the light
-pixels in a band, which detects whether the line is present without visual
-inspection.
+The likely cause: rows are no longer indices into the in-memory history —
+`refilter()` materialises a `Vec<ClipItem>` and the list is rebuilt from it,
+which changed how iced diffs the widget tree. This was never isolated, so treat
+it as fixed but unexplained, and look there first if it returns.
 
 ### Rendering pitfall: `stack` freezes what it covers
 
