@@ -53,6 +53,10 @@ const FOCUS_GRACE: Duration = Duration::from_millis(600);
 /// enough to register, short enough not to feel like a wait — 160 ms was the
 /// former, and it is below what the eye catches on a colour change alone.
 const COPY_FLASH: Duration = Duration::from_millis(260);
+/// Cadence of the Matrix rain: about twelve frames a second. The rain falls a
+/// row or three per second, so more frames would redraw the whole window for
+/// no visible gain.
+const RAIN_TICK: Duration = Duration::from_millis(83);
 /// Cross-fade of the selection highlight. Short enough to feel immediate,
 /// long enough to read as a movement rather than a jump.
 const SELECT_FADE: Duration = Duration::from_millis(110);
@@ -85,6 +89,9 @@ pub struct State {
     /// when the selection really lands on another entry — not on every arrow
     /// press that ends where it started, nor on a refilter that kept it.
     pub preview_key: Option<u64>,
+    /// Seconds since start, sampled on each rain tick. The rain is drawn from
+    /// this alone, so it only moves when a tick says so.
+    pub rain_t: f32,
     pub selected: usize,
     /// The selected index, animated. Each row derives its highlight from the
     /// distance to this value, so the outgoing row fades out while the
@@ -197,6 +204,8 @@ pub enum Message {
     ToggleTheme,
     /// Enter or leave the Matrix palette, from the footer.
     ToggleMatrix,
+    /// Advance the Matrix rain by one frame.
+    RainTick,
     Hover(usize),
     Unhover(usize),
     Activate,
@@ -633,6 +642,7 @@ fn boot() -> (State, Task<Message>) {
         query: args.query,
         preview: Preview::Empty,
         preview_key: None,
+        rain_t: 0.0,
         selected: 0,
         selection: Animation::new(0.0).duration(SELECT_FADE),
         hovered: None,
@@ -715,6 +725,10 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
         Message::ToggleMatrix => {
             state.config.theme = state.config.theme.matrix_toggled();
             state.config.save();
+            Task::none()
+        }
+        Message::RainTick => {
+            state.rain_t = BOOT.get().map_or(0.0, |boot| boot.elapsed().as_secs_f32());
             Task::none()
         }
         Message::Hover(index) => {
@@ -1016,6 +1030,11 @@ fn subscription(state: &State) -> Subscription<Message> {
         // Fires once: the subscription disappears with `copied` when the
         // window closes.
         subs.push(iced::time::every(COPY_FLASH).map(|_| Message::FinishCopy));
+    }
+    // Only while it can be seen: in another theme, or with the window hidden,
+    // the rain costs nothing at all.
+    if state.config.theme == theme::Mode::Matrix && state.window_shown {
+        subs.push(iced::time::every(RAIN_TICK).map(|_| Message::RainTick));
     }
     if state.shot_path.is_some() && !state.shot_done {
         subs.push(iced::time::every(Duration::from_millis(300)).map(|_| Message::Shot));
