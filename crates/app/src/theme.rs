@@ -55,6 +55,9 @@ pub const EDGE: f32 = 10.0;
 /// laid out, whether or not anything is drawn in it, so the preview always
 /// clips at the same x instead of shifting when a row is hovered or pinned.
 pub const SLOT: f32 = 16.0;
+/// Breathing room between the preview and the gutter. Without it the text ends
+/// flush against the pin, which reads as a collision even though it is not.
+pub const GUTTER_GAP: f32 = 18.0;
 
 pub fn tint(kind: copycopy_core::Kind) -> Color {
     use copycopy_core::Kind;

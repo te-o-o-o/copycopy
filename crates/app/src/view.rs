@@ -371,41 +371,13 @@ fn row_widget(
         item.source.as_str()
     };
 
-    let body = column![
-        // Weight carries the hierarchy, and the meta line recedes through
-        // opacity rather than a flat grey: it keeps the same hue as the
-        // preview, so the two read as one block seen at two depths.
-        text(item.preview.as_str())
-            .size(14.0)
-            .font(Font {
-                weight: font::Weight::Semibold,
-                ..Font::DEFAULT
-            })
-            .color(t::TEXT)
-            .wrapping(text::Wrapping::None),
-        text(format!("{}  ·  {}", source, item.age()))
-            .size(11.0)
-            .color(t::alpha(t::TEXT, 0.42))
-            .wrapping(text::Wrapping::None),
-    ]
-    .spacing(2)
-    .width(Length::Fill);
-
-    let mut content = row![
-        accent,
-        Space::new().width(Length::Fixed(9.0)),
-        badge,
-        Space::new().width(Length::Fixed(13.0)),
-        body,
-    ]
-    .align_y(iced::Alignment::Center);
-
     // Right-hand gutter: the pin slot, then the cross slot. Both are always
-    // laid out; only what they contain is conditional.
+    // laid out; only what they contain is conditional, so the preview always
+    // clips at the same x.
     let pin_slot: Element<'_, Message> = if item.pinned {
         canvas(Pin)
             .width(Length::Fixed(t::SLOT))
-            .height(Length::Fixed(18.0))
+            .height(Length::Fixed(t::SLOT))
             .into()
     } else {
         Space::new().width(Length::Fixed(t::SLOT)).into()
@@ -413,17 +385,13 @@ fn row_widget(
 
     // Shown on the row under the pointer, and on the selected row, so one is
     // always visible without repeating a cross on every line.
-    let show_cross = hovered || selected > 0.5;
-    let cross_slot: Element<'_, Message> = if show_cross {
+    let cross_slot: Element<'_, Message> = if hovered || selected > 0.5 {
         mouse_area(
-            container(
-                canvas(Cross {
-                    color: if hovered { t::TEXT } else { t::alpha(t::TEXT, 0.45) },
-                })
-                .width(Length::Fixed(t::SLOT))
-                .height(Length::Fixed(t::SLOT)),
-            )
-            .center_y(Length::Fixed(t::ROW_H - 2.0 * t::ROW_GAP)),
+            canvas(Cross {
+                color: if hovered { t::TEXT } else { t::alpha(t::TEXT, 0.45) },
+            })
+            .width(Length::Fixed(t::SLOT))
+            .height(Length::Fixed(t::SLOT)),
         )
         .interaction(mouse::Interaction::Pointer)
         .on_press(Message::Delete(index))
@@ -432,14 +400,51 @@ fn row_widget(
         Space::new().width(Length::Fixed(t::SLOT)).into()
     };
 
-    content = content.push(pin_slot);
-    content = content.push(Space::new().width(Length::Fixed(8.0)));
-    content = content.push(cross_slot);
+    let preview = container(
+        text(item.preview.as_str())
+            .size(14.0)
+            .font(Font {
+                weight: font::Weight::Semibold,
+                ..Font::DEFAULT
+            })
+            .color(t::TEXT)
+            .wrapping(text::Wrapping::None),
+    )
+    .width(Length::Fill)
+    // Clipped at its own width, not the row's. `Wrapping::None` gives a text
+    // widget the intrinsic width of its whole string, so without this the
+    // preview draws straight over the gutter — the row's own clip only stops it
+    // at the far edge.
+    .clip(true);
 
-    // No end-of-line fade: the `stack` overlay that produced it stopped the
-    // row from repainting — the text stayed frozen on its first render, then
-    // vanished. Previews are therefore cut off flat at the edge, at a constant
-    // x, which reads as a column boundary.
+    // The meta line recedes through opacity rather than a flat grey: it keeps
+    // the same hue as the preview, so the two read as one block at two depths.
+    let meta = container(
+        text(match item.overflow_hint() {
+            Some(hint) => format!("{}  ·  {}  ·  {}", source, item.age(), hint),
+            None => format!("{}  ·  {}", source, item.age()),
+        })
+            .size(11.0)
+            .color(t::alpha(t::TEXT, 0.42))
+            .wrapping(text::Wrapping::None),
+    )
+    .width(Length::Fill)
+    .clip(true);
+
+    // The gutter sits on the preview line, not on the row: centring it over the
+    // whole row would drag it down by half the meta line, leaving pin and cross
+    // visibly below the text they belong to.
+    let top = row![
+        preview,
+        Space::new().width(Length::Fixed(t::GUTTER_GAP)),
+        pin_slot,
+        Space::new().width(Length::Fixed(8.0)),
+        cross_slot,
+    ]
+    .align_y(iced::Alignment::Center);
+
+    let body = column![top, meta].spacing(2);
+
     let ground = if copied {
         t::alpha(t::COPIED, 0.30)
     } else if hovered {
@@ -452,6 +457,15 @@ fn row_widget(
     } else {
         (ground != t::CARD).then(|| Background::Color(ground))
     };
+
+    let content = row![
+        accent,
+        Space::new().width(Length::Fixed(9.0)),
+        badge,
+        Space::new().width(Length::Fixed(13.0)),
+        body,
+    ]
+    .align_y(iced::Alignment::Center);
 
     let highlight = container(content)
         .width(Length::Fill)
