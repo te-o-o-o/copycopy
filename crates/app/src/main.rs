@@ -14,6 +14,8 @@
 //!   copycopy --backend wayland|x11|poll
 //!   copycopy --screenshot out.png --for 10
 //!   copycopy --scroll 400      # open scrolled, to check virtualisation
+//!
+//! Ctrl+Q (Cmd+Q on macOS) in the window stops the resident, like `--quit`.
 
 // No console window on Windows: a resident has no business owning one, and
 // closing it used to stop capture without a word. See `console`.
@@ -479,6 +481,14 @@ impl State {
         self.history.touch(id, at);
     }
 
+    /// Stops the resident for good: the configuration is written and the daemon
+    /// exits. Not to be confused with `hide`, which only puts the window away
+    /// while capture carries on.
+    fn quit(&mut self) -> Task<Message> {
+        self.config.save();
+        iced::exit()
+    }
+
     fn toggle(&mut self) -> Task<Message> {
         if self.window_shown {
             self.hide()
@@ -834,10 +844,7 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::Wake(Wake::Command(cmd)) => match cmd.as_str() {
             ipc::SHOW => state.show(),
-            ipc::QUIT => {
-                state.config.save();
-                iced::exit()
-            }
+            ipc::QUIT => state.quit(),
             _ => Task::none(),
         },
         Message::WindowOpened(id) => {
@@ -951,6 +958,8 @@ fn handle_key(state: &mut State, event: keyboard::Event) -> Task<Message> {
         Key::Named(Named::PageUp) => state.move_selection(-6),
         // Home and End are left to the search field: inside a text input,
         // moving the caret is what you expect.
+        // `command` is the platform's own modifier: Cmd on macOS, Ctrl elsewhere.
+        Key::Character(c) if modifiers.command() && c.as_str() == "q" => state.quit(),
         Key::Character(c) if ctrl => match c.as_str() {
             "n" => state.move_selection(1),
             "p" => state.move_selection(-1),
