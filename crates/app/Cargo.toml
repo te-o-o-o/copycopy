@@ -26,5 +26,9 @@ open = { version = "5.4", features = ["shellexecute-on-windows"] }
 interprocess = "2.4"
 directories = "6"
 
+[target.'cfg(target_os = "windows")'.dependencies]
+# The console: attaching to a parent terminal, or sending output to a log file.
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Console"] }
+
 [target.'cfg(target_os = "linux")'.dependencies]
 ashpd = { version = "0.13", default-features = false, features = ["tokio"] }
