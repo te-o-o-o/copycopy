@@ -25,6 +25,7 @@ copycopy --backend wayland|x11|poll
 copycopy --screenshot out.png --for 10   # capture la fenêtre puis quitte
 copycopy --hidden ...    # démarre sans fenêtre, même en mode capture
 copycopy --settings ...  # ouvre sur les réglages, pour les vérifier en capture
+copycopy --filter code   # ouvre filtré sur un type, pour vérifier la barre de filtres
 
 copycopy --headless --for 20  # capture en console, sans interface
 cargo run -p copycopy-platform --example fake_owner -- "texte" Firefox 3
@@ -44,7 +45,14 @@ votre place : l'entrée arrive là où était votre curseur. Sous Windows par
 `SendInput`, sous X11 par XTEST ; refusé sous Wayland, qui exige pour cela le
 portail RemoteDesktop, et pas encore disponible sous macOS. Simuler des frappes
 dans une autre application, ça s'active, ça ne se découvre pas. La croix de l'en-tête masque la fenêtre, comme `Esc` : elle ne quitte
-jamais, pour que personne n'arrête la capture en visant le coin habituel. `Home`/`End` restent au champ de recherche — dans une zone de saisie,
+jamais, pour que personne n'arrête la capture en visant le coin habituel.
+
+**Les filtres par type** occupent une barre sous la recherche — Tout, Texte,
+Code, URL, Images, Fichiers — chacun avec le nombre d'entrées qu'il afficherait
+pour la recherche en cours. Ils se combinent avec elle : *Code* et `select` ne
+listent que le code qui contient « select ». `Ctrl-1` à `Ctrl-6` changent de
+filtre sans quitter le champ de recherche, et le filtre revient à *Tout* à chaque
+ouverture de la fenêtre. `Home`/`End` restent au champ de recherche — dans une zone de saisie,
 c'est le curseur qu'on attend.
 
 **Sous Windows, aucune console ne s'ouvre.** Un résident n'a pas à en posséder
