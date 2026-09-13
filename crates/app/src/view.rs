@@ -284,12 +284,63 @@ impl canvas::Program<Message> for Rain {
     }
 }
 
-/// Settings button: three stacked dots, the usual "more" mark.
-struct MenuMark {
+/// Settings button: a gear, which says "configuration" where three dots only say
+/// "more". Eight square teeth around a hollow hub, drawn as one polygon.
+struct GearMark {
+    color: iced::Color,
+    /// The header background, to punch the hub out of the wheel.
+    hole: iced::Color,
+}
+
+impl canvas::Program<Message> for GearMark {
+    type State = ();
+
+    fn draw(
+        &self,
+        _state: &Self::State,
+        renderer: &iced::Renderer,
+        _theme: &iced::Theme,
+        bounds: Rectangle,
+        _cursor: iced::mouse::Cursor,
+    ) -> Vec<canvas::Geometry> {
+        const TEETH: usize = 8;
+        const OUTER: f32 = 8.4;
+        const INNER: f32 = 6.2;
+        let mut frame = canvas::Frame::new(renderer, bounds.size());
+        let centre = Point::new(bounds.width / 2.0, bounds.height / 2.0);
+        // Four corners per tooth: two on the outer radius, two on the inner.
+        // The half-step offset keeps a tooth centred on each axis.
+        let steps = TEETH * 4;
+        let step = std::f32::consts::TAU / steps as f32;
+        let wheel = canvas::Path::new(|b| {
+            for i in 0..steps {
+                let angle = (i as f32 - 0.5) * step;
+                let radius = if i % 4 < 2 { OUTER } else { INNER };
+                let point = Point::new(
+                    centre.x + radius * angle.cos(),
+                    centre.y + radius * angle.sin(),
+                );
+                if i == 0 {
+                    b.move_to(point);
+                } else {
+                    b.line_to(point);
+                }
+            }
+            b.close();
+        });
+        frame.fill(&wheel, self.color);
+        frame.fill(&canvas::Path::circle(centre, 2.6), self.hole);
+        vec![frame.into_geometry()]
+    }
+}
+
+/// The header's close button. Larger and bolder than the row cross, which has to
+/// stay discreet next to every entry, and with rounded ends.
+struct CloseMark {
     color: iced::Color,
 }
 
-impl canvas::Program<Message> for MenuMark {
+impl canvas::Program<Message> for CloseMark {
     type State = ();
 
     fn draw(
@@ -301,9 +352,15 @@ impl canvas::Program<Message> for MenuMark {
         _cursor: iced::mouse::Cursor,
     ) -> Vec<canvas::Geometry> {
         let mut frame = canvas::Frame::new(renderer, bounds.size());
-        for y in [3.5, 8.0, 12.5] {
-            frame.fill(&canvas::Path::circle(Point::new(8.0, y), 1.6), self.color);
-        }
+        let stroke = || {
+            canvas::Stroke::default()
+                .with_color(self.color)
+                .with_width(2.0)
+                .with_line_cap(canvas::LineCap::Round)
+        };
+        let (a, b) = (5.0, 15.0);
+        frame.stroke(&canvas::Path::line(Point::new(a, a), Point::new(b, b)), stroke());
+        frame.stroke(&canvas::Path::line(Point::new(b, a), Point::new(a, b)), stroke());
         vec![frame.into_geometry()]
     }
 }
@@ -474,15 +531,16 @@ fn header(state: &State, p: Palette) -> Element<'_, Message> {
                 .on_press(Message::ToggleTheme),
                 Space::new().width(Length::Fixed(12.0)),
                 mouse_area(
-                    canvas(MenuMark {
+                    canvas(GearMark {
                         color: if state.settings_open {
                             p.accent
                         } else {
                             t::alpha(p.text, 0.55)
                         },
+                        hole: p.card,
                     })
-                    .width(Length::Fixed(t::SLOT))
-                    .height(Length::Fixed(t::SLOT)),
+                    .width(Length::Fixed(18.0))
+                    .height(Length::Fixed(18.0)),
                 )
                 .interaction(mouse::Interaction::Pointer)
                 .on_press(Message::ToggleSettings),
@@ -491,11 +549,11 @@ fn header(state: &State, p: Palette) -> Element<'_, Message> {
                 // settings, under its own name, so nobody stops capture by
                 // reaching for the usual corner.
                 mouse_area(
-                    canvas(Cross {
-                        color: t::alpha(p.text, 0.55),
+                    canvas(CloseMark {
+                        color: t::alpha(p.text, 0.7),
                     })
-                    .width(Length::Fixed(t::SLOT))
-                    .height(Length::Fixed(t::SLOT)),
+                    .width(Length::Fixed(20.0))
+                    .height(Length::Fixed(20.0)),
                 )
                 .interaction(mouse::Interaction::Pointer)
                 .on_press(Message::Close),
