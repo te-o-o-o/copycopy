@@ -24,6 +24,7 @@ copycopy --demo          # multilingual sample data
 copycopy --backend wayland|x11|poll
 copycopy --screenshot out.png --for 10   # capture the window, then quit
 copycopy --hidden ...    # start without a window, even in screenshot mode
+copycopy --settings ...  # open on the settings panel, to check it in a screenshot
 
 copycopy --headless --for 20  # console capture, no interface
 cargo run -p copycopy-platform --example fake_owner -- "text" Firefox 3
@@ -33,6 +34,10 @@ Navigation: `↑↓` / `Ctrl-N` `Ctrl-P`, `PageUp/Down`, `Enter` to copy,
 `Ctrl-B` to pin, `Delete` or `Ctrl-D` to remove — also reachable through the
 cross that appears on the hovered and selected rows. `Esc` closes the window;
 `Ctrl-Q` (`Cmd-Q` on macOS) stops the resident altogether, like `--quit`.
+The `⋮` button opens the settings in the right-hand panel — theme, shortcut,
+data folder, and *Quitter copycopy* — and `Esc` closes them before the window.
+The header cross hides the window, like `Esc`: it never quits, so nobody stops
+capture by reaching for the usual corner.
 `Home`/`End` are left to the search field — inside a text input, moving the
 caret is what you expect.
 

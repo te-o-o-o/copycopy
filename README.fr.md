@@ -24,6 +24,7 @@ copycopy --demo          # données multilingues
 copycopy --backend wayland|x11|poll
 copycopy --screenshot out.png --for 10   # capture la fenêtre puis quitte
 copycopy --hidden ...    # démarre sans fenêtre, même en mode capture
+copycopy --settings ...  # ouvre sur les réglages, pour les vérifier en capture
 
 copycopy --headless --for 20  # capture en console, sans interface
 cargo run -p copycopy-platform --example fake_owner -- "texte" Firefox 3
@@ -33,7 +34,10 @@ Navigation : `↑↓` / `Ctrl-N` `Ctrl-P`, `PageUp/Down`, `Enter` copier,
 `Ctrl-B` épingler, `Suppr` ou `Ctrl-D` supprimer — accessible aussi par la croix
 qui apparaît sur la rangée survolée et sur la sélectionnée. `Esc` ferme la
 fenêtre ; `Ctrl-Q` (`Cmd-Q` sur macOS) arrête complètement le résident, comme
-`--quit`. `Home`/`End` restent au champ de recherche — dans une zone de saisie,
+`--quit`. Le bouton `⋮` ouvre les réglages dans le panneau de droite — thème,
+raccourci, dossier des données et *Quitter copycopy* — et `Esc` les referme avant
+la fenêtre. La croix de l'en-tête masque la fenêtre, comme `Esc` : elle ne quitte
+jamais, pour que personne n'arrête la capture en visant le coin habituel. `Home`/`End` restent au champ de recherche — dans une zone de saisie,
 c'est le curseur qu'on attend.
 
 **Sous Windows, aucune console ne s'ouvre.** Un résident n'a pas à en posséder
