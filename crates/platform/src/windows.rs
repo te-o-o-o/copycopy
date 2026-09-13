@@ -159,21 +159,42 @@ unsafe fn read_clipboard(hwnd: HWND) -> Option<(ClipEvent, String)> {
     result
 }
 
-unsafe fn read_clipboard_locked() -> Option<(ClipEvent, String)> {
+/// Whether the clipboard carries a password manager's "do not record" marker.
+/// The clipboard must already be open.
+unsafe fn secret_marked_locked() -> bool {
     // Password managers set these formats to ask clipboard managers not to
     // retain the content. We obey.
     let exclude = unsafe { RegisterClipboardFormatW(wide("ExcludeClipboardContentFromMonitorProcessing").as_ptr()) };
     let can_include = unsafe { RegisterClipboardFormatW(wide("CanIncludeInClipboardHistory").as_ptr()) };
     if exclude != 0 && unsafe { IsClipboardFormatAvailable(exclude) } != 0 {
-        return None;
+        return true;
     }
     if can_include != 0 && unsafe { IsClipboardFormatAvailable(can_include) } != 0 {
         // Present with value 0 means "do not record in history".
         if let Some(bytes) = unsafe { clipboard_bytes(can_include) } {
             if bytes.first().is_some_and(|b| *b == 0) {
-                return None;
+                return true;
             }
         }
+    }
+    false
+}
+
+/// The same check from outside the listener, for the polling fallback, which
+/// cannot see clipboard formats through `arboard`. A clipboard that cannot be
+/// opened counts as secret: when in doubt, nothing is recorded.
+pub(crate) fn clipboard_is_secret() -> bool {
+    if !unsafe { open_clipboard_retrying(std::ptr::null_mut()) } {
+        return true;
+    }
+    let secret = unsafe { secret_marked_locked() };
+    unsafe { CloseClipboard() };
+    secret
+}
+
+unsafe fn read_clipboard_locked() -> Option<(ClipEvent, String)> {
+    if unsafe { secret_marked_locked() } {
+        return None;
     }
 
     let source = unsafe { owner_process_name() }.unwrap_or_default();

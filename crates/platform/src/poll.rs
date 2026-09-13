@@ -12,6 +12,14 @@ use crate::Capture;
 const INTERVAL: Duration = Duration::from_millis(200);
 
 pub fn spawn(tx: Sender<Capture>) -> Result<(), String> {
+    // Rule 1 holds here as everywhere: `arboard` hides the clipboard formats
+    // that carry password managers' markers, so where they cannot be read some
+    // other way, polling would record secrets. Better to capture nothing.
+    if crate::secret_marked().is_none() {
+        return Err(
+            "sondage refusé : les marqueurs de secret ne peuvent pas être vérifiés ici".into(),
+        );
+    }
     // Access is validated here so we fail immediately rather than silently
     // inside the thread.
     arboard::Clipboard::new().map_err(|e| e.to_string())?;
@@ -36,6 +44,9 @@ fn run(tx: Sender<Capture>) {
     loop {
         std::thread::sleep(INTERVAL);
 
+        if crate::secret_marked() != Some(false) {
+            continue;
+        }
         let event = clip
             .get_text()
             .ok()
@@ -57,6 +68,11 @@ fn run(tx: Sender<Capture>) {
             });
 
         let Some(event) = event else { continue };
+        // Checked again after reading: a password copied in between the two
+        // would otherwise slip through on the next line.
+        if crate::secret_marked() != Some(false) {
+            continue;
+        }
         let hash = hash_event(&event);
         if last == Some(hash) {
             continue;
