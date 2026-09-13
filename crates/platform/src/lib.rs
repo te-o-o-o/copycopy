@@ -19,6 +19,7 @@ mod windows;
 #[cfg(target_os = "linux")]
 mod x11;
 
+pub mod paste;
 mod poll;
 mod setter;
 
