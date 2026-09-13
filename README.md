@@ -25,6 +25,7 @@ copycopy --backend wayland|x11|poll
 copycopy --screenshot out.png --for 10   # capture the window, then quit
 copycopy --hidden ...    # start without a window, even in screenshot mode
 copycopy --settings ...  # open on the settings panel, to check it in a screenshot
+copycopy --filter code   # open with a type filter, to check the filter band
 
 copycopy --headless --for 20  # console capture, no interface
 cargo run -p copycopy-platform --example fake_owner -- "text" Firefox 3
@@ -46,6 +47,12 @@ and not available on macOS yet. Simulating keystrokes in another application
 is something to switch on, never to discover.
 The header cross hides the window, like `Esc`: it never quits, so nobody stops
 capture by reaching for the usual corner.
+
+**Type filters** sit on a band under the search — All, Text, Code, URL, Images,
+Files — each with the number of entries it would show for the current search.
+They combine with it: *Code* and `select` list only the code containing
+"select". `Ctrl-1` to `Ctrl-6` switch filters without leaving the search field,
+and the filter goes back to *All* each time the window opens.
 `Home`/`End` are left to the search field — inside a text input, moving the
 caret is what you expect.
 
