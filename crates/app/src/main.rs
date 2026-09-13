@@ -15,7 +15,12 @@
 //!   copycopy --screenshot out.png --for 10
 //!   copycopy --scroll 400      # open scrolled, to check virtualisation
 
+// No console window on Windows: a resident has no business owning one, and
+// closing it used to stop capture without a word. See `console`.
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+
 mod config;
+mod console;
 mod fonts;
 mod hotkey;
 mod ipc;
@@ -1165,6 +1170,8 @@ fn headless(seconds: Option<u64>) {
 
 
 fn main() -> iced::Result {
+    // First, before anything prints.
+    console::prepare();
     let _ = BOOT.set(Instant::now());
     let argv: Vec<String> = std::env::args().collect();
 

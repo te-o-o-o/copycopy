@@ -553,6 +553,7 @@ dependencies = [
  "image",
  "interprocess",
  "open",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
