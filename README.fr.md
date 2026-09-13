@@ -34,9 +34,16 @@ Navigation : `↑↓` / `Ctrl-N` `Ctrl-P`, `PageUp/Down`, `Enter` copier,
 `Ctrl-B` épingler, `Suppr` ou `Ctrl-D` supprimer — accessible aussi par la croix
 qui apparaît sur la rangée survolée et sur la sélectionnée. `Esc` ferme la
 fenêtre ; `Ctrl-Q` (`Cmd-Q` sur macOS) arrête complètement le résident, comme
-`--quit`. Le bouton `⋮` ouvre les réglages dans le panneau de droite — thème,
-raccourci, dossier des données et *Quitter copycopy* — et `Esc` les referme avant
-la fenêtre. La croix de l'en-tête masque la fenêtre, comme `Esc` : elle ne quitte
+`--quit`. L'engrenage ouvre les réglages dans le panneau de droite — thème,
+raccourci, collage automatique, dossier des données et *Quitter copycopy* — et
+`Esc` les referme avant la fenêtre.
+
+**Collage automatique**, désactivé par défaut. Une fois une entrée copiée,
+copycopy rend le focus à l'application où vous étiez et appuie sur `Ctrl+V` à
+votre place : l'entrée arrive là où était votre curseur. Sous Windows par
+`SendInput`, sous X11 par XTEST ; refusé sous Wayland, qui exige pour cela le
+portail RemoteDesktop, et pas encore disponible sous macOS. Simuler des frappes
+dans une autre application, ça s'active, ça ne se découvre pas. La croix de l'en-tête masque la fenêtre, comme `Esc` : elle ne quitte
 jamais, pour que personne n'arrête la capture en visant le coin habituel. `Home`/`End` restent au champ de recherche — dans une zone de saisie,
 c'est le curseur qu'on attend.
 
