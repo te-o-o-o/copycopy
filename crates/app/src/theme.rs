@@ -219,6 +219,8 @@ impl Palette {
 
 pub const ROW_H: f32 = 50.0;
 pub const HEADER_H: f32 = 58.0;
+/// The type filter band under the search.
+pub const FILTERS_H: f32 = 36.0;
 pub const FOOTER_H: f32 = 30.0;
 /// Square window: on an undecorated window, rounded corners reveal the desktop
 /// behind them, which reads as a black outline rather than a clean curve.
