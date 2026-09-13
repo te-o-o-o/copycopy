@@ -25,6 +25,10 @@ pub struct Config {
     pub position: Option<(f32, f32)>,
     /// Light or dark palette, switched from the header icon.
     pub theme: crate::theme::Mode,
+    /// Paste the copied entry into the application that had the focus.
+    /// Off by default: simulating keystrokes in another application is
+    /// something to ask for, never to discover.
+    pub auto_paste: bool,
 }
 
 impl Default for Config {
@@ -34,6 +38,7 @@ impl Default for Config {
             size: None,
             position: None,
             theme: crate::theme::Mode::Dark,
+            auto_paste: false,
         }
     }
 }
@@ -88,6 +93,10 @@ impl Config {
                 "size" => config.size = parse_pair(value).filter(|(w, h)| *w >= 320.0 && *h >= 200.0),
                 "position" => config.position = parse_pair(value),
                 "theme" => config.theme = crate::theme::Mode::parse(value).unwrap_or(config.theme),
+                "auto_paste" => {
+                    config.auto_paste =
+                        matches!(value.to_ascii_lowercase().as_str(), "true" | "yes" | "on" | "1")
+                }
                 _ => {}
             }
         }
@@ -129,6 +138,8 @@ impl Config {
         }
         body.push_str("# Thème : dark, light ou matrix\n");
         body.push_str(&format!("theme = {}\n", self.theme.name()));
+        body.push_str("# Coller automatiquement après une copie : true ou false\n");
+        body.push_str(&format!("auto_paste = {}\n", self.auto_paste));
         let _ = std::fs::write(&path, body);
     }
 }

@@ -68,6 +68,10 @@ const RAIN_TICK: Duration = Duration::from_millis(83);
 /// How long quitting waits for the event loop to stop on its own before the
 /// process is ended regardless. See `State::quit`.
 const QUIT_GRACE: Duration = Duration::from_millis(1500);
+/// Between handing the focus back and pressing Ctrl+V for the user: long
+/// enough for the previous application to be active again, short enough to
+/// feel like the entry landed straight away.
+const PASTE_DELAY: Duration = Duration::from_millis(150);
 /// Cross-fade of the selection highlight. Short enough to feel immediate,
 /// long enough to read as a movement rather than a jump.
 const SELECT_FADE: Duration = Duration::from_millis(110);
@@ -238,6 +242,8 @@ pub enum Message {
     ToggleSettings,
     /// Pick a theme from the settings.
     SetTheme(theme::Mode),
+    /// Turn auto-paste on or off, from the settings.
+    SetAutoPaste(bool),
     /// Hide the window, from the header cross. Capture carries on.
     Close,
     /// Stop the resident, from the settings.
@@ -369,6 +375,10 @@ impl State {
         &self.config.hotkey
     }
 
+    pub fn auto_paste(&self) -> bool {
+        self.config.auto_paste
+    }
+
     fn flash(&mut self, msg: impl Into<String>) {
         self.flash = Some((msg.into(), Instant::now()));
     }
@@ -421,6 +431,9 @@ impl State {
             if self.window_shown {
                 return Task::none();
             }
+            // Only when the window really opens: noted while it already shows,
+            // the target would be copycopy itself.
+            copycopy_platform::paste::remember_target();
             self.window_shown = true;
             self.opened_at = Some(Instant::now());
             return Task::batch([
@@ -429,6 +442,7 @@ impl State {
                 iced::widget::operation::focus(SEARCH_ID),
             ]);
         }
+        copycopy_platform::paste::remember_target();
         self.open_window(true)
     }
 
@@ -511,6 +525,28 @@ impl State {
     /// Stops the resident for good: the configuration is written and the daemon
     /// exits. Not to be confused with `hide`, which only puts the window away
     /// while capture carries on.
+    /// Ends a copy once its confirmation has shown: the window goes and, with
+    /// auto-paste on, the entry lands where the user was typing.
+    fn finish_copy(&mut self) -> Task<Message> {
+        let paste = self.config.auto_paste && copycopy_platform::paste::availability().is_ok();
+        if paste {
+            // Before hiding, while this window still holds the foreground:
+            // Windows only lets the foreground process give the focus away.
+            copycopy_platform::paste::restore_target();
+        }
+        let task = self.hide();
+        if paste {
+            // A thread, not the UI: the delay must not freeze the interface.
+            std::thread::spawn(|| {
+                std::thread::sleep(PASTE_DELAY);
+                if let Err(e) = copycopy_platform::paste::send_paste() {
+                    eprintln!("auto-paste failed: {e}");
+                }
+            });
+        }
+        task
+    }
+
     fn quit(&mut self) -> Task<Message> {
         self.config.save();
         // `iced::exit` only files a request that the event loop reads when it
@@ -827,6 +863,11 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             state.config.save();
             Task::none()
         }
+        Message::SetAutoPaste(on) => {
+            state.config.auto_paste = on;
+            state.config.save();
+            Task::none()
+        }
         Message::Close => state.hide(),
         Message::Quit => state.quit(),
         Message::RainTick => {
@@ -848,7 +889,7 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             Task::none()
         }
         Message::Activate => state.activate(),
-        Message::FinishCopy => state.hide(),
+        Message::FinishCopy => state.finish_copy(),
         Message::Redraw => Task::none(),
         Message::Scrolled(viewport) => {
             state.scroll_y = viewport.absolute_offset().y;

@@ -1097,7 +1097,7 @@ fn plural(n: usize, one: &'static str, many: &'static str) -> &'static str {
 fn settings(state: &State, p: Palette) -> Element<'_, Message> {
     let label = |s: &'static str| text(s).size(11.0).color(p.faint);
 
-    let pill = move |name: &'static str, mode: crate::theme::Mode, active: bool| {
+    let pill = move |name: &'static str, on_press: Message, active: bool| {
         mouse_area(
             container(text(name).size(12.5).color(if active { p.text } else { p.faint }))
                 .padding(Padding::from([4, 12]))
@@ -1112,13 +1112,25 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
                 }),
         )
         .interaction(mouse::Interaction::Pointer)
-        .on_press(Message::SetTheme(mode))
+        .on_press(on_press)
     };
     let current = state.theme_mode();
     let themes = row![
-        pill("Sombre", crate::theme::Mode::Dark, current == crate::theme::Mode::Dark),
-        pill("Clair", crate::theme::Mode::Light, current == crate::theme::Mode::Light),
-        pill("Matrix", crate::theme::Mode::Matrix, current == crate::theme::Mode::Matrix),
+        pill(
+            "Sombre",
+            Message::SetTheme(crate::theme::Mode::Dark),
+            current == crate::theme::Mode::Dark,
+        ),
+        pill(
+            "Clair",
+            Message::SetTheme(crate::theme::Mode::Light),
+            current == crate::theme::Mode::Light,
+        ),
+        pill(
+            "Matrix",
+            Message::SetTheme(crate::theme::Mode::Matrix),
+            current == crate::theme::Mode::Matrix,
+        ),
     ]
     .spacing(8);
 
@@ -1137,6 +1149,24 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
         text("modifiable dans copycopy.conf").size(11.5).color(p.faint),
     ]
     .align_y(iced::Alignment::Center);
+
+    // Offered only where it can work. Elsewhere the reason shows instead of a
+    // switch that would do nothing.
+    let paste: Element<'_, Message> = match copycopy_platform::paste::availability() {
+        Ok(()) => column![
+            row![
+                pill("Activé", Message::SetAutoPaste(true), state.auto_paste()),
+                pill("Désactivé", Message::SetAutoPaste(false), !state.auto_paste()),
+            ]
+            .spacing(8),
+            text("colle l'entrée copiée dans l'application où vous étiez")
+                .size(11.5)
+                .color(p.faint),
+        ]
+        .spacing(6)
+        .into(),
+        Err(reason) => text(reason).size(11.5).color(p.faint).into(),
+    };
 
     let data = text(
         state
@@ -1170,6 +1200,9 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
             Space::new().height(Length::Fixed(8.0)),
             label("RACCOURCI"),
             hotkey,
+            Space::new().height(Length::Fixed(8.0)),
+            label("COLLAGE AUTOMATIQUE"),
+            paste,
             Space::new().height(Length::Fixed(8.0)),
             label("DONNÉES"),
             data,
