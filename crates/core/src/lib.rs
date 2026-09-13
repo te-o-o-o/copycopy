@@ -499,4 +499,5 @@ mod tests {
     }
 }
 pub mod lang;
+pub mod links;
 pub mod store;
