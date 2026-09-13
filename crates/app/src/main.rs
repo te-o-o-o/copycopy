@@ -65,6 +65,9 @@ const COPY_FLASH: Duration = Duration::from_millis(260);
 /// row or three per second, so more frames would redraw the whole window for
 /// no visible gain.
 const RAIN_TICK: Duration = Duration::from_millis(83);
+/// How long quitting waits for the event loop to stop on its own before the
+/// process is ended regardless. See `State::quit`.
+const QUIT_GRACE: Duration = Duration::from_millis(1500);
 /// Cross-fade of the selection highlight. Short enough to feel immediate,
 /// long enough to read as a movement rather than a jump.
 const SELECT_FADE: Duration = Duration::from_millis(110);
@@ -510,6 +513,19 @@ impl State {
     /// while capture carries on.
     fn quit(&mut self) -> Task<Message> {
         self.config.save();
+        // `iced::exit` only files a request that the event loop reads when it
+        // next wakes. With a window open something wakes it within a frame;
+        // a resident that never opened one sleeps on, and `--quit` was seen
+        // answering "ok" and leaving the process running. So a fallback stops
+        // the process if the loop has not let go shortly after. What it skips
+        // is harmless: the configuration is saved just above, every database
+        // write is already committed, and the system drops the global shortcut
+        // with the process.
+        std::thread::spawn(|| {
+            std::thread::sleep(QUIT_GRACE);
+            eprintln!("event loop did not stop, exiting the process");
+            std::process::exit(0);
+        });
         iced::exit()
     }
 
@@ -1290,7 +1306,11 @@ fn main() -> iced::Result {
     for font in fonts::extra().bytes {
         app = app.font(font);
     }
-    app.run()
+    let result = app.run();
+    // Written as soon as the event loop hands back: if the process then lingers,
+    // the log shows the wait is in tearing things down, not in the loop.
+    eprintln!("resident stopped");
+    result
 }
 
 #[cfg(test)]
