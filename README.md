@@ -34,8 +34,16 @@ Navigation: `↑↓` / `Ctrl-N` `Ctrl-P`, `PageUp/Down`, `Enter` to copy,
 `Ctrl-B` to pin, `Delete` or `Ctrl-D` to remove — also reachable through the
 cross that appears on the hovered and selected rows. `Esc` closes the window;
 `Ctrl-Q` (`Cmd-Q` on macOS) stops the resident altogether, like `--quit`.
-The `⋮` button opens the settings in the right-hand panel — theme, shortcut,
-data folder, and *Quitter copycopy* — and `Esc` closes them before the window.
+The gear button opens the settings in the right-hand panel — theme, shortcut,
+auto-paste, data folder, and *Quitter copycopy* — and `Esc` closes them before
+the window.
+
+**Auto-paste**, off by default. Once an entry is copied, copycopy hands the
+focus back to the application you were in and presses `Ctrl+V` for you, so the
+entry lands where your cursor was. Windows through `SendInput`, X11 through
+XTEST; refused under Wayland, which needs the RemoteDesktop portal for that,
+and not available on macOS yet. Simulating keystrokes in another application
+is something to switch on, never to discover.
 The header cross hides the window, like `Esc`: it never quits, so nobody stops
 capture by reaching for the usual corner.
 `Home`/`End` are left to the search field — inside a text input, moving the
