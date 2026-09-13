@@ -284,6 +284,30 @@ impl canvas::Program<Message> for Rain {
     }
 }
 
+/// Settings button: three stacked dots, the usual "more" mark.
+struct MenuMark {
+    color: iced::Color,
+}
+
+impl canvas::Program<Message> for MenuMark {
+    type State = ();
+
+    fn draw(
+        &self,
+        _state: &Self::State,
+        renderer: &iced::Renderer,
+        _theme: &iced::Theme,
+        bounds: Rectangle,
+        _cursor: iced::mouse::Cursor,
+    ) -> Vec<canvas::Geometry> {
+        let mut frame = canvas::Frame::new(renderer, bounds.size());
+        for y in [3.5, 8.0, 12.5] {
+            frame.fill(&canvas::Path::circle(Point::new(8.0, y), 1.6), self.color);
+        }
+        vec![frame.into_geometry()]
+    }
+}
+
 /// Theme switch. The glyph names the theme in use — a moon while dark, a sun
 /// while light — which is what most applications have taught people to read.
 struct ThemeMark {
@@ -448,6 +472,33 @@ fn header(state: &State, p: Palette) -> Element<'_, Message> {
                 )
                 .interaction(mouse::Interaction::Pointer)
                 .on_press(Message::ToggleTheme),
+                Space::new().width(Length::Fixed(12.0)),
+                mouse_area(
+                    canvas(MenuMark {
+                        color: if state.settings_open {
+                            p.accent
+                        } else {
+                            t::alpha(p.text, 0.55)
+                        },
+                    })
+                    .width(Length::Fixed(t::SLOT))
+                    .height(Length::Fixed(t::SLOT)),
+                )
+                .interaction(mouse::Interaction::Pointer)
+                .on_press(Message::ToggleSettings),
+                Space::new().width(Length::Fixed(8.0)),
+                // Closes the window, never the resident: quitting lives in the
+                // settings, under its own name, so nobody stops capture by
+                // reaching for the usual corner.
+                mouse_area(
+                    canvas(Cross {
+                        color: t::alpha(p.text, 0.55),
+                    })
+                    .width(Length::Fixed(t::SLOT))
+                    .height(Length::Fixed(t::SLOT)),
+                )
+                .interaction(mouse::Interaction::Pointer)
+                .on_press(Message::Close),
             ]
             .align_y(iced::Alignment::Center),
         )
@@ -766,6 +817,9 @@ fn body(state: &State, p: Palette) -> Element<'_, Message> {
 /// The selected entry in full. Everything here reads `state.preview`, built
 /// when the selection changed: nothing is loaded, counted or cut per frame.
 fn panel(state: &State, p: Palette) -> Element<'_, Message> {
+    if state.settings_open {
+        return settings(state, p);
+    }
     let Some(item) = state.visible.get(state.selected) else {
         return Space::new()
             .width(Length::Fill)
@@ -920,6 +974,138 @@ fn plural(n: usize, one: &'static str, many: &'static str) -> &'static str {
     } else {
         one
     }
+}
+
+/// The settings, in the panel's place. Laid out like the preview — caption, then
+/// a card — so opening them reads as the panel changing page, not as something
+/// laid over the window.
+fn settings(state: &State, p: Palette) -> Element<'_, Message> {
+    let label = |s: &'static str| text(s).size(11.0).color(p.faint);
+
+    let pill = move |name: &'static str, mode: crate::theme::Mode, active: bool| {
+        mouse_area(
+            container(text(name).size(12.5).color(if active { p.text } else { p.faint }))
+                .padding(Padding::from([4, 12]))
+                .style(move |_| container::Style {
+                    background: active.then_some(Background::Color(t::alpha(p.accent, 0.18))),
+                    border: Border {
+                        color: if active { p.accent } else { p.border },
+                        width: 1.0,
+                        radius: 999.0.into(),
+                    },
+                    ..Default::default()
+                }),
+        )
+        .interaction(mouse::Interaction::Pointer)
+        .on_press(Message::SetTheme(mode))
+    };
+    let current = state.theme_mode();
+    let themes = row![
+        pill("Sombre", crate::theme::Mode::Dark, current == crate::theme::Mode::Dark),
+        pill("Clair", crate::theme::Mode::Light, current == crate::theme::Mode::Light),
+        pill("Matrix", crate::theme::Mode::Matrix, current == crate::theme::Mode::Matrix),
+    ]
+    .spacing(8);
+
+    let hotkey = row![
+        container(text(state.hotkey()).size(12.5).font(Font::MONOSPACE).color(p.text))
+            .padding(Padding::from([3, 10]))
+            .style(move |_| container::Style {
+                border: Border {
+                    color: p.border,
+                    width: 1.0,
+                    radius: 6.0.into(),
+                },
+                ..Default::default()
+            }),
+        Space::new().width(Length::Fixed(10.0)),
+        text("modifiable dans copycopy.conf").size(11.5).color(p.faint),
+    ]
+    .align_y(iced::Alignment::Center);
+
+    let data = text(
+        state
+            .data_dir
+            .as_ref()
+            .map_or_else(|| "introuvable".to_string(), |d| d.display().to_string()),
+    )
+    .size(11.5)
+    .font(Font::MONOSPACE)
+    .color(p.text);
+
+    let quit = mouse_area(
+        container(text("Quitter copycopy").size(12.5).color(p.text))
+            .padding(Padding::from([6, 14]))
+            .style(move |_| container::Style {
+                border: Border {
+                    color: t::alpha(p.text, 0.35),
+                    width: 1.0,
+                    radius: 8.0.into(),
+                },
+                ..Default::default()
+            }),
+    )
+    .interaction(mouse::Interaction::Pointer)
+    .on_press(Message::Quit);
+
+    let card = container(
+        column![
+            label("THÈME"),
+            themes,
+            Space::new().height(Length::Fixed(8.0)),
+            label("RACCOURCI"),
+            hotkey,
+            Space::new().height(Length::Fixed(8.0)),
+            label("DONNÉES"),
+            data,
+            Space::new().height(Length::Fixed(14.0)),
+            row![
+                text(concat!("copycopy v", env!("CARGO_PKG_VERSION"), " · MIT"))
+                    .size(11.0)
+                    .color(p.faint),
+                Space::new().width(Length::Fill),
+                quit,
+            ]
+            .align_y(iced::Alignment::Center),
+        ]
+        .spacing(8),
+    )
+    .padding(Padding::from([18, 18]))
+    .width(Length::Fill)
+    .style(move |_| container::Style {
+        background: Some(Background::Color(p.frame)),
+        border: Border {
+            color: t::alpha(p.border, 0.6),
+            width: 1.0,
+            radius: 10.0.into(),
+        },
+        shadow: iced::Shadow {
+            color: p.shadow,
+            offset: iced::Vector::new(0.0, 8.0),
+            blur_radius: 22.0,
+        },
+        ..Default::default()
+    });
+
+    column![
+        text("RÉGLAGES").size(11.0).color(p.faint),
+        container(card).padding(Padding {
+            top: 2.0,
+            right: 12.0,
+            bottom: 24.0,
+            left: 0.0,
+        }),
+    ]
+    .spacing(12)
+    .padding(Padding {
+        top: 14.0,
+        right: 8.0,
+        bottom: 10.0,
+        left: 16.0,
+    })
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .into()
 }
 
 /// A Carbon-style window around a text preview: rounded, lifted off the panel

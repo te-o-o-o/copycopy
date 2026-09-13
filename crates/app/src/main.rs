@@ -14,6 +14,7 @@
 //!   copycopy --backend wayland|x11|poll
 //!   copycopy --screenshot out.png --for 10
 //!   copycopy --scroll 400      # open scrolled, to check virtualisation
+//!   copycopy --settings        # open on the settings, to check them
 //!
 //! Ctrl+Q (Cmd+Q on macOS) in the window stops the resident, like `--quit`.
 
@@ -99,6 +100,12 @@ pub struct State {
     /// Seconds since start, sampled on each rain tick. The rain is drawn from
     /// this alone, so it only moves when a tick says so.
     pub rain_t: f32,
+    /// The right-hand panel shows the settings instead of the preview.
+    pub settings_open: bool,
+    /// Where configuration, database, images and log live. Found once at boot:
+    /// finding it checks the disk for a portable configuration, which has no
+    /// place in a frame.
+    pub data_dir: Option<std::path::PathBuf>,
     pub selected: usize,
     /// The selected index, animated. Each row derives its highlight from the
     /// distance to this value, so the outgoing row fades out while the
@@ -224,6 +231,14 @@ pub enum Message {
     ToggleMatrix,
     /// Advance the Matrix rain by one frame.
     RainTick,
+    /// Show or hide the settings in the right-hand panel, from the ⋮ button.
+    ToggleSettings,
+    /// Pick a theme from the settings.
+    SetTheme(theme::Mode),
+    /// Hide the window, from the header cross. Capture carries on.
+    Close,
+    /// Stop the resident, from the settings.
+    Quit,
     /// Open a web link from the preview in the default browser.
     OpenLink(String),
     Hover(usize),
@@ -343,6 +358,14 @@ impl State {
         self.config.theme.palette()
     }
 
+    pub fn theme_mode(&self) -> theme::Mode {
+        self.config.theme
+    }
+
+    pub fn hotkey(&self) -> &str {
+        &self.config.hotkey
+    }
+
     fn flash(&mut self, msg: impl Into<String>) {
         self.flash = Some((msg.into(), Instant::now()));
     }
@@ -381,6 +404,7 @@ impl State {
     /// of it is ever drawn over a window that is still disappearing.
     fn reset_for_open(&mut self) {
         self.query.clear();
+        self.settings_open = false;
         self.selected = 0;
         self.selection = Animation::new(0.0).duration(SELECT_FADE);
         self.hovered = None;
@@ -561,6 +585,9 @@ struct Args {
     /// that the virtualisation spacers stay aligned with the real scroll
     /// position.
     scroll: Option<f32>,
+    /// Open with the settings showing. Only useful to check them in a
+    /// screenshot: they are otherwise reached with a click.
+    settings: bool,
 }
 
 fn parse_args() -> Args {
@@ -579,6 +606,7 @@ fn parse_args() -> Args {
         screenshot,
         seconds: val("--for").and_then(|v| v.parse().ok()).unwrap_or(1),
         scroll: val("--scroll").and_then(|v| v.parse().ok()),
+        settings: a.iter().any(|x| x == "--settings"),
     }
 }
 
@@ -671,6 +699,8 @@ fn boot() -> (State, Task<Message>) {
         preview: Preview::Empty,
         preview_key: None,
         rain_t: 0.0,
+        settings_open: args.settings,
+        data_dir: dir.clone(),
         selected: 0,
         selection: Animation::new(0.0).duration(SELECT_FADE),
         hovered: None,
@@ -772,6 +802,17 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
                 }
             }
         }
+        Message::ToggleSettings => {
+            state.settings_open = !state.settings_open;
+            Task::none()
+        }
+        Message::SetTheme(mode) => {
+            state.config.theme = mode;
+            state.config.save();
+            Task::none()
+        }
+        Message::Close => state.hide(),
+        Message::Quit => state.quit(),
         Message::RainTick => {
             state.rain_t = BOOT.get().map_or(0.0, |boot| boot.elapsed().as_secs_f32());
             Task::none()
@@ -948,6 +989,11 @@ fn handle_key(state: &mut State, event: keyboard::Event) -> Task<Message> {
 
     match key {
         // Esc closes the window, not the resident.
+        Key::Named(Named::Escape) if state.settings_open => {
+            // One step back at a time: the settings first, the window next.
+            state.settings_open = false;
+            Task::none()
+        }
         Key::Named(Named::Escape) => state.hide(),
         Key::Named(Named::Enter) => state.activate(),
         Key::Named(Named::ArrowDown) => state.move_selection(1),
