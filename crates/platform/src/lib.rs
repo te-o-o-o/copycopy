@@ -149,6 +149,27 @@ pub fn start(prefer: Option<&str>) -> Result<Watcher, String> {
     })
 }
 
+/// Whether the clipboard currently carries a password manager's "do not record"
+/// marker, checked from outside the event backends.
+///
+/// `None` where the platform offers no way to tell without its event backend.
+/// There the polling fallback must not run at all: it would store secrets it
+/// has no means to recognise (rule 1).
+#[cfg(target_os = "windows")]
+pub(crate) fn secret_marked() -> Option<bool> {
+    Some(windows::clipboard_is_secret())
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn secret_marked() -> Option<bool> {
+    Some(macos::pasteboard_is_secret())
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+pub(crate) fn secret_marked() -> Option<bool> {
+    None
+}
+
 /// A normalised picture: PNG bytes, plus its dimensions when they are known.
 ///
 /// This and the two helpers below serve the Linux backends only: X11 and

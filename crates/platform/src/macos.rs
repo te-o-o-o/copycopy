@@ -77,6 +77,11 @@ fn is_secret(pasteboard: &NSPasteboard) -> bool {
     })
 }
 
+/// The same check from outside this backend, for the polling fallback.
+pub(crate) fn pasteboard_is_secret() -> bool {
+    is_secret(&NSPasteboard::generalPasteboard())
+}
+
 fn read(pasteboard: &NSPasteboard) -> Option<ClipEvent> {
     // PNG first, then TIFF, which is what the system screenshot tool puts
     // there; it is converted back to PNG so only one format exists internally.
