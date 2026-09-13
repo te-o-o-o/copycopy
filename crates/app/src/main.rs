@@ -146,6 +146,9 @@ pub enum Preview {
         code: bool,
         /// The language the detector recognised, when it was sure of one.
         lang: Option<copycopy_core::lang::Lang>,
+        /// Byte ranges of the web links inside `body`, found when the preview
+        /// is built so the view only has to slice.
+        links: Vec<std::ops::Range<usize>>,
         /// Counted once, on the whole entry, when the preview is built.
         chars: usize,
         lines: usize,
@@ -175,8 +178,10 @@ impl Preview {
                     Some((end, _)) => text[..end].to_string(),
                     None => text.clone(),
                 };
+                let links = copycopy_core::links::find(&body);
                 Preview::Text {
                     body,
+                    links,
                     code: lang.is_some() || item.kind == copycopy_core::Kind::Code,
                     lang,
                     chars,
@@ -212,6 +217,8 @@ pub enum Message {
     ToggleMatrix,
     /// Advance the Matrix rain by one frame.
     RainTick,
+    /// Open a web link from the preview in the default browser.
+    OpenLink(String),
     Hover(usize),
     Unhover(usize),
     Activate,
@@ -732,6 +739,23 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             state.config.theme = state.config.theme.matrix_toggled();
             state.config.save();
             Task::none()
+        }
+        Message::OpenLink(link) => {
+            // Checked again here, whatever built the link: this string came out
+            // of the clipboard, and only a web address may reach the system.
+            if !copycopy_core::links::is_openable(&link) {
+                eprintln!("link refused: {link:?}");
+                return Task::none();
+            }
+            match open::that_detached(&link) {
+                // The browser is where the user is going: get out of its way.
+                Ok(()) => state.hide(),
+                Err(e) => {
+                    eprintln!("could not open {link}: {e}");
+                    state.flash(format!("impossible d'ouvrir le lien : {e}"));
+                    Task::none()
+                }
+            }
         }
         Message::RainTick => {
             state.rain_t = BOOT.get().map_or(0.0, |boot| boot.elapsed().as_secs_f32());
