@@ -31,8 +31,16 @@ cargo run -p copycopy-platform --example fake_owner -- "texte" Firefox 3
 
 Navigation : `↑↓` / `Ctrl-N` `Ctrl-P`, `PageUp/Down`, `Enter` copier,
 `Ctrl-B` épingler, `Suppr` ou `Ctrl-D` supprimer — accessible aussi par la croix
-qui apparaît sur la rangée survolée et sur la sélectionnée. `Esc` ferme. `Home`/`End` restent au
-champ de recherche — dans une zone de saisie, c'est le curseur qu'on attend.
+qui apparaît sur la rangée survolée et sur la sélectionnée. `Esc` ferme la
+fenêtre ; `Ctrl-Q` (`Cmd-Q` sur macOS) arrête complètement le résident, comme
+`--quit`. `Home`/`End` restent au champ de recherche — dans une zone de saisie,
+c'est le curseur qu'on attend.
+
+**Sous Windows, aucune console ne s'ouvre.** Un résident n'a pas à en posséder
+une, et la fermer arrêtait la capture sans prévenir. Lancé depuis un terminal,
+la sortie va toujours dans ce terminal ; lancé autrement — menu Démarrer,
+ouverture de session — elle va dans `copycopy.log` à côté de la base, remis à
+zéro au-delà d'un mégaoctet.
 
 ## Ouverture : raccourci global et IPC
 
@@ -41,7 +49,7 @@ Par défaut **`Ctrl+Alt+V`** (`Cmd+Shift+V` sur macOS), modifiable dans
 
 | Système | Mécanisme | État |
 |---|---|---|
-| Windows | `RegisterHotKey` | écrit, jamais exécuté |
+| Windows | `RegisterHotKey` | vérifié, utilisé au quotidien |
 | macOS | Carbon `RegisterEventHotKey` | écrit, jamais exécuté |
 | X11 | `XGrabKey` | vérifié, déclenchement compris |
 | Wayland | **aucun raccourci global côté client** | repli par l'IPC |

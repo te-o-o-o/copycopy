@@ -110,13 +110,18 @@ workbench, never as product defects — but equally, never take a WSL success as
 proof that a target platform works.
 
 - **X11 capture**: run and tested.
-- **Windows**: run for real — text and image capture, and copying back, work.
-  Built from WSL with MinGW (`--target x86_64-pc-windows-gnu`); WSL launches
-  the `.exe` directly as a native Windows process.
+- **Windows**: run for real — text and image capture, copying back, and the
+  global shortcut in daily use. Built from WSL with MinGW
+  (`--target x86_64-pc-windows-gnu`); WSL launches the `.exe` directly as a
+  native Windows process. The binary is a GUI-subsystem program: no console.
+  Output goes to the parent terminal when there is one, otherwise to
+  `copycopy.log` beside the database (`console.rs`) — look there first when
+  something fails on Windows.
 - **Wayland, macOS**: written, never executed. Do not describe them as working.
   Since rusqlite `bundled` they no longer type-check from Linux either: SQLite
   is C, and compiling it needs the target's own toolchain.
-- **Global shortcut**: verified on X11, including an actual trigger. Under WSL
+- **Global shortcut**: verified on X11, including an actual trigger, and on
+  Windows. Under WSL
   it cannot fire from Windows applications — `XGrabKey` only sees keys reaching
   the WSLg X server. That is structural.
 - **Pointer behaviour is untestable under WSLg.** The window is a Wayland

@@ -31,8 +31,15 @@ cargo run -p copycopy-platform --example fake_owner -- "text" Firefox 3
 
 Navigation: `↑↓` / `Ctrl-N` `Ctrl-P`, `PageUp/Down`, `Enter` to copy,
 `Ctrl-B` to pin, `Delete` or `Ctrl-D` to remove — also reachable through the
-cross that appears on the hovered and selected rows. `Esc` closes. `Home`/`End` are left to
-the search field — inside a text input, moving the caret is what you expect.
+cross that appears on the hovered and selected rows. `Esc` closes the window;
+`Ctrl-Q` (`Cmd-Q` on macOS) stops the resident altogether, like `--quit`.
+`Home`/`End` are left to the search field — inside a text input, moving the
+caret is what you expect.
+
+**On Windows no console opens.** A resident has no business owning one, and
+closing it used to stop capture without a word. Launched from a terminal, the
+output still goes to that terminal; launched any other way — Start menu, login
+— it goes to `copycopy.log` beside the database, restarted past a megabyte.
 
 ## Opening: global shortcut and IPC
 
@@ -41,7 +48,7 @@ Defaults to **`Ctrl+Alt+V`** (`Cmd+Shift+V` on macOS), configurable in
 
 | System | Mechanism | Status |
 |---|---|---|
-| Windows | `RegisterHotKey` | written, never run |
+| Windows | `RegisterHotKey` | verified, in daily use |
 | macOS | Carbon `RegisterEventHotKey` | written, never run |
 | X11 | `XGrabKey` | verified, including an actual trigger |
 | Wayland | **no client-side global shortcut exists** | falls back to IPC |
