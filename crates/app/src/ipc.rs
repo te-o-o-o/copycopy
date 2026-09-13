@@ -49,9 +49,13 @@ pub fn claim() -> io::Result<Claim> {
 
     match listener {
         Ok(listener) => Ok(Claim::Primary(listener)),
-        Err(e) if e.kind() == io::ErrorKind::AddrInUse => {
-            // The name is taken: either a resident is listening or the socket
-            // is dead. Connecting to it settles the question.
+        // The name is taken. Unix says so with `AddrInUse`; a Windows named
+        // pipe that already exists says `PermissionDenied` instead. Reading the
+        // latter as a broken IPC started one more resident on every launch —
+        // five were found running side by side, none of them reachable.
+        Err(e) if matches!(e.kind(), io::ErrorKind::AddrInUse | io::ErrorKind::PermissionDenied) => {
+            // Either a resident is listening or the socket is dead. Connecting
+            // to it settles the question.
             match Stream::connect(name()?) {
                 Ok(_) => Ok(Claim::AlreadyRunning),
                 Err(_) => Err(e),
