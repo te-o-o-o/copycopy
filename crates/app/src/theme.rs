@@ -15,8 +15,9 @@ const fn rgb(r: u8, g: u8, b: u8) -> Color {
 pub enum Mode {
     Dark,
     Light,
-    /// Green on black. Reached from the footer rather than the header icon,
-    /// which keeps alternating between the two everyday themes.
+    /// Neon pink on black: Matrix, but for a laugh. Reached from the footer
+    /// rather than the header icon, which keeps alternating between the two
+    /// everyday themes.
     Matrix,
 }
 
@@ -172,33 +173,33 @@ pub const LIGHT: Palette = Palette {
     },
 };
 
-/// Green on black, after the film's falling code. Borrowed from no scheme: the
-/// green is the #00FF41 usually quoted for it, and every other colour is that
-/// same green at a lower intensity, so the whole window stays a single hue.
+/// Neon pink on black — the film's falling code, repainted for a laugh.
+/// Borrowed from no scheme: one hot pink, #FF4FC0, and every other colour is
+/// that same pink at a lower intensity, so the whole window stays a single hue.
 pub const MATRIX: Palette = Palette {
     light: false,
     matrix: true,
-    card: rgb(0x00, 0x05, 0x00),
-    border: rgb(0x0B, 0x3D, 0x16),
-    selected: rgb(0x06, 0x2B, 0x10),
-    hover: rgb(0x03, 0x16, 0x08),
-    text: rgb(0x00, 0xFF, 0x41),
-    faint: rgb(0x0E, 0x7A, 0x2C),
-    chrome: rgb(0x0E, 0x7A, 0x2C),
-    accent: rgb(0x00, 0xFF, 0x41),
-    tint_text: rgb(0x00, 0xFF, 0x41),
-    tint_url: rgb(0x5B, 0xFF, 0x8A),
-    tint_code: rgb(0x9C, 0xFF, 0x57),
-    tint_image: rgb(0x00, 0xC8, 0x3A),
-    tint_files: rgb(0x3F, 0xD4, 0x6B),
-    pin: rgb(0x00, 0xFF, 0x41),
-    copied: rgb(0x00, 0xFF, 0x41),
-    frame: rgb(0x01, 0x10, 0x04),
-    // A green glow rather than a shadow: on black, darkness casts nothing.
+    card: rgb(0x05, 0x00, 0x04),
+    border: rgb(0x3D, 0x0B, 0x2A),
+    selected: rgb(0x2B, 0x06, 0x20),
+    hover: rgb(0x16, 0x03, 0x0F),
+    text: rgb(0xFF, 0x4F, 0xC0),
+    faint: rgb(0x9A, 0x1E, 0x6A),
+    chrome: rgb(0x9A, 0x1E, 0x6A),
+    accent: rgb(0xFF, 0x4F, 0xC0),
+    tint_text: rgb(0xFF, 0x4F, 0xC0),
+    tint_url: rgb(0xFF, 0x8A, 0xD0),
+    tint_code: rgb(0xFF, 0xB0, 0xE0),
+    tint_image: rgb(0xC8, 0x00, 0x7A),
+    tint_files: rgb(0xF0, 0x6A, 0xC0),
+    pin: rgb(0xFF, 0x4F, 0xC0),
+    copied: rgb(0xFF, 0x4F, 0xC0),
+    frame: rgb(0x10, 0x02, 0x0B),
+    // A pink glow rather than a shadow: on black, darkness casts nothing.
     shadow: Color {
-        r: 0.0,
-        g: 1.0,
-        b: 0.25,
+        r: 1.0,
+        g: 0.31,
+        b: 0.75,
         a: 0.18,
     },
 };
