@@ -15,6 +15,7 @@
 //!   copycopy --screenshot out.png --for 10
 //!   copycopy --scroll 400      # open scrolled, to check virtualisation
 //!   copycopy --settings        # open on the settings, to check them
+//!   copycopy --filter code     # open with a type filter, to check the band
 //!
 //! Ctrl+Q (Cmd+Q on macOS) in the window stops the resident, like `--quit`.
 
@@ -33,7 +34,7 @@ mod view;
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime};
 
-use copycopy_core::{store::Store, ClipEvent, ClipItem, History, Payload};
+use copycopy_core::{store::Store, ClipEvent, ClipItem, History, Kind, Payload};
 use copycopy_platform::{BackendKind, Capture, Setter};
 use iced::widget::scrollable;
 use iced::Animation;
@@ -109,6 +110,10 @@ pub struct State {
     pub rain_t: f32,
     /// The right-hand panel shows the settings instead of the preview.
     pub settings_open: bool,
+    /// Only entries of this type are listed; `None` lists them all.
+    pub kind_filter: Option<Kind>,
+    /// Per-type counts for the filter pills, worked out in `refilter`.
+    pub counts: FilterCounts,
     /// Where configuration, database, images and log live. Found once at boot:
     /// finding it checks the disk for a portable configuration, which has no
     /// place in a frame.
@@ -144,6 +149,56 @@ pub struct State {
     shot_done: bool,
     /// Kept alive: dropping it would unregister the global shortcut.
     _hotkeys: hotkey::Hotkeys,
+}
+
+/// The type filters, in the order of their pills and of Ctrl+1 to Ctrl+6.
+pub const FILTERS: [(&str, Option<Kind>); 6] = [
+    ("Tout", None),
+    ("Texte", Some(Kind::Text)),
+    ("Code", Some(Kind::Code)),
+    ("URL", Some(Kind::Url)),
+    ("Images", Some(Kind::Image)),
+    ("Fichiers", Some(Kind::Files)),
+];
+
+/// How many entries each type filter would show for the current search.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct FilterCounts {
+    pub all: usize,
+    text: usize,
+    url: usize,
+    code: usize,
+    image: usize,
+    files: usize,
+}
+
+impl FilterCounts {
+    fn of_items(items: &[ClipItem]) -> Self {
+        let mut counts = Self {
+            all: items.len(),
+            ..Self::default()
+        };
+        for item in items {
+            match item.kind {
+                Kind::Text => counts.text += 1,
+                Kind::Url => counts.url += 1,
+                Kind::Code => counts.code += 1,
+                Kind::Image => counts.image += 1,
+                Kind::Files => counts.files += 1,
+            }
+        }
+        counts
+    }
+
+    pub fn of(&self, kind: Kind) -> usize {
+        match kind {
+            Kind::Text => self.text,
+            Kind::Url => self.url,
+            Kind::Code => self.code,
+            Kind::Image => self.image,
+            Kind::Files => self.files,
+        }
+    }
 }
 
 /// The entry a copy is currently confirming.
@@ -244,6 +299,8 @@ pub enum Message {
     SetTheme(theme::Mode),
     /// Turn auto-paste on or off, from the settings.
     SetAutoPaste(bool),
+    /// List one type only, or everything with `None`, from the filter pills.
+    SetKindFilter(Option<Kind>),
     /// Hide the window, from the header cross. Capture carries on.
     Close,
     /// Stop the resident, from the settings.
@@ -287,6 +344,13 @@ impl State {
             },
             _ => self.filter_memory(query),
         };
+
+        // Counted before the type filter narrows the list: each pill tells how
+        // many entries it would show for the current search.
+        self.counts = FilterCounts::of_items(&self.visible);
+        if let Some(kind) = self.kind_filter {
+            self.visible.retain(|it| it.kind == kind);
+        }
 
         pinned_first(&mut self.visible);
         self.selected = self.selected.min(self.visible.len().saturating_sub(1));
@@ -418,6 +482,7 @@ impl State {
     fn reset_for_open(&mut self) {
         self.query.clear();
         self.settings_open = false;
+        self.kind_filter = None;
         self.selected = 0;
         self.selection = Animation::new(0.0).duration(SELECT_FADE);
         self.hovered = None;
@@ -547,6 +612,14 @@ impl State {
         task
     }
 
+    /// Narrows the list to one type, or lists everything again with `None`.
+    fn set_kind_filter(&mut self, kind: Option<Kind>) -> Task<Message> {
+        self.kind_filter = kind;
+        self.select(0);
+        self.refilter();
+        self.reveal_selected()
+    }
+
     fn quit(&mut self) -> Task<Message> {
         self.config.save();
         // `iced::exit` only files a request that the event loop reads when it
@@ -640,6 +713,9 @@ struct Args {
     /// Open with the settings showing. Only useful to check them in a
     /// screenshot: they are otherwise reached with a click.
     settings: bool,
+    /// Open with a type filter applied (`text`, `code`, `url`, `image`, `files`).
+    /// Only useful to check the filter band in a screenshot.
+    filter: Option<Kind>,
 }
 
 fn parse_args() -> Args {
@@ -659,6 +735,14 @@ fn parse_args() -> Args {
         seconds: val("--for").and_then(|v| v.parse().ok()).unwrap_or(1),
         scroll: val("--scroll").and_then(|v| v.parse().ok()),
         settings: a.iter().any(|x| x == "--settings"),
+        filter: val("--filter").and_then(|v| match v.as_str() {
+            "text" => Some(Kind::Text),
+            "code" => Some(Kind::Code),
+            "url" => Some(Kind::Url),
+            "image" | "images" => Some(Kind::Image),
+            "files" => Some(Kind::Files),
+            _ => None,
+        }),
     }
 }
 
@@ -752,6 +836,8 @@ fn boot() -> (State, Task<Message>) {
         preview_key: None,
         rain_t: 0.0,
         settings_open: args.settings,
+        kind_filter: args.filter,
+        counts: FilterCounts::default(),
         data_dir: dir.clone(),
         selected: 0,
         selection: Animation::new(0.0).duration(SELECT_FADE),
@@ -868,6 +954,7 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             state.config.save();
             Task::none()
         }
+        Message::SetKindFilter(kind) => state.set_kind_filter(kind),
         Message::Close => state.hide(),
         Message::Quit => state.quit(),
         Message::RainTick => {
@@ -1083,6 +1170,11 @@ fn handle_key(state: &mut State, event: keyboard::Event) -> Task<Message> {
                 state.reveal_selected()
             }
             "d" => state.delete_selected(),
+            // Ctrl+1 to Ctrl+6: the filter pills, left to right.
+            digit @ ("1" | "2" | "3" | "4" | "5" | "6") => {
+                let index = digit.parse::<usize>().unwrap_or(1) - 1;
+                state.set_kind_filter(FILTERS[index].1)
+            }
             _ => Task::none(),
         },
         _ => Task::none(),

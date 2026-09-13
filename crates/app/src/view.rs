@@ -28,6 +28,8 @@ pub fn view(state: &State, _window: iced::window::Id) -> Element<'_, Message> {
     let content = column![
         header(state, p),
         hairline(p),
+        filters(state, p),
+        hairline(p),
         body(state, p),
         hairline(p),
         footer(state, p),
@@ -635,6 +637,8 @@ fn list(state: &State, p: Palette) -> Element<'_, Message> {
     if total == 0 {
         let msg = if state.history.is_empty() {
             "Rien de capturé pour l'instant — copiez quelque chose"
+        } else if state.kind_filter.is_some() && state.query.trim().is_empty() {
+            "Aucune entrée de ce type"
         } else {
             "Aucun résultat"
         };
@@ -1091,6 +1095,76 @@ fn plural(n: usize, one: &'static str, many: &'static str) -> &'static str {
     }
 }
 
+/// The type filters, on their own band under the search. Neutral pills, the
+/// same as the settings': the list below already carries the type colours in its
+/// badges, and a second set would only compete with them. Counts come from
+/// `refilter`, never from here.
+fn filters(state: &State, p: Palette) -> Element<'_, Message> {
+    let mut pills = row![].spacing(8).align_y(iced::Alignment::Center);
+    for (label, kind) in crate::FILTERS {
+        let count = kind.map_or(state.counts.all, |k| state.counts.of(k));
+        pills = pills.push(choice_pill(
+            label,
+            Some(count),
+            Message::SetKindFilter(kind),
+            state.kind_filter == kind,
+            p,
+        ));
+    }
+    container(pills)
+        .width(Length::Fill)
+        .center_y(Length::Fixed(t::FILTERS_H))
+        .padding(Padding::from([0, 24]))
+        .into()
+}
+
+/// A rounded choice, with an optional count. One control shared by the settings
+/// and the type filters, so the two always look alike. An empty choice stays in
+/// place, only dimmed: pills must not shift as the content changes.
+fn choice_pill<'a>(
+    label: &'static str,
+    count: Option<usize>,
+    on_press: Message,
+    active: bool,
+    p: Palette,
+) -> Element<'a, Message> {
+    let empty = count == Some(0) && !active;
+    let ink = if active {
+        p.text
+    } else if empty {
+        t::alpha(p.faint, 0.55)
+    } else {
+        p.faint
+    };
+    let mut content = row![text(label).size(12.5).color(ink)].align_y(iced::Alignment::Center);
+    if let Some(n) = count {
+        content = content.push(Space::new().width(Length::Fixed(6.0)));
+        content = content.push(text(n.to_string()).size(11.0).color(t::alpha(ink, 0.7)));
+    }
+    mouse_area(
+        container(content)
+            .padding(Padding::from([4, 12]))
+            .style(move |_| container::Style {
+                background: active.then_some(Background::Color(t::alpha(p.accent, 0.18))),
+                border: Border {
+                    color: if active {
+                        p.accent
+                    } else if empty {
+                        t::alpha(p.border, 0.5)
+                    } else {
+                        p.border
+                    },
+                    width: 1.0,
+                    radius: 999.0.into(),
+                },
+                ..Default::default()
+            }),
+    )
+    .interaction(mouse::Interaction::Pointer)
+    .on_press(on_press)
+    .into()
+}
+
 /// The settings, in the panel's place. Laid out like the preview — caption, then
 /// a card — so opening them reads as the panel changing page, not as something
 /// laid over the window.
@@ -1098,21 +1172,7 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
     let label = |s: &'static str| text(s).size(11.0).color(p.faint);
 
     let pill = move |name: &'static str, on_press: Message, active: bool| {
-        mouse_area(
-            container(text(name).size(12.5).color(if active { p.text } else { p.faint }))
-                .padding(Padding::from([4, 12]))
-                .style(move |_| container::Style {
-                    background: active.then_some(Background::Color(t::alpha(p.accent, 0.18))),
-                    border: Border {
-                        color: if active { p.accent } else { p.border },
-                        width: 1.0,
-                        radius: 999.0.into(),
-                    },
-                    ..Default::default()
-                }),
-        )
-        .interaction(mouse::Interaction::Pointer)
-        .on_press(on_press)
+        choice_pill(name, None, on_press, active, p)
     };
     let current = state.theme_mode();
     let themes = row![
@@ -1237,12 +1297,18 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
 
     column![
         text("RÉGLAGES").size(11.0).color(p.faint),
-        container(card).padding(Padding {
+        // Scrolls rather than squeezes: once the filter band took its share of
+        // the height, the card no longer fitted and its last row — the quit
+        // button — was crushed to a line.
+        scrollable(container(card).padding(Padding {
             top: 2.0,
             right: 12.0,
             bottom: 24.0,
             left: 0.0,
-        }),
+        }))
+        .height(Length::Fill)
+        .direction(thin_scrollbar())
+        .style(quiet_scroll(p)),
     ]
     .spacing(12)
     .padding(Padding {
