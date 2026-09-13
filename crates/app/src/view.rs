@@ -6,7 +6,8 @@
 //! other but leaves the row stuck to the top of its container.
 
 use iced::widget::{
-    canvas, column, container, image, mouse_area, row, scrollable, stack, text, text_input,
+    canvas, column, container, image, mouse_area, rich_text, row, scrollable, span, stack, text,
+    text_input,
     Space,
 };
 use iced::{
@@ -817,13 +818,24 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
 
     let content: Element<'_, Message> = match &state.preview {
         Preview::Text {
-            body, code, cut, ..
+            body,
+            code,
+            cut,
+            links,
+            ..
         } => {
-            let mut lines = column![text(body.as_str())
-                .size(13.0)
-                .font(if *code { Font::MONOSPACE } else { Font::DEFAULT })
-                .color(p.text)]
-            .spacing(10);
+            let font = if *code { Font::MONOSPACE } else { Font::DEFAULT };
+            let content: Element<'_, Message> = if links.is_empty() {
+                text(body.as_str()).size(13.0).font(font).color(p.text).into()
+            } else {
+                rich_text(linked_spans(body, links, p))
+                    .size(13.0)
+                    .font(font)
+                    .color(p.text)
+                    .on_link_click(Message::OpenLink)
+                    .into()
+            };
+            let mut lines = column![content].spacing(10);
             if *cut {
                 lines = lines.push(
                     text("… la suite n'est pas affichée")
@@ -870,6 +882,35 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         .width(Length::Fill)
         .height(Length::Fill)
         .into()
+}
+
+/// The preview body cut into plain and linked spans, from ranges found when the
+/// preview was built. Links take the accent and an underline: colour alone
+/// would not tell a link from a highlighted word.
+fn linked_spans<'a>(
+    body: &'a str,
+    links: &[std::ops::Range<usize>],
+    p: Palette,
+) -> Vec<iced::advanced::text::Span<'a, String, Font>> {
+    let mut spans = Vec::with_capacity(links.len() * 2 + 1);
+    let mut at = 0;
+    for link in links {
+        if link.start > at {
+            spans.push(span(&body[at..link.start]));
+        }
+        let address = &body[link.clone()];
+        spans.push(
+            span(address)
+                .link(address.to_string())
+                .underline(true)
+                .color(p.accent),
+        );
+        at = link.end;
+    }
+    if at < body.len() {
+        spans.push(span(&body[at..]));
+    }
+    spans
 }
 
 /// French agreement: singular for 0 and 1, as French counts them.

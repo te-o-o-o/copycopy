@@ -19,6 +19,10 @@ copycopy-platform = { path = "../platform" }
 iced = { version = "0.14", features = ["advanced", "tokio", "canvas", "image-without-codecs"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 global-hotkey = "0.8"
+# `shellexecute-on-windows`: hands the link to ShellExecuteW directly. Without it
+# Windows goes through `cmd /c start`, where a `&` inside a copied URL can chain
+# a command.
+open = { version = "5.4", features = ["shellexecute-on-windows"] }
 interprocess = "2.4"
 directories = "6"
 
