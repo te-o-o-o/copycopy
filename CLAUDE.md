@@ -102,6 +102,27 @@ without that.
 `cargo run --release -p copycopy --example band -- shot.png X0 X1 Y0 Y1` counts
 lit pixels in a band, which detects the line without visual inspection.
 
+## Windows traps
+
+Both cost a session, and neither shows up anywhere but on a real Windows run.
+
+- **A taken pipe name is `PermissionDenied`, not `AddrInUse`.** `interprocess`
+  creates the named pipe with `FILE_FLAG_FIRST_PIPE_INSTANCE`, and Windows
+  refuses with "access denied" when it already exists. Read as a broken IPC,
+  every launch started one more resident — five were found running at once,
+  none reachable by `--show`, and the window never appeared. `ipc::claim`
+  treats both kinds as "name taken".
+- **`iced::exit()` does not stop a daemon that never opened a window.** It files
+  a request read on the loop's next wake-up, and nothing wakes a windowless
+  resident. `--quit` answered "ok" and left the process running. `State::quit`
+  therefore ends the process itself if the loop has not let go after
+  `QUIT_GRACE`; the log says which of the two happened (`resident stopped` or
+  `event loop did not stop`). This matters for autostart, where the resident
+  starts without a window.
+
+When something fails on Windows, read `copycopy.log` first, and count the
+`copycopy.exe` processes — a duplicate resident explains most "nothing happens".
+
 ## What is verified, and what is not
 
 WSL is the development environment, not a target. The program is meant to run
