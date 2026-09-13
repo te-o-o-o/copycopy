@@ -284,6 +284,59 @@ impl canvas::Program<Message> for Rain {
     }
 }
 
+/// The application's mark: "cc" on a rounded tile, magenta fading to violet.
+///
+/// Drawn rather than typeset, like every other glyph here: a bold monospace
+/// face is not guaranteed on every system, and the same geometry is meant to
+/// become the installers' icon. Brand colours, not palette ones — a logo does
+/// not change with the theme.
+struct LogoMark;
+
+impl canvas::Program<Message> for LogoMark {
+    type State = ();
+
+    fn draw(
+        &self,
+        _state: &Self::State,
+        renderer: &iced::Renderer,
+        _theme: &iced::Theme,
+        bounds: Rectangle,
+        _cursor: iced::mouse::Cursor,
+    ) -> Vec<canvas::Geometry> {
+        let mut frame = canvas::Frame::new(renderer, bounds.size());
+        let side = bounds.width.min(bounds.height);
+
+        let tile = canvas::Path::rounded_rectangle(
+            Point::ORIGIN,
+            Size::new(side, side),
+            (side * 0.27).into(),
+        );
+        let fill = canvas::gradient::Linear::new(Point::ORIGIN, Point::new(side, side))
+            .add_stop(0.0, iced::Color::from_rgb8(0xF0, 0x00, 0xA0))
+            .add_stop(1.0, iced::Color::from_rgb8(0x8A, 0x2B, 0xC2));
+        frame.fill(&tile, fill);
+
+        // Two arcs open on the right: each "c" runs clockwise from 45° below
+        // the horizontal, round the left, to 45° above it.
+        let ink = canvas::Stroke::default()
+            .with_color(iced::Color::WHITE)
+            .with_width(side * 0.095)
+            .with_line_cap(canvas::LineCap::Round);
+        for centre_x in [0.33, 0.66] {
+            let c = canvas::Path::new(|b| {
+                b.arc(canvas::path::Arc {
+                    center: Point::new(side * centre_x, side * 0.5),
+                    radius: side * 0.15,
+                    start_angle: iced::Radians(std::f32::consts::FRAC_PI_4),
+                    end_angle: iced::Radians(7.0 * std::f32::consts::FRAC_PI_4),
+                });
+            });
+            frame.stroke(&c, ink);
+        }
+        vec![frame.into_geometry()]
+    }
+}
+
 /// Settings button: a gear, which says "configuration" where three dots only say
 /// "more". Eight square teeth around a hollow hub, drawn as one polygon.
 struct GearMark {
@@ -506,6 +559,10 @@ fn header(state: &State, p: Palette) -> Element<'_, Message> {
     mouse_area(
         container(
             row![
+                canvas(LogoMark)
+                    .width(Length::Fixed(22.0))
+                    .height(Length::Fixed(22.0)),
+                Space::new().width(Length::Fixed(14.0)),
                 canvas(Magnifier { color: p.faint })
                     .width(Length::Fixed(16.0))
                     .height(Length::Fixed(16.0)),
