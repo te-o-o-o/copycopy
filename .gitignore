@@ -3,3 +3,6 @@
 
 # Local tooling notes and settings, not part of the project.
 /.claude
+
+# Landing page, kept local until the repository goes public
+/site
