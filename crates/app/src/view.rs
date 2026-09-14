@@ -904,12 +904,21 @@ fn row_widget(
         .height(Length::Fixed(t::ROW_H))
         .padding(Padding::from([t::ROW_GAP, 0.0]));
 
-    mouse_area(styled)
+    let area = mouse_area(styled)
         .on_press(Message::Select(index))
         .on_double_click(Message::Activate)
         .on_enter(Message::Hover(index))
-        .on_exit(Message::Unhover(index))
-        .into()
+        .on_exit(Message::Unhover(index));
+
+    // Only images can be dragged out (see `drag.rs`), so only they pay for
+    // watching every pointer move over the row.
+    if item.kind == copycopy_core::Kind::Image {
+        area.on_move(move |pos| Message::ImageDragMoved(index, pos))
+            .on_release(Message::ImageDragReleased)
+            .into()
+    } else {
+        area.into()
+    }
 }
 
 // ----------------------------------------------------------------- footer

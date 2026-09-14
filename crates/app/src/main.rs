@@ -25,6 +25,7 @@
 
 mod config;
 mod console;
+mod drag;
 mod fonts;
 mod hotkey;
 mod autostart;
@@ -144,6 +145,9 @@ pub struct State {
     /// recreating a surface on every shortcut press is not free.
     window: Option<window::Id>,
     window_shown: bool,
+    /// Set while a press on an image row might turn into a drag-out; see
+    /// [`DragWatch`].
+    drag_watch: Option<DragWatch>,
     opened_at: Option<Instant>,
     close_on_blur: bool,
     shot_path: Option<std::path::PathBuf>,
@@ -213,6 +217,19 @@ impl FilterCounts {
 pub struct Copied {
     pub id: u64,
     pub hash: u64,
+}
+
+/// An image row that might be the start of a drag-out, armed on press and
+/// resolved on the next few moves.
+///
+/// `origin` starts empty: `mouse_area`'s `on_press` carries no position, so
+/// the first move sample after the press is taken as the baseline instead of
+/// the press point itself — close enough, since a press and its first move
+/// land a frame apart at most.
+#[derive(Debug, Clone, Copy)]
+struct DragWatch {
+    index: usize,
+    origin: Option<iced::Point>,
 }
 
 /// The detail panel's content, ready to draw.
@@ -313,6 +330,11 @@ pub enum Message {
     OpenLink(String),
     Hover(usize),
     Unhover(usize),
+    /// The pointer has moved over an image row while a possible drag-out is
+    /// being watched.
+    ImageDragMoved(usize, iced::Point),
+    /// The button lifted, or the pointer left, before a drag-out started.
+    ImageDragReleased,
     Activate,
     /// The copy confirmation has been shown long enough; close.
     FinishCopy,
@@ -869,6 +891,7 @@ fn boot() -> (State, Task<Message>) {
         config: config.clone(),
         window: None,
         window_shown: false,
+        drag_watch: None,
         opened_at: None,
         // In screenshot mode the window must not close on its own for lack of
         // focus.
@@ -919,6 +942,45 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::Select(i) => {
             state.select(i);
+            state.drag_watch = state
+                .visible
+                .get(i)
+                .filter(|item| item.kind == Kind::Image)
+                .map(|_| DragWatch {
+                    index: i,
+                    origin: None,
+                });
+            Task::none()
+        }
+        Message::ImageDragMoved(index, pos) => {
+            let Some(watch) = state.drag_watch.as_mut().filter(|w| w.index == index) else {
+                return Task::none();
+            };
+            let Some(origin) = watch.origin else {
+                watch.origin = Some(pos);
+                return Task::none();
+            };
+            // A few pixels of slack: without it, the drag would start on the
+            // same tiny jitter that a plain click already produces.
+            const THRESHOLD: f32 = 6.0;
+            if origin.distance(pos) < THRESHOLD {
+                return Task::none();
+            }
+            state.drag_watch = None;
+            let path = state
+                .visible
+                .get(index)
+                .and_then(|item| match &item.payload {
+                    Payload::Image { data, .. } => data.path().map(|p| p.to_path_buf()),
+                    _ => None,
+                });
+            let (Some(path), Some(id)) = (path, state.window) else {
+                return Task::none();
+            };
+            window::run(id, move |window| drag::start(window, path.clone())).discard()
+        }
+        Message::ImageDragReleased => {
+            state.drag_watch = None;
             Task::none()
         }
         Message::Delete(index) => {

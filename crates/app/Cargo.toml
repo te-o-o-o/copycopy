@@ -33,3 +33,8 @@ windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ashpd = { version = "0.13", default-features = false, features = ["tokio"] }
+
+[target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
+# Dragging a row out of the window. Linux is missing on purpose: the crate
+# itself says winit cannot use it there yet, GTK only — see `drag.rs`.
+drag = "2"
