@@ -913,10 +913,16 @@ fn row_widget(
     // Only images can be dragged out (see `drag.rs`), so only they pay for
     // watching every pointer move over the row — and only they get the hand,
     // which says so before the row is even pressed.
+    //
+    // `Pointer`, not `Grab`: Windows has no native open/closed-hand cursor,
+    // so winit falls back to `IDC_SIZEALL` for `Grab`/`Grabbing` — the
+    // four-way move arrows, which reads as a cross, not a hand. `Pointer`
+    // maps to `IDC_HAND`, the actual pointing hand, and is what the rest of
+    // the app already uses for anything clickable.
     if item.kind == copycopy_core::Kind::Image {
         area.on_move(move |pos| Message::ImageDragMoved(index, pos))
             .on_release(Message::ImageDragReleased)
-            .interaction(mouse::Interaction::Grab)
+            .interaction(mouse::Interaction::Pointer)
             .into()
     } else {
         area.into()

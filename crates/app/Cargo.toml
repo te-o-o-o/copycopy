@@ -28,8 +28,10 @@ directories = "6"
 auto-launch = "0.6.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-# The console: attaching to a parent terminal, or sending output to a log file.
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Console"] }
+# The console: attaching to a parent terminal, or sending output to a log
+# file. `Win32_UI_WindowsAndMessaging` is for `drag.rs`: `GetWindowRect`,
+# to tell a drop back into our own window from a real one elsewhere.
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Console", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ashpd = { version = "0.13", default-features = false, features = ["tokio"] }
