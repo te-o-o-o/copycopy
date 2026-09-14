@@ -26,6 +26,7 @@ copycopy --screenshot out.png --for 10   # capture the window, then quit
 copycopy --hidden ...    # start without a window, even in screenshot mode
 copycopy --settings ...  # open on the settings panel, to check it in a screenshot
 copycopy --filter code   # open with a type filter, to check the filter band
+copycopy --autostart on|off   # start with the session, or stop doing so, then exit
 
 copycopy --headless --for 20  # console capture, no interface
 cargo run -p copycopy-platform --example fake_owner -- "text" Firefox 3
@@ -36,8 +37,8 @@ Navigation: `↑↓` / `Ctrl-N` `Ctrl-P`, `PageUp/Down`, `Enter` to copy,
 cross that appears on the hovered and selected rows. `Esc` closes the window;
 `Ctrl-Q` (`Cmd-Q` on macOS) stops the resident altogether, like `--quit`.
 The gear button opens the settings in the right-hand panel — theme, shortcut,
-auto-paste, data folder, and *Quitter copycopy* — and `Esc` closes them before
-the window.
+auto-paste, startup, data folder, and *Quitter copycopy* — and `Esc` closes them
+before the window.
 
 **Auto-paste**, off by default. Once an entry is copied, copycopy hands the
 focus back to the application you were in and presses `Ctrl+V` for you, so the
@@ -45,6 +46,15 @@ entry lands where your cursor was. Windows through `SendInput`, X11 through
 XTEST; refused under Wayland, which needs the RemoteDesktop portal for that,
 and not available on macOS yet. Simulating keystrokes in another application
 is something to switch on, never to discover.
+
+**Starting with the session**, off by default. The switch writes a per-user
+entry — the `Run` key under `HKCU` on Windows, with no administrator rights, a
+`.desktop` file in `~/.config/autostart` on Linux, a launch agent on macOS — and
+copycopy then waits in the background from login, with no window, so the
+shortcut has something to talk to the first time you press it. The entry holds
+an absolute path, rewritten at every start so moving the executable, as portable
+mode invites, does not leave a dead entry behind. Remove it from the Task
+Manager and copycopy notices at the next start and stops claiming otherwise.
 The header cross hides the window, like `Esc`: it never quits, so nobody stops
 capture by reaching for the usual corner.
 
