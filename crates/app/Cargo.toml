@@ -25,6 +25,7 @@ global-hotkey = "0.8"
 open = { version = "5.4", features = ["shellexecute-on-windows"] }
 interprocess = "2.4"
 directories = "6"
+auto-launch = "0.6.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 # The console: attaching to a parent terminal, or sending output to a log file.

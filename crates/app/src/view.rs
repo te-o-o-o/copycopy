@@ -1228,6 +1228,24 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
         Err(reason) => text(reason).size(11.5).color(p.faint).into(),
     };
 
+    // Same treatment: where the entry cannot be written — an executable living
+    // on a network path, typically — the reason replaces the switch.
+    let startup: Element<'_, Message> = match crate::autostart::availability() {
+        Ok(()) => column![
+            row![
+                pill("Activé", Message::SetAutostart(true), state.autostart()),
+                pill("Désactivé", Message::SetAutostart(false), !state.autostart()),
+            ]
+            .spacing(8),
+            text("copycopy attend en fond dès l'ouverture de session")
+                .size(11.5)
+                .color(p.faint),
+        ]
+        .spacing(6)
+        .into(),
+        Err(reason) => text(reason).size(11.5).color(p.faint).into(),
+    };
+
     let data = text(
         state
             .data_dir
@@ -1263,6 +1281,9 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
             Space::new().height(Length::Fixed(8.0)),
             label("COLLAGE AUTOMATIQUE"),
             paste,
+            Space::new().height(Length::Fixed(8.0)),
+            label("DÉMARRAGE"),
+            startup,
             Space::new().height(Length::Fixed(8.0)),
             label("DONNÉES"),
             data,

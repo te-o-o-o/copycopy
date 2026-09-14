@@ -29,6 +29,9 @@ pub struct Config {
     /// Off by default: simulating keystrokes in another application is
     /// something to ask for, never to discover.
     pub auto_paste: bool,
+    /// Start with the session. Off by default: a program that installs itself
+    /// into someone's login is a program that asked first.
+    pub autostart: bool,
 }
 
 impl Default for Config {
@@ -39,6 +42,7 @@ impl Default for Config {
             position: None,
             theme: crate::theme::Mode::Dark,
             auto_paste: false,
+            autostart: false,
         }
     }
 }
@@ -93,10 +97,8 @@ impl Config {
                 "size" => config.size = parse_pair(value).filter(|(w, h)| *w >= 320.0 && *h >= 200.0),
                 "position" => config.position = parse_pair(value),
                 "theme" => config.theme = crate::theme::Mode::parse(value).unwrap_or(config.theme),
-                "auto_paste" => {
-                    config.auto_paste =
-                        matches!(value.to_ascii_lowercase().as_str(), "true" | "yes" | "on" | "1")
-                }
+                "auto_paste" => config.auto_paste = truthy(value),
+                "autostart" => config.autostart = truthy(value),
                 _ => {}
             }
         }
@@ -140,8 +142,19 @@ impl Config {
         body.push_str(&format!("theme = {}\n", self.theme.name()));
         body.push_str("# Coller automatiquement après une copie : true ou false\n");
         body.push_str(&format!("auto_paste = {}\n", self.auto_paste));
+        body.push_str("# Lancer copycopy à l'ouverture de session : true ou false\n");
+        body.push_str(&format!("autostart = {}\n", self.autostart));
         let _ = std::fs::write(&path, body);
     }
+}
+
+/// A switch is on when it says so in any of the spellings someone editing the
+/// file by hand would reach for. Anything else is off.
+fn truthy(value: &str) -> bool {
+    matches!(
+        value.to_ascii_lowercase().as_str(),
+        "true" | "yes" | "on" | "1"
+    )
 }
 
 fn parse_pair(value: &str) -> Option<(f32, f32)> {
@@ -164,6 +177,16 @@ mod tests {
         assert_eq!(parse_pair("760, 520"), Some((760.0, 520.0)));
         assert_eq!(parse_pair("abc"), None);
         assert_eq!(parse_pair("1,2,3"), None);
+    }
+
+    #[test]
+    fn switches_read_the_usual_spellings() {
+        for on in ["true", "TRUE", "yes", "on", "1"] {
+            assert!(truthy(on), "{on} should be on");
+        }
+        for off in ["false", "no", "off", "0", "", "peut-être"] {
+            assert!(!truthy(off), "{off} should be off");
+        }
     }
 
     #[test]
