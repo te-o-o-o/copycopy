@@ -27,6 +27,7 @@ mod config;
 mod console;
 mod fonts;
 mod hotkey;
+mod autostart;
 mod icon;
 mod ipc;
 mod theme;
@@ -300,6 +301,8 @@ pub enum Message {
     SetTheme(theme::Mode),
     /// Turn auto-paste on or off, from the settings.
     SetAutoPaste(bool),
+    /// Start with the session, or stop doing so, from the settings.
+    SetAutostart(bool),
     /// List one type only, or everything with `None`, from the filter pills.
     SetKindFilter(Option<Kind>),
     /// Hide the window, from the header cross. Capture carries on.
@@ -442,6 +445,10 @@ impl State {
 
     pub fn auto_paste(&self) -> bool {
         self.config.auto_paste
+    }
+
+    pub fn autostart(&self) -> bool {
+        self.config.autostart
     }
 
     fn flash(&mut self, msg: impl Into<String>) {
@@ -751,7 +758,15 @@ fn parse_args() -> Args {
 
 fn boot() -> (State, Task<Message>) {
     let args = parse_args();
-    let config = Config::load();
+    let mut config = Config::load();
+    // Before the file is written, so a preference the system no longer agrees
+    // with is corrected on disk in the same breath.
+    let autostart = autostart::reconcile(config.autostart);
+    if autostart != config.autostart {
+        println!("démarrage automatique : entrée retirée hors de l'application");
+        config.autostart = autostart;
+        config.save();
+    }
     if let Some(path) = config.write_default_if_missing() {
         println!("configuration : {}", path.display());
     }
@@ -955,6 +970,21 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
         Message::SetAutoPaste(on) => {
             state.config.auto_paste = on;
             state.config.save();
+            Task::none()
+        }
+        Message::SetAutostart(on) => {
+            // The preference only changes if the system accepted it: a switch
+            // that moves while nothing was written would be a lie.
+            match autostart::set(on) {
+                Ok(()) => {
+                    state.config.autostart = on;
+                    state.config.save();
+                }
+                Err(e) => {
+                    eprintln!("autostart: {e}");
+                    state.flash(format!("démarrage automatique : {e}"));
+                }
+            }
             Task::none()
         }
         Message::SetKindFilter(kind) => state.set_kind_filter(kind),
@@ -1389,6 +1419,34 @@ fn main() -> iced::Result {
             .and_then(|i| argv.get(i + 1))
             .and_then(|v| v.parse().ok());
         headless(seconds);
+        return Ok(());
+    }
+
+    // Before claiming the pipe: this writes a system entry and exits, it never
+    // becomes a resident. An installer turns it on, an uninstaller must be able
+    // to turn it off with no window and no running copy.
+    if let Some(on) = argv
+        .iter()
+        .position(|a| a == "--autostart")
+        .and_then(|i| argv.get(i + 1))
+        .and_then(|v| match v.as_str() {
+            "on" | "true" => Some(true),
+            "off" | "false" => Some(false),
+            _ => None,
+        })
+    {
+        match autostart::set(on) {
+            Ok(()) => {
+                let mut config = Config::load();
+                config.autostart = on;
+                config.save();
+                println!(
+                    "démarrage automatique : {}",
+                    if on { "activé" } else { "désactivé" }
+                );
+            }
+            Err(e) => eprintln!("démarrage automatique : {e}"),
+        }
         return Ok(());
     }
 
