@@ -335,6 +335,9 @@ pub enum Message {
     ImageDragMoved(usize, iced::Point),
     /// The button lifted, or the pointer left, before a drag-out started.
     ImageDragReleased,
+    /// The native drag session ended; `true` when the row was actually
+    /// dropped somewhere, `false` on a cancelled drag.
+    ImageDragFinished(bool),
     Activate,
     /// The copy confirmation has been shown long enough; close.
     FinishCopy,
@@ -977,11 +980,23 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             let (Some(path), Some(id)) = (path, state.window) else {
                 return Task::none();
             };
-            window::run(id, move |window| drag::start(window, path.clone())).discard()
+            window::run(id, move |window| drag::start(window, path.clone()))
+                .map(Message::ImageDragFinished)
         }
         Message::ImageDragReleased => {
             state.drag_watch = None;
             Task::none()
+        }
+        // Dropped, not merely released: dragging a row out already delivers
+        // it, the same way opening a link already does — closing behind it
+        // is what a paste-and-switch would have done by hand. A cancelled
+        // drag leaves the window open, since nothing actually happened.
+        Message::ImageDragFinished(dropped) => {
+            if dropped {
+                state.hide()
+            } else {
+                Task::none()
+            }
         }
         Message::Delete(index) => {
             state.select(index);
