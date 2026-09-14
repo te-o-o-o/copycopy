@@ -1273,7 +1273,15 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
         ]
         .spacing(6)
         .into(),
-        Err(reason) => text(reason).size(11.5).color(p.faint).into(),
+        // `WordOrGlyph` + `Fill`: this reason routinely carries a path (a
+        // network location, here), which needs the same fallback to glyph
+        // wrapping as `data` below, and for the same reason — see there.
+        Err(reason) => text(reason)
+            .size(11.5)
+            .color(p.faint)
+            .width(Length::Fill)
+            .wrapping(text::Wrapping::WordOrGlyph)
+            .into(),
     };
 
     // Same treatment: where the entry cannot be written — an executable living
@@ -1291,7 +1299,12 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
         ]
         .spacing(6)
         .into(),
-        Err(reason) => text(reason).size(11.5).color(p.faint).into(),
+        Err(reason) => text(reason)
+            .size(11.5)
+            .color(p.faint)
+            .width(Length::Fill)
+            .wrapping(text::Wrapping::WordOrGlyph)
+            .into(),
     };
 
     // `WordOrGlyph`: a path has no spaces to word-wrap at, and on Windows it
@@ -1522,8 +1535,19 @@ fn footer(state: &State, p: Palette) -> Element<'_, Message> {
 
     container(
         row![
-            text(left).size(11.0).color(p.chrome),
-            Space::new().width(Length::Fill),
+            // `Fill` + `clip`, not wrapping: the footer is one fixed-height
+            // line, so a long flash message (an OS error can run long)
+            // clips here the same way a row's own preview does, rather than
+            // pushing `matrix` off the edge or spilling onto a second line
+            // the footer has no room for.
+            container(
+                text(left)
+                    .size(11.0)
+                    .color(p.chrome)
+                    .wrapping(text::Wrapping::None),
+            )
+            .width(Length::Fill)
+            .clip(true),
             matrix,
         ]
         .align_y(iced::Alignment::Center),
