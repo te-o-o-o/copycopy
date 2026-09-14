@@ -27,6 +27,7 @@ mod config;
 mod console;
 mod fonts;
 mod hotkey;
+mod icon;
 mod ipc;
 mod theme;
 mod view;
@@ -531,6 +532,8 @@ impl State {
             decorations: false,
             transparent: false,
             resizable: true,
+            // The mark the taskbar and Alt-Tab show.
+            icon: icon::window(),
             level: window::Level::AlwaysOnTop,
             exit_on_close_request: false,
             ..Default::default()
