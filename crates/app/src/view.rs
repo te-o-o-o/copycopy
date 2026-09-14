@@ -1175,24 +1175,43 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
         choice_pill(name, None, on_press, active, p)
     };
     let current = state.theme_mode();
-    let themes = row![
-        pill(
-            "Sombre",
-            Message::SetTheme(crate::theme::Mode::Dark),
-            current == crate::theme::Mode::Dark,
-        ),
-        pill(
-            "Clair",
-            Message::SetTheme(crate::theme::Mode::Light),
-            current == crate::theme::Mode::Light,
-        ),
-        pill(
-            "Matrix",
-            Message::SetTheme(crate::theme::Mode::Matrix),
-            current == crate::theme::Mode::Matrix,
-        ),
+    // Two rows: the neutral pair first, since it is the default and the one
+    // most people want; the dressier options below, for anyone who came
+    // looking for them.
+    let themes = column![
+        row![
+            pill(
+                "Sombre",
+                Message::SetTheme(crate::theme::Mode::Dark),
+                current == crate::theme::Mode::Dark,
+            ),
+            pill(
+                "Clair",
+                Message::SetTheme(crate::theme::Mode::Light),
+                current == crate::theme::Mode::Light,
+            ),
+        ]
+        .spacing(8),
+        row![
+            pill(
+                "Purpledream",
+                Message::SetTheme(crate::theme::Mode::Purpledream),
+                current == crate::theme::Mode::Purpledream,
+            ),
+            pill(
+                "Aalto",
+                Message::SetTheme(crate::theme::Mode::Aalto),
+                current == crate::theme::Mode::Aalto,
+            ),
+            pill(
+                "Matrix",
+                Message::SetTheme(crate::theme::Mode::Matrix),
+                current == crate::theme::Mode::Matrix,
+            ),
+        ]
+        .spacing(8),
     ]
-    .spacing(8);
+    .spacing(6);
 
     let hotkey = row![
         container(text(state.hotkey()).size(12.5).font(Font::MONOSPACE).color(p.text))

@@ -138,7 +138,7 @@ impl Config {
             body.push_str("# Position retenue : x,y\n");
             body.push_str(&format!("position = {x:.0},{y:.0}\n"));
         }
-        body.push_str("# Thème : dark, light ou matrix\n");
+        body.push_str("# Thème : dark, light, purpledream, aalto ou matrix\n");
         body.push_str(&format!("theme = {}\n", self.theme.name()));
         body.push_str("# Coller automatiquement après une copie : true ou false\n");
         body.push_str(&format!("auto_paste = {}\n", self.auto_paste));

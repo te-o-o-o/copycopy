@@ -11,10 +11,18 @@ const fn rgb(r: u8, g: u8, b: u8) -> Color {
 
 /// Which palette is active. Lives in the configuration, so the choice survives
 /// a restart, and is switched from the header icon.
+///
+/// `Dark` and `Light` are the plain, everyday pair: neutral enough to suit
+/// anyone, and the only two the header icon cycles through. `Purpledream`,
+/// `Aalto` and `Matrix` are the dressier options, chosen from the settings
+/// panel only — the earlier `Dark`/`Light` palettes, kept under their own
+/// names once the neutral pair took over the default slot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     Dark,
     Light,
+    Purpledream,
+    Aalto,
     /// Neon pink on black: Matrix, but for a laugh. Reached from the footer
     /// rather than the header icon, which keeps alternating between the two
     /// everyday themes.
@@ -25,16 +33,16 @@ impl Mode {
     pub fn toggled(self) -> Self {
         match self {
             Mode::Dark => Mode::Light,
-            Mode::Light | Mode::Matrix => Mode::Dark,
+            Mode::Light | Mode::Purpledream | Mode::Aalto | Mode::Matrix => Mode::Dark,
         }
     }
 
-    /// In and out of Matrix. Leaving it lands on the dark theme, whichever one
-    /// was active before: the closest to where Matrix left you.
+    /// In and out of Matrix. Leaving it lands on the neutral dark theme: the
+    /// closest to where Matrix left you.
     pub fn matrix_toggled(self) -> Self {
         match self {
             Mode::Matrix => Mode::Dark,
-            Mode::Dark | Mode::Light => Mode::Matrix,
+            _ => Mode::Matrix,
         }
     }
 
@@ -42,6 +50,8 @@ impl Mode {
         match self {
             Mode::Dark => DARK,
             Mode::Light => LIGHT,
+            Mode::Purpledream => PURPLEDREAM,
+            Mode::Aalto => AALTO,
             Mode::Matrix => MATRIX,
         }
     }
@@ -50,6 +60,8 @@ impl Mode {
         match self {
             Mode::Dark => "dark",
             Mode::Light => "light",
+            Mode::Purpledream => "purpledream",
+            Mode::Aalto => "aalto",
             Mode::Matrix => "matrix",
         }
     }
@@ -58,6 +70,8 @@ impl Mode {
         match value.trim().to_ascii_lowercase().as_str() {
             "dark" => Some(Mode::Dark),
             "light" => Some(Mode::Light),
+            "purpledream" => Some(Mode::Purpledream),
+            "aalto" => Some(Mode::Aalto),
             "matrix" => Some(Mode::Matrix),
             _ => None,
         }
@@ -106,13 +120,80 @@ pub struct Palette {
     pub shadow: Color,
 }
 
+/// The default dark theme: plain graphite, no tint. Picked to be the "just
+/// works" option a first-time user — or a colleague trying the program for
+/// the first time — lands on, rather than [`PURPLEDREAM`]'s purple-black,
+/// which reads as a deliberate choice more than a neutral default. Grounds
+/// step up from near-black in even increments; the one accent colour is an
+/// ordinary blue, and the badge tints are the standard hues (green, amber,
+/// purple, cyan) rather than a single family run through its variations.
+pub const DARK: Palette = Palette {
+    light: false,
+    matrix: false,
+    card: rgb(0x1E, 0x1E, 0x1E),
+    border: rgb(0x3A, 0x3A, 0x3A),
+    selected: rgb(0x2C, 0x2C, 0x2C),
+    hover: rgb(0x26, 0x26, 0x26),
+    text: rgb(0xE8, 0xE8, 0xE8),
+    faint: rgb(0x8A, 0x8A, 0x8A),
+    chrome: rgb(0x9A, 0xA5, 0xB0),
+    accent: rgb(0x4E, 0x9A, 0xF5),
+    tint_text: rgb(0x4E, 0x9A, 0xF5),
+    tint_url: rgb(0x3D, 0xB8, 0x6A),
+    tint_code: rgb(0xE0, 0xA5, 0x3E),
+    tint_image: rgb(0xB0, 0x7C, 0xE0),
+    tint_files: rgb(0x4F, 0xC1, 0xC6),
+    pin: rgb(0x3D, 0xB8, 0x6A),
+    copied: rgb(0x3D, 0xB8, 0x6A),
+    frame: rgb(0x24, 0x24, 0x24),
+    shadow: Color {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 0.5,
+    },
+};
+
+/// The default light theme: plain off-white, no tint. Its counterpart to
+/// [`DARK`] — same reasoning, same standard badge hues, none of [`AALTO`]'s
+/// cream-and-espresso warmth.
+pub const LIGHT: Palette = Palette {
+    light: true,
+    matrix: false,
+    card: rgb(0xFA, 0xFA, 0xFA),
+    border: rgb(0xE0, 0xE0, 0xE0),
+    selected: rgb(0xEA, 0xEA, 0xEA),
+    hover: rgb(0xF0, 0xF0, 0xF0),
+    text: rgb(0x22, 0x22, 0x22),
+    faint: rgb(0x8A, 0x8A, 0x8A),
+    chrome: rgb(0x6E, 0x7A, 0x86),
+    accent: rgb(0x2E, 0x7C, 0xD6),
+    tint_text: rgb(0x2E, 0x7C, 0xD6),
+    tint_url: rgb(0x2E, 0x9E, 0x5B),
+    tint_code: rgb(0xB8, 0x86, 0x0B),
+    tint_image: rgb(0x8A, 0x4F, 0xC2),
+    tint_files: rgb(0x2E, 0x8F, 0x93),
+    pin: rgb(0x2E, 0x9E, 0x5B),
+    copied: rgb(0x2E, 0x9E, 0x5B),
+    frame: rgb(0xFF, 0xFF, 0xFF),
+    shadow: Color {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 0.15,
+    },
+};
+
 /// Base16 Purpledream, by malet — values from the tinted-theming scheme, mapped
 /// onto the interface roles. The grounds walk the scheme's purple-black ramp
 /// (base00 card, base01 selection, base02 border); the one invented value is
 /// the hover, which sits between base00 and base01 because the scheme has no
 /// step there. The window's small print takes the scheme's gold, base09, and
 /// the badge tints use its accent colours untouched.
-pub const DARK: Palette = Palette {
+///
+/// No longer the default — see [`DARK`] — but kept for anyone who wants more
+/// personality than the neutral pair, from the settings panel.
+pub const PURPLEDREAM: Palette = Palette {
     light: false,
     matrix: false,
     card: rgb(0x10, 0x05, 0x10),     // base00
@@ -146,7 +227,10 @@ pub const DARK: Palette = Palette {
 /// print is terracotta, the warm counterpart of the dark theme's gold. The badge
 /// tints come from its font-lock colours — forest green, dark goldenrod, purple,
 /// cadet blue.
-pub const LIGHT: Palette = Palette {
+///
+/// No longer the default — see [`LIGHT`] — but kept for anyone who wants more
+/// personality than the neutral pair, from the settings panel.
+pub const AALTO: Palette = Palette {
     light: true,
     matrix: false,
     card: rgb(0xF0, 0xEB, 0xCF),
