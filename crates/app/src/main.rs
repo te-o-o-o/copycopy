@@ -1318,9 +1318,8 @@ fn subscription(state: &State) -> Subscription<Message> {
 /// text selection of the search field — so they follow the palette too.
 fn theme_of(state: &State, _window: window::Id) -> Theme {
     match state.config.theme {
-        theme::Mode::Dark => Theme::Dark,
-        theme::Mode::Light => Theme::Light,
-        theme::Mode::Matrix => Theme::Dark,
+        theme::Mode::Dark | theme::Mode::Purpledream | theme::Mode::Matrix => Theme::Dark,
+        theme::Mode::Light | theme::Mode::Aalto => Theme::Light,
     }
 }
 
