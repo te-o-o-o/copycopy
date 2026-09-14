@@ -911,10 +911,12 @@ fn row_widget(
         .on_exit(Message::Unhover(index));
 
     // Only images can be dragged out (see `drag.rs`), so only they pay for
-    // watching every pointer move over the row.
+    // watching every pointer move over the row — and only they get the hand,
+    // which says so before the row is even pressed.
     if item.kind == copycopy_core::Kind::Image {
         area.on_move(move |pos| Message::ImageDragMoved(index, pos))
             .on_release(Message::ImageDragReleased)
+            .interaction(mouse::Interaction::Grab)
             .into()
     } else {
         area.into()
