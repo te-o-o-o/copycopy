@@ -998,13 +998,25 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
             ..
         } => {
             let font = if *code { Font::MONOSPACE } else { Font::DEFAULT };
+            // `WordOrGlyph`, not the default `Word`: a URL with no spaces is a
+            // single word, so plain word-wrapping never breaks it — it just
+            // keeps growing past the frame instead. Falling back to a glyph
+            // break is what actually keeps it inside the window.
             let content: Element<'_, Message> = if links.is_empty() {
-                text(body.as_str()).size(13.0).font(font).color(p.text).into()
+                text(body.as_str())
+                    .size(13.0)
+                    .font(font)
+                    .color(p.text)
+                    .width(Length::Fill)
+                    .wrapping(text::Wrapping::WordOrGlyph)
+                    .into()
             } else {
                 rich_text(linked_spans(body, links, p))
                     .size(13.0)
                     .font(font)
                     .color(p.text)
+                    .width(Length::Fill)
+                    .wrapping(text::Wrapping::WordOrGlyph)
                     .on_link_click(Message::OpenLink)
                     .into()
             };
@@ -1265,6 +1277,10 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
         Err(reason) => text(reason).size(11.5).color(p.faint).into(),
     };
 
+    // `WordOrGlyph`: a path has no spaces to word-wrap at, and on Windows it
+    // routinely outgrows the panel width — without a fallback to glyph
+    // breaking it just runs past the card's edge instead of onto a second
+    // line.
     let data = text(
         state
             .data_dir
@@ -1273,7 +1289,9 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
     )
     .size(11.5)
     .font(Font::MONOSPACE)
-    .color(p.text);
+    .color(p.text)
+    .width(Length::Fill)
+    .wrapping(text::Wrapping::WordOrGlyph);
 
     let quit = mouse_area(
         container(text("Quitter copycopy").size(12.5).color(p.text))
