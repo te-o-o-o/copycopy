@@ -26,6 +26,7 @@ copycopy --screenshot out.png --for 10   # capture la fenêtre puis quitte
 copycopy --hidden ...    # démarre sans fenêtre, même en mode capture
 copycopy --settings ...  # ouvre sur les réglages, pour les vérifier en capture
 copycopy --filter code   # ouvre filtré sur un type, pour vérifier la barre de filtres
+copycopy --autostart on|off   # lance ou non copycopy à l'ouverture de session, puis sort
 
 copycopy --headless --for 20  # capture en console, sans interface
 cargo run -p copycopy-platform --example fake_owner -- "texte" Firefox 3
@@ -36,15 +37,27 @@ Navigation : `↑↓` / `Ctrl-N` `Ctrl-P`, `PageUp/Down`, `Enter` copier,
 qui apparaît sur la rangée survolée et sur la sélectionnée. `Esc` ferme la
 fenêtre ; `Ctrl-Q` (`Cmd-Q` sur macOS) arrête complètement le résident, comme
 `--quit`. L'engrenage ouvre les réglages dans le panneau de droite — thème,
-raccourci, collage automatique, dossier des données et *Quitter copycopy* — et
-`Esc` les referme avant la fenêtre.
+raccourci, collage automatique, démarrage, dossier des données et
+*Quitter copycopy* — et `Esc` les referme avant la fenêtre.
 
 **Collage automatique**, désactivé par défaut. Une fois une entrée copiée,
 copycopy rend le focus à l'application où vous étiez et appuie sur `Ctrl+V` à
 votre place : l'entrée arrive là où était votre curseur. Sous Windows par
 `SendInput`, sous X11 par XTEST ; refusé sous Wayland, qui exige pour cela le
 portail RemoteDesktop, et pas encore disponible sous macOS. Simuler des frappes
-dans une autre application, ça s'active, ça ne se découvre pas. La croix de l'en-tête masque la fenêtre, comme `Esc` : elle ne quitte
+dans une autre application, ça s'active, ça ne se découvre pas.
+
+**Démarrage avec la session**, désactivé par défaut. L'interrupteur écrit une
+entrée par utilisateur — la clé `Run` sous `HKCU` sous Windows, sans droits
+administrateur, un fichier `.desktop` dans `~/.config/autostart` sous Linux, un
+agent de lancement sous macOS — et copycopy attend alors en fond dès l'ouverture
+de session, sans fenêtre, pour que le raccourci trouve quelqu'un au premier
+appui. L'entrée contient un chemin absolu, réécrit à chaque démarrage : déplacer
+l'exécutable, ce à quoi le mode portable invite, ne laisse pas une entrée morte
+derrière soi. Retirez-la depuis le gestionnaire des tâches et copycopy s'en
+aperçoit au démarrage suivant, plutôt que de prétendre le contraire.
+
+La croix de l'en-tête masque la fenêtre, comme `Esc` : elle ne quitte
 jamais, pour que personne n'arrête la capture en visant le coin habituel.
 
 **Les filtres par type** occupent une barre sous la recherche — Tout, Texte,
