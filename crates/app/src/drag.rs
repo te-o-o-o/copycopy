@@ -1,5 +1,5 @@
-//! Dragging an image row straight out of the window, into another
-//! application — a chat window, an editor, a file manager.
+//! Dragging a row straight out of the window, into another application — a
+//! chat window, an editor, a file manager.
 //!
 //! Built on the `drag` crate, which wraps the native drag-source APIs
 //! (Windows OLE `IDropSource`, macOS `NSDraggingSession`). Its own
@@ -10,9 +10,12 @@
 //!
 //! Only files travel: the crate's `DragItem::Data` — raw bytes, no file on
 //! disk — is a documented no-op on Windows, real only on macOS, so it would
-//! carry nothing on the platform this ships to first. Every image already
+//! carry nothing on the platform this ships to first. That leaves images and
+//! file entries — the two kinds a row can point at real paths for. An image
 //! lives on disk by the time it can be selected (see `Message::Captured` in
-//! `main.rs`), which is exactly what `DragItem::Files` wants.
+//! `main.rs`); a file entry already carries the paths it was copied with.
+//! Text, code and URL rows stay copy-only rather than routed through a
+//! throwaway temp file for a platform this can't yet verify.
 
 use std::path::PathBuf;
 
@@ -24,27 +27,27 @@ use iced::window::Window;
 #[cfg(any(target_os = "windows", target_os = "macos"))]
 const GHOST: u32 = 160;
 
-/// Starts the OS drag for `path` and blocks until it ends — `DoDragDrop`
+/// Starts the OS drag for `paths` and blocks until it ends — `DoDragDrop`
 /// does not return early, and this is called from inside `window::run`
 /// precisely so that blocking happens off the update loop's own return path.
 ///
-/// Returns whether the file was actually dropped somewhere, so the caller
+/// Returns whether something was actually dropped somewhere, so the caller
 /// can close the window exactly when a paste-and-switch by hand would have
 /// left it: on a real drop, not on a cancelled one — and not on a drop back
 /// into our own window either, on Windows (see `win32::contains`): nothing
 /// was exported, so it must count the same as a cancel.
 #[cfg(target_os = "windows")]
-pub fn start(window: &dyn Window, path: PathBuf) -> bool {
+pub fn start(window: &dyn Window, paths: Vec<PathBuf>) -> bool {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
 
     let hwnd = win32::hwnd(window);
-    let icon = ghost(&path).unwrap_or_else(|| drag::Image::File(path.clone()));
+    let icon = ghost(&paths);
     let dropped = Arc::new(AtomicBool::new(false));
     let flag = dropped.clone();
     if let Err(e) = drag::start_drag(
         &window,
-        drag::DragItem::Files(vec![path]),
+        drag::DragItem::Files(paths),
         icon,
         move |result, cursor_position| {
             let real = matches!(result, drag::DragResult::Dropped)
@@ -60,16 +63,16 @@ pub fn start(window: &dyn Window, path: PathBuf) -> bool {
 }
 
 #[cfg(target_os = "macos")]
-pub fn start(window: &dyn Window, path: PathBuf) -> bool {
+pub fn start(window: &dyn Window, paths: Vec<PathBuf>) -> bool {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
 
-    let icon = ghost(&path).unwrap_or_else(|| drag::Image::File(path.clone()));
+    let icon = ghost(&paths);
     let dropped = Arc::new(AtomicBool::new(false));
     let flag = dropped.clone();
     if let Err(e) = drag::start_drag(
         &window,
-        drag::DragItem::Files(vec![path]),
+        drag::DragItem::Files(paths),
         icon,
         move |result, _cursor_position| {
             flag.store(
@@ -119,10 +122,25 @@ mod win32 {
     }
 }
 
-/// A scaled-down copy of the picture, encoded in memory. The source file on
-/// disk stays the drag payload untouched — only the on-screen ghost shrinks.
+/// The ghost shown under the cursor. A single picture gets a scaled-down
+/// copy of itself, encoded in memory — the source file on disk stays the
+/// drag payload untouched, only this preview shrinks. Anything else (several
+/// files, or one that is not a picture) falls back to that first path's own
+/// file, which the OS already knows how to draw an icon for.
 #[cfg(any(target_os = "windows", target_os = "macos"))]
-fn ghost(path: &std::path::Path) -> Option<drag::Image> {
+fn ghost(paths: &[PathBuf]) -> drag::Image {
+    if let [only] = paths {
+        if let Some(thumb) = thumbnail(only) {
+            return thumb;
+        }
+    }
+    // `paths` is never empty: both callers build it from a `ClipItem` that
+    // is already known to carry at least one path.
+    drag::Image::File(paths[0].clone())
+}
+
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+fn thumbnail(path: &std::path::Path) -> Option<drag::Image> {
     let scaled = image::open(path).ok()?.thumbnail(GHOST, GHOST);
     let mut bytes = Vec::new();
     scaled
@@ -135,6 +153,6 @@ fn ghost(path: &std::path::Path) -> Option<drag::Image> {
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-pub fn start(_window: &dyn Window, _path: PathBuf) -> bool {
+pub fn start(_window: &dyn Window, _paths: Vec<PathBuf>) -> bool {
     false
 }
