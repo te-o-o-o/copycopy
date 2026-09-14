@@ -219,8 +219,8 @@ pub struct Copied {
     pub hash: u64,
 }
 
-/// An image row that might be the start of a drag-out, armed on press and
-/// resolved on the next few moves.
+/// A row (image or files) that might be the start of a drag-out, armed on
+/// press and resolved on the next few moves.
 ///
 /// `origin` starts empty: `mouse_area`'s `on_press` carries no position, so
 /// the first move sample after the press is taken as the baseline instead of
@@ -330,14 +330,14 @@ pub enum Message {
     OpenLink(String),
     Hover(usize),
     Unhover(usize),
-    /// The pointer has moved over an image row while a possible drag-out is
-    /// being watched.
-    ImageDragMoved(usize, iced::Point),
+    /// The pointer has moved over a draggable row (image or files) while a
+    /// possible drag-out is being watched.
+    RowDragMoved(usize, iced::Point),
     /// The button lifted, or the pointer left, before a drag-out started.
-    ImageDragReleased,
+    RowDragReleased,
     /// The native drag session ended; `true` when the row was actually
     /// dropped somewhere, `false` on a cancelled drag.
-    ImageDragFinished(bool),
+    RowDragFinished(bool),
     Activate,
     /// The copy confirmation has been shown long enough; close.
     FinishCopy,
@@ -948,14 +948,14 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             state.drag_watch = state
                 .visible
                 .get(i)
-                .filter(|item| item.kind == Kind::Image)
+                .filter(|item| matches!(item.kind, Kind::Image | Kind::Files))
                 .map(|_| DragWatch {
                     index: i,
                     origin: None,
                 });
             Task::none()
         }
-        Message::ImageDragMoved(index, pos) => {
+        Message::RowDragMoved(index, pos) => {
             let Some(watch) = state.drag_watch.as_mut().filter(|w| w.index == index) else {
                 return Task::none();
             };
@@ -970,20 +970,21 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
                 return Task::none();
             }
             state.drag_watch = None;
-            let path = state
+            let paths = state
                 .visible
                 .get(index)
                 .and_then(|item| match &item.payload {
-                    Payload::Image { data, .. } => data.path().map(|p| p.to_path_buf()),
-                    _ => None,
+                    Payload::Image { data, .. } => data.path().map(|p| vec![p.to_path_buf()]),
+                    Payload::Files(paths) => Some(paths.clone()),
+                    Payload::Text(_) => None,
                 });
-            let (Some(path), Some(id)) = (path, state.window) else {
+            let (Some(paths), Some(id)) = (paths, state.window) else {
                 return Task::none();
             };
-            window::run(id, move |window| drag::start(window, path.clone()))
-                .map(Message::ImageDragFinished)
+            window::run(id, move |window| drag::start(window, paths.clone()))
+                .map(Message::RowDragFinished)
         }
-        Message::ImageDragReleased => {
+        Message::RowDragReleased => {
             state.drag_watch = None;
             Task::none()
         }
@@ -991,7 +992,7 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
         // it, the same way opening a link already does — closing behind it
         // is what a paste-and-switch would have done by hand. A cancelled
         // drag leaves the window open, since nothing actually happened.
-        Message::ImageDragFinished(dropped) => {
+        Message::RowDragFinished(dropped) => {
             if dropped {
                 state.hide()
             } else {
