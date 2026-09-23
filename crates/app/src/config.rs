@@ -101,7 +101,9 @@ impl Config {
             let value = value.trim().trim_matches('"');
             match key.trim() {
                 "hotkey" if !value.is_empty() => config.hotkey = value.to_string(),
-                "size" => config.size = parse_pair(value).filter(|(w, h)| *w >= 320.0 && *h >= 200.0),
+                "size" => {
+                    config.size = parse_pair(value).filter(|(w, h)| *w >= 320.0 && *h >= 200.0)
+                }
                 "position" => config.position = parse_pair(value),
                 "theme" => config.theme = crate::theme::Mode::parse(value).unwrap_or(config.theme),
                 "auto_paste" => config.auto_paste = truthy(value),

@@ -53,7 +53,12 @@ pub fn claim() -> io::Result<Claim> {
         // pipe that already exists says `PermissionDenied` instead. Reading the
         // latter as a broken IPC started one more resident on every launch —
         // five were found running side by side, none of them reachable.
-        Err(e) if matches!(e.kind(), io::ErrorKind::AddrInUse | io::ErrorKind::PermissionDenied) => {
+        Err(e)
+            if matches!(
+                e.kind(),
+                io::ErrorKind::AddrInUse | io::ErrorKind::PermissionDenied
+            ) =>
+        {
             // Either a resident is listening or the socket is dead. Connecting
             // to it settles the question.
             match Stream::connect(name()?) {
@@ -68,7 +73,8 @@ pub fn claim() -> io::Result<Claim> {
 /// Sends a command to the resident and returns its reply.
 pub fn send(command: &str) -> io::Result<String> {
     let mut conn = BufReader::new(Stream::connect(name()?)?);
-    conn.get_mut().write_all(format!("{command}\n").as_bytes())?;
+    conn.get_mut()
+        .write_all(format!("{command}\n").as_bytes())?;
     let mut reply = String::new();
     conn.read_line(&mut reply)?;
     Ok(reply.trim().to_string())

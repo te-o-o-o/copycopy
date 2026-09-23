@@ -7,12 +7,11 @@
 
 use iced::widget::{
     canvas, column, container, image, mouse_area, rich_text, row, scrollable, span, stack, text,
-    text_input,
-    Space,
+    text_input, Space,
 };
 use iced::{
-    font, mouse, window, Background, Border, Element, Font, Length, Padding, Point, Rectangle,
-    ContentFit, Size,
+    font, mouse, window, Background, Border, ContentFit, Element, Font, Length, Padding, Point,
+    Rectangle, Size,
 };
 
 use copycopy_core::ClipItem;
@@ -98,11 +97,7 @@ fn resize_frame(content: Element<'_, Message>) -> Element<'_, Message> {
     .into()
 }
 
-fn handle<'a>(
-    direction: window::Direction,
-    width: Length,
-    height: Length,
-) -> Element<'a, Message> {
+fn handle<'a>(direction: window::Direction, width: Length, height: Length) -> Element<'a, Message> {
     use window::Direction::*;
     let cursor = match direction {
         North | South => mouse::Interaction::ResizingVertically,
@@ -415,8 +410,14 @@ impl canvas::Program<Message> for CloseMark {
                 .with_line_cap(canvas::LineCap::Round)
         };
         let (a, b) = (5.0, 15.0);
-        frame.stroke(&canvas::Path::line(Point::new(a, a), Point::new(b, b)), stroke());
-        frame.stroke(&canvas::Path::line(Point::new(b, a), Point::new(a, b)), stroke());
+        frame.stroke(
+            &canvas::Path::line(Point::new(a, a), Point::new(b, b)),
+            stroke(),
+        );
+        frame.stroke(
+            &canvas::Path::line(Point::new(b, a), Point::new(a, b)),
+            stroke(),
+        );
         vec![frame.into_geometry()]
     }
 }
@@ -445,7 +446,9 @@ impl canvas::Program<Message> for ThemeMark {
         let centre = Point::new(8.0, 8.0);
         if self.light {
             frame.fill(&canvas::Path::circle(centre, 3.0), self.ink);
-            let ray = canvas::Stroke::default().with_color(self.ink).with_width(1.4);
+            let ray = canvas::Stroke::default()
+                .with_color(self.ink)
+                .with_width(1.4);
             for i in 0..8 {
                 let angle = i as f32 * std::f32::consts::FRAC_PI_4;
                 let (sin, cos) = angle.sin_cos();
@@ -459,7 +462,10 @@ impl canvas::Program<Message> for ThemeMark {
             }
         } else {
             frame.fill(&canvas::Path::circle(centre, 5.6), self.ink);
-            frame.fill(&canvas::Path::circle(Point::new(10.6, 5.8), 4.8), self.ground);
+            frame.fill(
+                &canvas::Path::circle(Point::new(10.6, 5.8), 4.8),
+                self.ground,
+            );
         }
         vec![frame.into_geometry()]
     }
@@ -534,8 +540,14 @@ impl canvas::Program<Message> for Cross {
                 .with_width(1.6)
         };
         let (a, b) = (4.5, 11.5);
-        frame.stroke(&canvas::Path::line(Point::new(a, a), Point::new(b, b)), stroke());
-        frame.stroke(&canvas::Path::line(Point::new(b, a), Point::new(a, b)), stroke());
+        frame.stroke(
+            &canvas::Path::line(Point::new(a, a), Point::new(b, b)),
+            stroke(),
+        );
+        frame.stroke(
+            &canvas::Path::line(Point::new(b, a), Point::new(a, b)),
+            stroke(),
+        );
         vec![frame.into_geometry()]
     }
 }
@@ -698,28 +710,28 @@ fn list(state: &State, p: Palette) -> Element<'_, Message> {
         bottom: 0.0,
         left: 14.0,
     }))
-        .id(SCROLL_ID)
-        .height(Length::Fill)
-        .direction(scrollable::Direction::Vertical(
-            scrollable::Scrollbar::new()
-                .width(5)
-                .scroller_width(5)
-                .margin(3)
-                .spacing(4),
-        ))
-        .style(move |theme, status| scrollable::Style {
-            vertical_rail: scrollable::Rail {
-                background: None,
-                border: Border::default(),
-                scroller: scrollable::Scroller {
-                    background: Background::Color(t::alpha(p.text, 0.13)),
-                    border: Border::default().rounded(3),
-                },
+    .id(SCROLL_ID)
+    .height(Length::Fill)
+    .direction(scrollable::Direction::Vertical(
+        scrollable::Scrollbar::new()
+            .width(5)
+            .scroller_width(5)
+            .margin(3)
+            .spacing(4),
+    ))
+    .style(move |theme, status| scrollable::Style {
+        vertical_rail: scrollable::Rail {
+            background: None,
+            border: Border::default(),
+            scroller: scrollable::Scroller {
+                background: Background::Color(t::alpha(p.text, 0.13)),
+                border: Border::default().rounded(3),
             },
-            ..scrollable::default(theme, status)
-        })
-        .on_scroll(Message::Scrolled)
-        .into()
+        },
+        ..scrollable::default(theme, status)
+    })
+    .on_scroll(Message::Scrolled)
+    .into()
 }
 
 fn row_widget(
@@ -776,9 +788,9 @@ fn row_widget(
             color: p.pin,
             hole: p.card,
         })
-            .width(Length::Fixed(t::SLOT))
-            .height(Length::Fixed(t::SLOT))
-            .into()
+        .width(Length::Fixed(t::SLOT))
+        .height(Length::Fixed(t::SLOT))
+        .into()
     } else {
         Space::new().width(Length::Fixed(t::SLOT)).into()
     };
@@ -788,7 +800,11 @@ fn row_widget(
     let cross_slot: Element<'_, Message> = if hovered || selected > 0.5 {
         mouse_area(
             canvas(Cross {
-                color: if hovered { p.text } else { t::alpha(p.text, 0.45) },
+                color: if hovered {
+                    p.text
+                } else {
+                    t::alpha(p.text, 0.45)
+                },
             })
             .width(Length::Fixed(t::SLOT))
             .height(Length::Fixed(t::SLOT)),
@@ -805,7 +821,11 @@ fn row_widget(
     // brightens with the row, to say which one it would act on.
     let copy_slot: Element<'_, Message> = mouse_area(
         canvas(CopyMark {
-            color: if hovered { p.text } else { t::alpha(p.text, 0.30) },
+            color: if hovered {
+                p.text
+            } else {
+                t::alpha(p.text, 0.30)
+            },
         })
         .width(Length::Fixed(t::SLOT))
         .height(Length::Fixed(t::SLOT)),
@@ -838,9 +858,9 @@ fn row_widget(
             Some(hint) => format!("{}  ·  {}  ·  {}", source, item.age(), hint),
             None => format!("{}  ·  {}", source, item.age()),
         })
-            .size(11.0)
-            .color(t::alpha(p.text, 0.42))
-            .wrapping(text::Wrapping::None),
+        .size(11.0)
+        .color(t::alpha(p.text, 0.42))
+        .wrapping(text::Wrapping::None),
     )
     .width(Length::Fill)
     .clip(true);
@@ -962,10 +982,7 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         return settings(state, p);
     }
     let Some(item) = state.visible.get(state.selected) else {
-        return Space::new()
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .into();
+        return Space::new().width(Length::Fill).height(Length::Fill).into();
     };
 
     let source = if item.source.is_empty() {
@@ -1019,7 +1036,11 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
             links,
             ..
         } => {
-            let font = if *code { Font::MONOSPACE } else { Font::DEFAULT };
+            let font = if *code {
+                Font::MONOSPACE
+            } else {
+                Font::DEFAULT
+            };
             // `WordOrGlyph`, not the default `Word`: a URL with no spaces is a
             // single word, so plain word-wrapping never breaks it — it just
             // keeps growing past the frame instead. Falling back to a glyph
@@ -1054,14 +1075,14 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         }
         // ScaleDown, never up: a small screenshot stays sharp at its real size
         // instead of being blown up into a blur.
-        Preview::Image { handle, .. } => container(
-            image(handle.clone()).content_fit(ContentFit::ScaleDown),
-        )
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .center_x(Length::Fill)
-        .center_y(Length::Fill)
-        .into(),
+        Preview::Image { handle, .. } => {
+            container(image(handle.clone()).content_fit(ContentFit::ScaleDown))
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .center_x(Length::Fill)
+                .center_y(Length::Fill)
+                .into()
+        }
         Preview::Files(paths) => framed(
             iced::widget::Column::with_children(paths.iter().map(|path| {
                 text(path.as_str())
@@ -1248,18 +1269,25 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
     .spacing(6);
 
     let hotkey = row![
-        container(text(state.hotkey()).size(12.5).font(Font::MONOSPACE).color(p.text))
-            .padding(Padding::from([3, 10]))
-            .style(move |_| container::Style {
-                border: Border {
-                    color: p.border,
-                    width: 1.0,
-                    radius: 6.0.into(),
-                },
-                ..Default::default()
-            }),
+        container(
+            text(state.hotkey())
+                .size(12.5)
+                .font(Font::MONOSPACE)
+                .color(p.text)
+        )
+        .padding(Padding::from([3, 10]))
+        .style(move |_| container::Style {
+            border: Border {
+                color: p.border,
+                width: 1.0,
+                radius: 6.0.into(),
+            },
+            ..Default::default()
+        }),
         Space::new().width(Length::Fixed(10.0)),
-        text("modifiable dans copycopy.conf").size(11.5).color(p.faint),
+        text("modifiable dans copycopy.conf")
+            .size(11.5)
+            .color(p.faint),
     ]
     .align_y(iced::Alignment::Center);
 
@@ -1269,7 +1297,11 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
         Ok(()) => column![
             row![
                 pill("Activé", Message::SetAutoPaste(true), state.auto_paste()),
-                pill("Désactivé", Message::SetAutoPaste(false), !state.auto_paste()),
+                pill(
+                    "Désactivé",
+                    Message::SetAutoPaste(false),
+                    !state.auto_paste()
+                ),
             ]
             .spacing(8),
             text("colle l'entrée copiée dans l'application où vous étiez")
@@ -1295,7 +1327,11 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
         Ok(()) => column![
             row![
                 pill("Activé", Message::SetAutostart(true), state.autostart()),
-                pill("Désactivé", Message::SetAutostart(false), !state.autostart()),
+                pill(
+                    "Désactivé",
+                    Message::SetAutostart(false),
+                    !state.autostart()
+                ),
             ]
             .spacing(8),
             text("copycopy attend en fond dès l'ouverture de session")
@@ -1501,9 +1537,7 @@ fn thin_scrollbar() -> scrollable::Direction {
     )
 }
 
-fn quiet_scroll(
-    p: Palette,
-) -> impl Fn(&iced::Theme, scrollable::Status) -> scrollable::Style {
+fn quiet_scroll(p: Palette) -> impl Fn(&iced::Theme, scrollable::Status) -> scrollable::Style {
     move |theme, status| scrollable::Style {
         vertical_rail: scrollable::Rail {
             background: None,

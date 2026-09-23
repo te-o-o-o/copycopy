@@ -60,7 +60,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     conn.set_selection_owner(win, clipboard, x11rb::CURRENT_TIME)?;
     conn.flush()?;
-    println!("propriétaire de CLIPBOARD, WM_CLASS={class}, pid={}", std::process::id());
+    println!(
+        "propriétaire de CLIPBOARD, WM_CLASS={class}, pid={}",
+        std::process::id()
+    );
 
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(secs);
     while std::time::Instant::now() < deadline {

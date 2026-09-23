@@ -164,8 +164,11 @@ unsafe fn read_clipboard(hwnd: HWND) -> Option<(ClipEvent, String)> {
 unsafe fn secret_marked_locked() -> bool {
     // Password managers set these formats to ask clipboard managers not to
     // retain the content. We obey.
-    let exclude = unsafe { RegisterClipboardFormatW(wide("ExcludeClipboardContentFromMonitorProcessing").as_ptr()) };
-    let can_include = unsafe { RegisterClipboardFormatW(wide("CanIncludeInClipboardHistory").as_ptr()) };
+    let exclude = unsafe {
+        RegisterClipboardFormatW(wide("ExcludeClipboardContentFromMonitorProcessing").as_ptr())
+    };
+    let can_include =
+        unsafe { RegisterClipboardFormatW(wide("CanIncludeInClipboardHistory").as_ptr()) };
     if exclude != 0 && unsafe { IsClipboardFormatAvailable(exclude) } != 0 {
         return true;
     }
@@ -341,7 +344,11 @@ fn dib_to_png(dib: &[u8]) -> Option<Vec<u8>> {
     let bit_count = u16::from_le_bytes(dib[14..16].try_into().ok()?) as usize;
     let clr_used = u32::from_le_bytes(dib[32..36].try_into().ok()?) as usize;
     let palette = if bit_count <= 8 {
-        let entries = if clr_used == 0 { 1usize << bit_count } else { clr_used };
+        let entries = if clr_used == 0 {
+            1usize << bit_count
+        } else {
+            clr_used
+        };
         entries * 4
     } else {
         0
