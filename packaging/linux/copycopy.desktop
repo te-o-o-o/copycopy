@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=copycopy
+GenericName=Clipboard manager
+Comment=Everything you copy, one keystroke away
+Exec=copycopy
+Icon=copycopy
+Terminal=false
+Categories=Utility;
+Keywords=clipboard;presse-papier;history;paste;
+StartupNotify=false

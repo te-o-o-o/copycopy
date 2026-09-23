@@ -1,0 +1,224 @@
+# Builds the three installers and publishes them on a GitHub Release.
+#
+# Triggered by a tag: `git tag v0.1.0 && git push --tags`. The tag must match
+# the version in Cargo.toml — the first job refuses to go on otherwise, because
+# `cargo deb` names its package after Cargo.toml and the release would end up
+# carrying two different version numbers.
+#
+# Nothing here is signed. Windows shows a SmartScreen warning and macOS refuses
+# to open the app until the user clears it by hand; the release notes say how.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version:
+    name: version
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          crate=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          if [ "$tag" != "$crate" ]; then
+            echo "tag $GITHUB_REF_NAME does not match Cargo.toml version $crate" >&2
+            exit 1
+          fi
+          echo "version=$tag" >> "$GITHUB_OUTPUT"
+
+  windows:
+    name: windows
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          rustup update --no-self-update stable
+          rustup default stable
+
+      - name: Build
+        run: cargo build --release -p copycopy
+
+      - name: Icon
+        run: cargo run --release -p copycopy --example icon -- packaging/windows/copycopy.ico 256
+
+      # The portable form the README documents: the executable alone, next to
+      # which a `copycopy.conf` keeps everything in one folder.
+      - name: Portable archive
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path target/release/copycopy.exe `
+            -DestinationPath dist/copycopy-windows-x86_64-portable.zip
+
+      - name: Installer
+        run: |
+          choco install innosetup --no-progress -y
+          & "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe" `
+            /DAppVersion=${{ needs.version.outputs.version }} `
+            packaging\windows\copycopy.iss
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*
+          if-no-files-found: error
+
+  linux:
+    name: linux
+    needs: version
+    # Not `ubuntu-latest`: the AppImage links against the glibc of whatever
+    # built it, so the oldest runner available buys the widest compatibility.
+    runs-on: ubuntu-22.04
+    env:
+      # Runners have no FUSE, so every AppImage — linuxdeploy included — has to
+      # unpack itself instead of mounting.
+      APPIMAGE_EXTRACT_AND_RUN: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libxkbcommon-dev libwayland-dev libx11-dev \
+            libxcursor-dev libxi-dev libxrandr-dev libgl1-mesa-dev
+
+      - name: Toolchain
+        run: |
+          rustup update --no-self-update stable
+          rustup default stable
+
+      - name: Build
+        run: cargo build --release -p copycopy
+
+      - name: Icon
+        run: |
+          mkdir -p dist
+          cargo run --release -p copycopy --example icon -- packaging/linux/copycopy.png 256
+
+      - name: AppImage
+        run: |
+          curl -fsSL -o linuxdeploy \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy
+          ./linuxdeploy \
+            --appdir AppDir \
+            --executable target/release/copycopy \
+            --desktop-file packaging/linux/copycopy.desktop \
+            --icon-file packaging/linux/copycopy.png \
+            --output appimage
+          mv copycopy*.AppImage dist/copycopy-linux-x86_64.AppImage
+
+      - name: Debian package
+        run: |
+          cargo install cargo-deb --locked
+          cargo deb -p copycopy --no-build --output dist/copycopy-linux-x86_64.deb
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/*
+          if-no-files-found: error
+
+  macos:
+    name: macos
+    needs: version
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          rustup update --no-self-update stable
+          rustup default stable
+          rustup target add x86_64-apple-darwin aarch64-apple-darwin
+
+      # One binary for both architectures: Apple Silicon and the Intel machines
+      # still in use. `lipo` glues them into a single file.
+      - name: Build (universal)
+        run: |
+          cargo build --release -p copycopy --target x86_64-apple-darwin
+          cargo build --release -p copycopy --target aarch64-apple-darwin
+          mkdir -p dist
+          lipo -create -output dist/copycopy \
+            target/x86_64-apple-darwin/release/copycopy \
+            target/aarch64-apple-darwin/release/copycopy
+          lipo -info dist/copycopy
+
+      - name: Icon
+        run: |
+          mkdir -p copycopy.iconset
+          for pair in "16 icon_16x16" "32 icon_16x16@2x" "32 icon_32x32" "64 icon_32x32@2x" \
+                      "128 icon_128x128" "256 icon_128x128@2x" "256 icon_256x256" \
+                      "512 icon_256x256@2x" "512 icon_512x512" "1024 icon_512x512@2x"; do
+            set -- $pair
+            cargo run --release -p copycopy --example icon -- "copycopy.iconset/$2.png" "$1"
+          done
+          iconutil -c icns copycopy.iconset -o copycopy.icns
+
+      - name: Bundle and disk image
+        run: |
+          app="dist/copycopy.app"
+          mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+          cp dist/copycopy "$app/Contents/MacOS/copycopy"
+          rm dist/copycopy
+          cp copycopy.icns "$app/Contents/Resources/copycopy.icns"
+          sed "s/__VERSION__/${{ needs.version.outputs.version }}/g" \
+            packaging/macos/Info.plist > "$app/Contents/Info.plist"
+          hdiutil create -volname copycopy -srcfolder "$app" -ov -format UDZO \
+            dist/copycopy-macos-universal.dmg
+          rm -rf "$app"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: publish
+    needs: [version, windows, linux, macos]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l dist
+          cat > notes.md <<'EOF'
+          ## Installation
+
+          | Système | Fichier |
+          |---|---|
+          | Windows | `copycopy-windows-x86_64.exe` (installeur) ou `…-portable.zip` |
+          | Linux | `copycopy-linux-x86_64.AppImage` (`chmod +x`, puis lancer) ou le `.deb` |
+          | macOS | `copycopy-macos-universal.dmg` |
+
+          **Les binaires ne sont pas signés.** Windows affiche un écran
+          SmartScreen : « Informations complémentaires » → « Exécuter quand
+          même ». macOS refuse l'ouverture : clic droit sur l'app → « Ouvrir »,
+          ou `xattr -d com.apple.quarantine /Applications/copycopy.app`.
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "copycopy $GITHUB_REF_NAME" \
+            --notes-file notes.md

@@ -6,3 +6,10 @@
 
 # Landing page, kept local until the repository goes public
 /site
+
+# Packaging output, and the icons the release workflow renders from
+# `app/src/icon.rs`. Both are generated: the drawing is the source, the files
+# are not.
+/dist
+/packaging/linux/copycopy.png
+/packaging/windows/copycopy.ico

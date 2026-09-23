@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+description = "A clipboard manager in Rust: everything you copy, one keystroke away."
 
 [[bin]]
 name = "copycopy"
@@ -26,6 +27,33 @@ open = { version = "5.4", features = ["shellexecute-on-windows"] }
 interprocess = "2.4"
 directories = "6"
 auto-launch = "0.6.0"
+
+[dev-dependencies]
+# The `icon` example writes the `.ico` the Windows installer wants. The
+# application itself only ever decodes PNG, so the encoder stays out of the
+# released binary: with resolver 2, a dev-dependency is not resolved for a
+# plain `cargo build`.
+image = { version = "0.25", default-features = false, features = ["png", "ico"] }
+
+# Everything below is read by `cargo deb`, which builds the Debian package in
+# the release workflow. Paths are relative to this file.
+[package.metadata.deb]
+maintainer = "Théo Delmas <USER@users.noreply.github.com>"
+copyright = "2026 Théo Delmas"
+license-file = ["../../LICENSE", "0"]
+section = "utils"
+priority = "optional"
+# `$auto` only finds what the binary links, which is libc and little else:
+# winit and wgpu open X11, Wayland, xkbcommon and the GPU drivers with dlopen.
+# Those have to be named by hand, or the package installs and the window never
+# opens.
+depends = "$auto, libxkbcommon0, libx11-6 | libwayland-client0, libvulkan1 | libgl1"
+extended-description = "A clipboard manager: a resident captures every copy — text, code, images, files — and a global shortcut opens a searchable history. Nothing leaves the machine, and anything a password manager marks as secret is never stored."
+assets = [
+    ["target/release/copycopy", "usr/bin/", "755"],
+    ["../../packaging/linux/copycopy.desktop", "usr/share/applications/", "644"],
+    ["../../packaging/linux/copycopy.png", "usr/share/icons/hicolor/256x256/apps/", "644"],
+]
 
 [target.'cfg(target_os = "windows")'.dependencies]
 # The console: attaching to a parent terminal, or sending output to a log
