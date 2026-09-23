@@ -178,6 +178,33 @@ and find it where you left it.
   would cost the frame rate. The window opens at 980×560, and a width
   remembered from before the panel existed is widened to 860.
 
+### Recognising a language, and colouring it
+
+A clipboard entry carries no file extension, and syntect — what everything else
+reaches for — only recognises a language from a shebang or a modeline. A pasted
+fragment has neither: it starts in the middle of a function. So `core/lang.rs`
+guesses from the content over a bounded sample, and answers `None` whenever it
+is not sure; colouring a snippet in the wrong language is worse than leaving it
+alone.
+
+The colouring itself, `core/highlight.rs`, is a scanner and not a parser —
+which is the point rather than a shortcut. A fragment satisfies no grammar,
+so there is nothing to parse, and a scanner cannot be thrown off by the half of
+the file that was not copied. It finds six kinds: comments, strings, numbers,
+keywords, markup tags and keys. Six because the palette already has exactly five
+badge tints plus `faint` to spend on them — no colour was invented for any
+theme, which is why the highlighting follows a theme change on its own, Matrix
+included.
+
+Two traps, both now tests. A Rust lifetime is not a string: `&'a str` closes on
+the next lifetime nine bytes later, so a length limit swallows it happily — a
+character literal is recognised by its *shape*, one character or one escape.
+And an unterminated quote stops at the end of its line, or the apostrophe in
+one English comment paints everything after it.
+
+It runs once per selection, in `Preview::of`, never in `view()` — the same rule
+that holds the filtered list.
+
 ## Copying
 
 `Enter` or double-click → the content goes to the clipboard and the window

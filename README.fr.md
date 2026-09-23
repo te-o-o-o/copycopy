@@ -187,6 +187,34 @@ laissée.
   fenêtre s'ouvre en 980×560, et une largeur retenue d'avant le panneau est
   élargie à 860.
 
+### Reconnaître un langage, et le colorer
+
+Une entrée de presse-papier n'a pas d'extension de fichier, et syntect — ce vers
+quoi tout le monde se tourne — ne reconnaît un langage qu'à un shebang ou à un
+modeline. Un fragment collé n'a ni l'un ni l'autre : il commence au milieu d'une
+fonction. `core/lang.rs` devine donc par le contenu, sur un échantillon borné,
+et répond `None` dès qu'il n'est pas sûr ; colorer un extrait dans le mauvais
+langage est pire que ne pas le colorer.
+
+La coloration elle-même, `core/highlight.rs`, est un scanner et non un parseur —
+c'est le principe, pas un raccourci. Un fragment ne satisfait aucune grammaire,
+il n'y a donc rien à parser, et un scanner ne peut pas être désarçonné par la
+moitié du fichier qu'on n'a pas copiée. Il trouve six catégories : commentaires,
+chaînes, nombres, mots-clés, balises et clés. Six parce que la palette a
+justement cinq teintes de badge plus `faint` à leur consacrer — aucune couleur
+n'a été inventée pour aucun thème, ce qui fait que la coloration suit un
+changement de thème toute seule, Matrix compris.
+
+Deux pièges, devenus deux tests. Une lifetime Rust n'est pas une chaîne :
+`&'a str` se referme sur la lifetime suivante neuf octets plus loin, donc une
+limite de longueur l'avale sans broncher — un littéral de caractère se reconnaît
+à sa *forme*, un caractère ou une échappée. Et un guillemet non refermé s'arrête
+en fin de ligne, sans quoi l'apostrophe d'un commentaire français peint tout ce
+qui suit.
+
+Le tout tourne une fois par changement de sélection, dans `Preview::of`, jamais
+dans `view()` — la règle qui tient déjà la liste filtrée.
+
 ## Le copier
 
 `Enter` ou double-clic → le contenu part dans le presse-papier et la fenêtre se
