@@ -10,9 +10,9 @@ use x11rb::protocol::xtest::ConnectionExt as _;
 /// A few common X11 keysyms.
 fn keysym(name: &str) -> Option<u32> {
     Some(match name.to_ascii_lowercase().as_str() {
-        "ctrl" | "control" => 0xffe3, // Control_L
-        "alt" => 0xffe9,              // Alt_L
-        "shift" => 0xffe1,            // Shift_L
+        "ctrl" | "control" => 0xffe3,       // Control_L
+        "alt" => 0xffe9,                    // Alt_L
+        "shift" => 0xffe1,                  // Shift_L
         "super" | "meta" | "win" => 0xffeb, // Super_L
         "space" => 0x0020,
         "enter" | "return" => 0xff0d,
@@ -35,15 +35,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // keysym-to-keycode table, to turn "v" into a hardware code.
     let setup = conn.setup();
     let (min, max) = (setup.min_keycode, setup.max_keycode);
-    let mapping = conn
-        .get_keyboard_mapping(min, max - min + 1)?
-        .reply()?;
+    let mapping = conn.get_keyboard_mapping(min, max - min + 1)?.reply()?;
     let per = mapping.keysyms_per_keycode as usize;
 
     let find = |want: u32| -> Option<u8> {
-        mapping.keysyms.chunks(per).enumerate().find_map(|(i, syms)| {
-            syms.contains(&want).then(|| min + i as u8)
-        })
+        mapping
+            .keysyms
+            .chunks(per)
+            .enumerate()
+            .find_map(|(i, syms)| syms.contains(&want).then(|| min + i as u8))
     };
 
     let codes: Vec<u8> = args

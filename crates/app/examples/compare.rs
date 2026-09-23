@@ -24,7 +24,8 @@ fn main() {
     let width = crops.iter().map(|c| c.width()).max().unwrap();
     let gap = 8;
     let height: u32 = crops.iter().map(|c| c.height()).sum::<u32>() + gap;
-    let mut canvas = image::RgbaImage::from_pixel(width, height, image::Rgba([0x33, 0x36, 0x3E, 255]));
+    let mut canvas =
+        image::RgbaImage::from_pixel(width, height, image::Rgba([0x33, 0x36, 0x3E, 255]));
     let mut y = 0;
     for c in &crops {
         image::imageops::overlay(&mut canvas, c, 0, y as i64);

@@ -53,7 +53,10 @@ impl Image {
 #[derive(Clone, Debug)]
 pub enum Payload {
     Text(String),
-    Image { data: Image, size: Option<(u32, u32)> },
+    Image {
+        data: Image,
+        size: Option<(u32, u32)>,
+    },
     Files(Vec<PathBuf>),
 }
 
@@ -89,9 +92,7 @@ impl ClipItem {
                 let count = text.chars().count();
                 (count > VISIBLE).then(|| format!("… {} caractères", grouped(count)))
             }
-            Payload::Files(paths) if paths.len() > 1 => {
-                Some(format!("… {} fichiers", paths.len()))
-            }
+            Payload::Files(paths) if paths.len() > 1 => Some(format!("… {} fichiers", paths.len())),
             // An image already states its dimensions and weight in the preview.
             _ => None,
         }
@@ -336,9 +337,17 @@ fn classify(text: &str) -> Kind {
         return Kind::Text;
     }
     let is_url = !t.contains(char::is_whitespace)
-        && ["http://", "https://", "ftp://", "ssh://", "postgres://", "mysql://", "file://"]
-            .iter()
-            .any(|p| t.starts_with(p));
+        && [
+            "http://",
+            "https://",
+            "ftp://",
+            "ssh://",
+            "postgres://",
+            "mysql://",
+            "file://",
+        ]
+        .iter()
+        .any(|p| t.starts_with(p));
     if is_url {
         return Kind::Url;
     }
@@ -350,8 +359,20 @@ fn classify(text: &str) -> Kind {
         return Kind::Code;
     }
     let code_markers = [
-        "fn ", "let ", "const ", "function ", "class ", "def ", "import ", "SELECT ", "#include",
-        "=>", "->", "();", "{\n", ";\n",
+        "fn ",
+        "let ",
+        "const ",
+        "function ",
+        "class ",
+        "def ",
+        "import ",
+        "SELECT ",
+        "#include",
+        "=>",
+        "->",
+        "();",
+        "{\n",
+        ";\n",
     ];
     let hits = code_markers.iter().filter(|m| t.contains(**m)).count();
     if hits >= 2 {
@@ -426,7 +447,11 @@ mod tests {
     fn overflow_hint_counts_the_payload_not_the_preview() {
         let mut h = History::new(10);
         h.push(ClipEvent::Text("court".into()), "t".into());
-        assert_eq!(h.get(0).unwrap().overflow_hint(), None, "short entries stay silent");
+        assert_eq!(
+            h.get(0).unwrap().overflow_hint(),
+            None,
+            "short entries stay silent"
+        );
 
         // Long enough to be cut, and with newlines the preview collapses: the
         // count must follow the payload, not what the preview kept.
@@ -470,7 +495,10 @@ mod tests {
         assert!(h.touch(oldest, SystemTime::now()));
         assert_eq!(h.get(0).expect("item").preview, "a");
         assert_eq!(h.len(), 3, "moved, not duplicated");
-        assert!(!h.touch(9999, SystemTime::now()), "an unknown id changes nothing");
+        assert!(
+            !h.touch(9999, SystemTime::now()),
+            "an unknown id changes nothing"
+        );
     }
 
     #[test]

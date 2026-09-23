@@ -3,8 +3,12 @@
 fn main() {
     let a: Vec<String> = std::env::args().collect();
     let img = image::open(&a[1]).unwrap().to_rgba8();
-    let (x, y, w, h): (u32, u32, u32, u32) =
-        (a[3].parse().unwrap(), a[4].parse().unwrap(), a[5].parse().unwrap(), a[6].parse().unwrap());
+    let (x, y, w, h): (u32, u32, u32, u32) = (
+        a[3].parse().unwrap(),
+        a[4].parse().unwrap(),
+        a[5].parse().unwrap(),
+        a[6].parse().unwrap(),
+    );
     let scale: u32 = a[7].parse().unwrap();
     let sub = image::imageops::crop_imm(&img, x, y, w, h).to_image();
     let big = image::imageops::resize(

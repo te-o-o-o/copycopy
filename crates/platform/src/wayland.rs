@@ -70,7 +70,9 @@ fn to_event(mime: &str, data: Vec<u8>) -> Option<ClipEvent> {
         let paths: Vec<std::path::PathBuf> = text
             .lines()
             .filter(|l| !l.is_empty() && !l.starts_with('#'))
-            .map(|l| std::path::PathBuf::from(crate::percent_decode(l.trim_start_matches("file://"))))
+            .map(|l| {
+                std::path::PathBuf::from(crate::percent_decode(l.trim_start_matches("file://")))
+            })
             .collect();
         if !paths.is_empty() {
             return Some(ClipEvent::Files(paths));

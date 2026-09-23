@@ -62,7 +62,6 @@ fn key_code(name: &str) -> Option<Code> {
     }
 }
 
-
 /// Under Wayland, `XGrabKey` only sees X11 applications, so the shortcut will
 /// not fire from a native Wayland application.
 fn wayland_session() -> bool {

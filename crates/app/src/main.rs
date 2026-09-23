@@ -23,12 +23,12 @@
 // closing it used to stop capture without a word. See `console`.
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
+mod autostart;
 mod config;
 mod console;
 mod drag;
 mod fonts;
 mod hotkey;
-mod autostart;
 mod icon;
 mod ipc;
 mod theme;
@@ -771,7 +771,10 @@ struct Args {
 fn parse_args() -> Args {
     let a: Vec<String> = std::env::args().collect();
     let val = |name: &str| -> Option<String> {
-        a.iter().position(|x| x == name).and_then(|i| a.get(i + 1)).cloned()
+        a.iter()
+            .position(|x| x == name)
+            .and_then(|i| a.get(i + 1))
+            .cloned()
     };
     let screenshot = val("--screenshot").map(std::path::PathBuf::from);
     // `--hidden`: start without a window even in screenshot mode, so we can
@@ -817,7 +820,11 @@ fn boot() -> (State, Task<Message>) {
     println!(
         "raccourci : {}{}",
         hotkeys.status,
-        if hotkeys.registered { "" } else { "  ← non actif" }
+        if hotkeys.registered {
+            ""
+        } else {
+            "  ← non actif"
+        }
     );
     println!("`copycopy --show` ouvre la fenêtre, `--quit` arrête le résident\n");
 
@@ -1193,10 +1200,9 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             }
             window::Event::CloseRequested => state.hide(),
             window::Event::Unfocused => {
-                let settled = state
-                    .opened_at
-                    .is_some_and(|t| t.elapsed() > FOCUS_GRACE);
-                if state.close_on_blur && settled && state.window_shown && state.window == Some(id) {
+                let settled = state.opened_at.is_some_and(|t| t.elapsed() > FOCUS_GRACE);
+                if state.close_on_blur && settled && state.window_shown && state.window == Some(id)
+                {
                     state.hide()
                 } else {
                     Task::none()
@@ -1496,7 +1502,6 @@ fn headless(seconds: Option<u64>) {
     }
     println!("\n{} entrées retenues", history.len());
 }
-
 
 fn main() -> iced::Result {
     // First, before anything prints.

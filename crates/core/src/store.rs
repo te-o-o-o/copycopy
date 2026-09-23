@@ -255,7 +255,8 @@ impl Store {
             })
             .map_err(|e| e.to_string())?;
 
-        rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())
     }
 
     /// Addressed by content hash rather than row id: the in-memory history
@@ -354,7 +355,8 @@ impl Store {
         let rows = stmt
             .query_map(args, |row| row.get::<_, String>(0))
             .map_err(|e| e.to_string())?;
-        rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())
     }
 
     /// Deletes image files whose rows have just gone. Called **after** the
@@ -389,10 +391,8 @@ mod tests {
 
     impl Temp {
         fn new(name: &str) -> Self {
-            let dir = std::env::temp_dir().join(format!(
-                "copycopy-test-{name}-{}",
-                std::process::id()
-            ));
+            let dir =
+                std::env::temp_dir().join(format!("copycopy-test-{name}-{}", std::process::id()));
             let _ = std::fs::remove_dir_all(&dir);
             Self(dir)
         }
