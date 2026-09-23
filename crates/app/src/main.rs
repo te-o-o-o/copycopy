@@ -460,6 +460,18 @@ impl State {
         self.config.theme.palette()
     }
 
+    /// Corner radius of the card, zero when the configuration asks for square
+    /// corners. Read by `view` and by the window's own `transparent` flag, which
+    /// has to agree with it: a rounded card over an opaque window would show the
+    /// clear colour in the corners.
+    pub fn card_radius(&self) -> f32 {
+        if self.config.rounded {
+            theme::CARD_RADIUS
+        } else {
+            0.0
+        }
+    }
+
     pub fn theme_mode(&self) -> theme::Mode {
         self.config.theme
     }
@@ -562,7 +574,10 @@ impl State {
             position,
             visible,
             decorations: false,
-            transparent: false,
+            // Must follow the card radius: the corners are only clean because
+            // what sits outside the curve is transparent rather than cleared to
+            // a colour. See `theme::CARD_RADIUS`.
+            transparent: self.config.rounded,
             resizable: true,
             // The mark the taskbar and Alt-Tab show.
             icon: icon::window(),
@@ -1402,7 +1417,7 @@ fn theme_of(state: &State, _window: window::Id) -> Theme {
 }
 
 fn root_style(state: &State, _theme: &Theme) -> iced::theme::Style {
-    theme::root(state.palette())
+    theme::root(state.palette(), state.config.rounded)
 }
 
 fn title(_state: &State, _window: window::Id) -> String {

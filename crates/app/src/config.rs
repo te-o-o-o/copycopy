@@ -32,6 +32,12 @@ pub struct Config {
     /// Start with the session. Off by default: a program that installs itself
     /// into someone's login is a program that asked first.
     pub autostart: bool,
+    /// Rounded window corners. They need a transparent window, which every
+    /// compositing desktop blends correctly — Windows DWM, Wayland, X11 with a
+    /// compositor. An X11 session running without one has nothing to blend
+    /// against and paints the corners black; `corners = square` is the way out
+    /// there, and the only reason this is a setting rather than a constant.
+    pub rounded: bool,
 }
 
 impl Default for Config {
@@ -43,6 +49,7 @@ impl Default for Config {
             theme: crate::theme::Mode::Dark,
             auto_paste: false,
             autostart: false,
+            rounded: true,
         }
     }
 }
@@ -99,6 +106,9 @@ impl Config {
                 "theme" => config.theme = crate::theme::Mode::parse(value).unwrap_or(config.theme),
                 "auto_paste" => config.auto_paste = truthy(value),
                 "autostart" => config.autostart = truthy(value),
+                // Anything but "square" keeps the rounded default: a typo must
+                // not silently square the window.
+                "corners" => config.rounded = !value.eq_ignore_ascii_case("square"),
                 _ => {}
             }
         }
@@ -144,6 +154,15 @@ impl Config {
         body.push_str(&format!("auto_paste = {}\n", self.auto_paste));
         body.push_str("# Lancer copycopy à l'ouverture de session : true ou false\n");
         body.push_str(&format!("autostart = {}\n", self.autostart));
+        body.push_str(
+            "# Coins de la fenêtre : round ou square.\n\
+             # « square » si votre session X11 tourne sans compositeur : les\n\
+             # coins arrondis y apparaîtraient noirs faute de quoi se fondre.\n",
+        );
+        body.push_str(&format!(
+            "corners = {}\n",
+            if self.rounded { "round" } else { "square" }
+        ));
         let _ = std::fs::write(&path, body);
     }
 }

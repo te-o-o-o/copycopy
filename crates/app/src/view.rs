@@ -55,12 +55,13 @@ pub fn view(state: &State, _window: iced::window::Id) -> Element<'_, Message> {
         resize_frame(content.into())
     };
 
-    // The card is on the outside and the handles inside, which keeps the
-    // window opaque all the way to the edge with no transparent margin.
+    // The card is on the outside and the handles inside: the window stays
+    // opaque all the way to its own rim, and only what falls outside the
+    // rounded corner is left to the desktop.
     container(inside)
         .width(Length::Fill)
         .height(Length::Fill)
-        .style(t::card(p))
+        .style(t::card(p, state.card_radius()))
         .into()
 }
 

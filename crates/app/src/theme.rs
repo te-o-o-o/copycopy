@@ -306,9 +306,16 @@ pub const HEADER_H: f32 = 58.0;
 /// The type filter band under the search.
 pub const FILTERS_H: f32 = 36.0;
 pub const FOOTER_H: f32 = 30.0;
-/// Square window: on an undecorated window, rounded corners reveal the desktop
-/// behind them, which reads as a black outline rather than a clean curve.
-pub const CARD_RADIUS: f32 = 0.0;
+/// Rounded window. It only holds up on top of two other things: the window is
+/// created `transparent`, and `root` clears the surface with a transparent
+/// colour — otherwise iced paints the theme colour across the whole surface and
+/// the curve ends up sitting on an opaque rectangle.
+///
+/// Twelve pixels, against `EDGE` at ten: the curve reaches 12 px in from each
+/// side, the content starts at 10 px, and by that depth the curve has already
+/// come back within 6 px. Nothing but the card itself is ever drawn in the
+/// corner, which is what lets it round cleanly.
+pub const CARD_RADIUS: f32 = 12.0;
 pub const ROW_RADIUS: f32 = 8.0;
 /// Vertical breathing room for the highlight inside its row. The row keeps its
 /// exact height, which the virtualisation depends on; only the background is
@@ -343,23 +350,29 @@ pub fn alpha(color: Color, a: f32) -> Color {
 }
 
 /// The card background, border included.
-pub fn card(p: Palette) -> impl Fn(&Theme) -> iced::widget::container::Style {
+pub fn card(p: Palette, radius: f32) -> impl Fn(&Theme) -> iced::widget::container::Style {
     move |_theme| iced::widget::container::Style {
         background: Some(Background::Color(p.card)),
         border: Border {
             color: p.border,
             width: 1.0,
-            radius: CARD_RADIUS.into(),
+            radius: radius.into(),
         },
         ..Default::default()
     }
 }
 
-/// Application background: opaque and card-coloured, so no transparent area
-/// remains at the edges.
-pub fn root(p: Palette) -> iced::theme::Style {
+/// What the surface is cleared with, under everything the card draws.
+///
+/// Rounded: transparent, so the desktop shows through outside the curve. The
+/// card still paints `p.card` over every pixel inside it, so nothing of the
+/// window itself turns see-through.
+///
+/// Square: the card colour. The clear colour then matches the card exactly and
+/// no seam can show at the rim, which is what an opaque window wants.
+pub fn root(p: Palette, rounded: bool) -> iced::theme::Style {
     iced::theme::Style {
-        background_color: p.card,
+        background_color: if rounded { Color::TRANSPARENT } else { p.card },
         text_color: p.text,
     }
 }
