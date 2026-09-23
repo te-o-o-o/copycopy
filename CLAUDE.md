@@ -93,10 +93,11 @@ reporting upstream or a misuse. Chasing it inside the application has cost
 several sessions and produced only eliminations.
 
 Weighed against that: **this has only ever been seen under WSLg, by tooling,
-never by someone using the application.** The same workbench has produced three
+never by someone using the application.** The same workbench has produced four
 other phantoms — cursor shapes that never apply, a shortcut invisible to Windows
-applications, a Wayland surface XTEST cannot drive. Treat it as a likely fourth
-until someone sees it on a target platform. Do not spend another session on it
+applications, a Wayland surface XTEST cannot drive, and black window corners
+that come out clean on Windows. Treat it as a likely fifth until someone sees it
+on a target platform. Do not spend another session on it
 without that.
 
 `cargo run --release -p copycopy --example band -- shot.png X0 X1 Y0 Y1` counts
@@ -131,8 +132,10 @@ workbench, never as product defects — but equally, never take a WSL success as
 proof that a target platform works.
 
 - **X11 capture**: run and tested.
-- **Windows**: run for real — text and image capture, copying back, and the
-  global shortcut in daily use. Built from WSL with MinGW
+- **Windows**: run for real — text and image capture, copying back, the global
+  shortcut in daily use, and the rounded corners compositing correctly over the
+  desktop (they come out black under WSLg, and only there). Built from WSL with
+  MinGW
   (`--target x86_64-pc-windows-gnu`); WSL launches the `.exe` directly as a
   native Windows process. The binary is a GUI-subsystem program: no console.
   Output goes to the parent terminal when there is one, otherwise to

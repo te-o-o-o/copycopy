@@ -125,13 +125,21 @@ palette behaviour, not document-window behaviour. **No maximise**: a clipboard
 list gains nothing from full screen; what you want is to move it, resize it,
 and find it where you left it.
 
-- **Square corners, deliberately.** Rounded corners were tried and do work
-  technically (on top of `transparent(true)` you also need an application
-  `style()` with a transparent `background_color`, otherwise iced paints the
-  theme colour across the whole surface and the rounding ends up sitting on an
-  opaque rectangle). But on an undecorated window the corners reveal the
-  desktop behind, which reads as a black outline. The window is therefore
-  opaque all the way to the edge, with a 1 px border.
+- **Rounded corners**, 12 px, over a transparent window. Three things have to
+  agree or the effect collapses: the window is created `transparent`, the
+  application `style()` clears with a transparent `background_color` — else
+  iced paints the theme colour across the whole surface and the curve sits on
+  an opaque rectangle — and nothing but the card is ever drawn in the corner,
+  which the 10 px resize band already guarantees.
+
+  The desktop has to composite for the corner to show anything but a hole:
+  Windows DWM, Wayland and X11-with-a-compositor all do. **Run on Windows: the
+  corners are round and what is behind the window shows through them.** Under
+  WSLg the same binary paints them black, which is what an earlier attempt here
+  reported and read as a defect — it is the workbench, not the code. An X11
+  session with no compositor has nothing to blend against and behaves the same
+  way; `corners = square` goes back to the opaque rectangle, and is the answer
+  there.
 - **Moving**: drag anywhere on the header (`window::drag`). `mouse_area` lets
   the child capture first, so clicking the search field does not move the
   window.
@@ -219,10 +227,11 @@ empty source, the payload type, and an image thumbnail in the badge slot.
 and footer, outside the `scrollable`, always draw.
 
 Weighed against that: **this has only ever been seen under WSLg, by tooling,
-never by someone using the application.** The same workbench has produced three
+never by someone using the application.** The same workbench has produced four
 other phantoms — cursor shapes that never apply, a shortcut invisible to Windows
-applications, a Wayland surface XTEST cannot drive. Treat it as a likely fourth
-until someone sees it on a target platform. Do not spend another session on it
+applications, a Wayland surface XTEST cannot drive, and black window corners
+that come out clean on Windows. Treat it as a likely fifth until someone sees it
+on a target platform. Do not spend another session on it
 without that.
 
 **Next is a minimal reproduction**, roughly twenty lines with a `scrollable`
