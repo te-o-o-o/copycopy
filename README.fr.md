@@ -130,13 +130,22 @@ focus — c'est le comportement d'une palette, pas d'une fenêtre de document.
 ce qu'on veut, c'est la déplacer, la redimensionner, et la retrouver où on l'a
 laissée.
 
-- **Angles droits, volontairement.** Les coins arrondis ont été essayés et
-  fonctionnent techniquement (il faut, en plus de `transparent(true)`, un
-  `style()` d'application au `background_color` transparent — sinon iced peint
-  la couleur du thème sur toute la surface et l'arrondi se retrouve posé sur un
-  rectangle opaque). Mais sur une fenêtre sans décorations, les angles laissent
-  voir le bureau derrière, ce qui ressort comme un liseré noir. La fenêtre est
-  donc opaque jusqu'au bord, avec un filet de 1 px.
+- **Coins arrondis**, 12 px, sur une fenêtre transparente. Trois choses doivent
+  s'accorder, sinon l'effet s'effondre : la fenêtre est créée `transparent`, le
+  `style()` d'application efface la surface avec un `background_color`
+  transparent — sinon iced peint la couleur du thème partout et la courbe se
+  retrouve posée sur un rectangle opaque — et rien d'autre que la carte n'est
+  jamais dessiné dans l'angle, ce que la bande de redimensionnement de 10 px
+  garantit déjà.
+
+  Encore faut-il que le bureau compose, sans quoi l'angle n'est qu'un trou :
+  DWM sous Windows, Wayland et X11 avec un compositeur le font tous. **Exécuté
+  sous Windows : les coins sont arrondis et ce qui se trouve derrière la fenêtre
+  se voit au travers.** Sous WSLg, le même binaire les peint en noir — c'est ce
+  qu'un essai précédent avait constaté ici et pris pour un défaut ; c'est
+  l'établi, pas le code. Une session X11 sans compositeur n'a rien avec quoi
+  fondre et se comporte pareil ; `corners = square` revient au rectangle opaque,
+  et c'est la réponse dans ce cas.
 - **Déplacement** : glisser n'importe où sur l'en-tête (`window::drag`). Le
   `mouse_area` laisse l'enfant capturer en premier, donc un clic dans le champ
   de recherche ne déplace pas la fenêtre.
@@ -231,10 +240,11 @@ toujours.
 
 À mettre en balance : **ce défaut n'a jamais été observé que sous WSLg, par
 l'outillage, jamais par quelqu'un qui se sert de l'application.** Le même établi
-a déjà fabriqué trois mirages — les formes de curseur jamais appliquées, le
-raccourci invisible depuis Windows, la surface Wayland que XTEST ne pilote pas.
-À considérer comme un quatrième tant que personne ne l'a vu sur une plateforme
-cible, et à ne pas reprendre sans ça.
+a déjà fabriqué quatre mirages — les formes de curseur jamais appliquées, le
+raccourci invisible depuis Windows, la surface Wayland que XTEST ne pilote pas,
+et les coins de fenêtre noirs qui sortent propres sous Windows. À considérer
+comme un cinquième tant que personne ne l'a vu sur une plateforme cible, et à ne
+pas reprendre sans ça.
 
 **La suite est un cas minimal reproductible**, une vingtaine de lignes avec un
 `scrollable` dont les rangées portent deux textes empilés, pour savoir s'il faut
