@@ -526,6 +526,7 @@ mod tests {
         assert_eq!(one_line("  a\n\n\tb  "), "a b");
     }
 }
+pub mod highlight;
 pub mod lang;
 pub mod links;
 pub mod store;
