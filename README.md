@@ -13,6 +13,27 @@ that directory, leaving the host machine untouched.
 
 *Une version française de ce document est disponible dans [README.fr.md](README.fr.md).*
 
+## Installing
+
+Ready-made packages are attached to every [release](../../releases). Nothing is
+signed, which is what an unpaid certificate looks like: Windows shows a
+SmartScreen warning — *More info* → *Run anyway* — and macOS refuses the first
+open — right-click the app → *Open*, or
+`xattr -d com.apple.quarantine /Applications/copycopy.app`.
+
+| System | File | Notes |
+|---|---|---|
+| Windows | `copycopy-windows-x86_64.exe` | per-user install, no administrator; offers the login entry |
+| Windows | `…-portable.zip` | the executable alone; drop a `copycopy.conf` beside it and nothing touches the machine |
+| Linux | `copycopy-linux-x86_64.AppImage` | `chmod +x`, then run |
+| Linux | `copycopy-linux-x86_64.deb` | Debian and Ubuntu, with the desktop entry and icon |
+| macOS | `copycopy-macos-universal.dmg` | one binary for Apple Silicon and Intel |
+
+Building from source needs nothing but a Rust toolchain — SQLite is compiled
+into the binary. The packages are built by
+[`.github/workflows/release.yml`](.github/workflows/release.yml) on a tag, and
+the installer descriptions live in [`packaging/`](packaging).
+
 ## Running
 
 ```bash

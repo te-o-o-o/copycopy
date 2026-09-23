@@ -13,6 +13,28 @@ vivent toutes dans ce dossier, sans rien toucher sur la machine hôte.
 
 *An English version of this document is available in [README.md](README.md).*
 
+## Installer
+
+Des paquets prêts à l'emploi sont attachés à chaque
+[release](../../releases). Rien n'est signé — c'est à quoi ressemble un
+certificat qu'on ne paie pas : Windows affiche un avertissement SmartScreen
+(*Informations complémentaires* → *Exécuter quand même*) et macOS refuse la
+première ouverture (clic droit sur l'app → *Ouvrir*, ou
+`xattr -d com.apple.quarantine /Applications/copycopy.app`).
+
+| Système | Fichier | Remarques |
+|---|---|---|
+| Windows | `copycopy-windows-x86_64.exe` | installation par utilisateur, sans administrateur ; propose l'entrée d'ouverture de session |
+| Windows | `…-portable.zip` | l'exécutable seul ; un `copycopy.conf` à côté et rien ne touche la machine |
+| Linux | `copycopy-linux-x86_64.AppImage` | `chmod +x`, puis lancer |
+| Linux | `copycopy-linux-x86_64.deb` | Debian et Ubuntu, avec l'entrée de bureau et l'icône |
+| macOS | `copycopy-macos-universal.dmg` | un seul binaire pour Apple Silicon et Intel |
+
+Compiler depuis les sources ne demande rien d'autre qu'une toolchain Rust —
+SQLite est compilé dans le binaire. Les paquets sont fabriqués par
+[`.github/workflows/release.yml`](.github/workflows/release.yml) sur un tag, et
+les descriptions d'installeurs vivent dans [`packaging/`](packaging).
+
 ## Lancer
 
 ```bash
