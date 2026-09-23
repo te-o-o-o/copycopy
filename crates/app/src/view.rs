@@ -14,6 +14,7 @@ use iced::{
     Rectangle, Size,
 };
 
+use copycopy_core::highlight::Token;
 use copycopy_core::ClipItem;
 
 use crate::theme::{self as t, Palette};
@@ -1034,6 +1035,7 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
             code,
             cut,
             links,
+            tokens,
             ..
         } => {
             let font = if *code {
@@ -1045,7 +1047,7 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
             // single word, so plain word-wrapping never breaks it — it just
             // keeps growing past the frame instead. Falling back to a glyph
             // break is what actually keeps it inside the window.
-            let content: Element<'_, Message> = if links.is_empty() {
+            let content: Element<'_, Message> = if links.is_empty() && tokens.is_empty() {
                 text(body.as_str())
                     .size(13.0)
                     .font(font)
@@ -1054,7 +1056,7 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
                     .wrapping(text::Wrapping::WordOrGlyph)
                     .into()
             } else {
-                rich_text(linked_spans(body, links, p))
+                rich_text(painted_spans(body, tokens, links, p))
                     .size(13.0)
                     .font(font)
                     .color(p.text)
@@ -1115,30 +1117,70 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
 /// The preview body cut into plain and linked spans, from ranges found when the
 /// preview was built. Links take the accent and an underline: colour alone
 /// would not tell a link from a highlighted word.
-fn linked_spans<'a>(
+/// Cuts `body` into the spans `rich_text` draws: a colour per token kind, and
+/// a clickable link wherever one was found.
+///
+/// Both lists arrive sorted and free of overlap — `highlight` is tested for it
+/// — so the work is to walk their boundaries together. A link wins over the
+/// token underneath it: a URL sitting in a comment must stay clickable, and
+/// losing the click to gain a shade of grey would be a bad trade.
+fn painted_spans<'a>(
     body: &'a str,
+    tokens: &[(std::ops::Range<usize>, Token)],
     links: &[std::ops::Range<usize>],
     p: Palette,
 ) -> Vec<iced::advanced::text::Span<'a, String, Font>> {
-    let mut spans = Vec::with_capacity(links.len() * 2 + 1);
-    let mut at = 0;
-    for link in links {
-        if link.start > at {
-            spans.push(span(&body[at..link.start]));
-        }
-        let address = &body[link.clone()];
-        spans.push(
-            span(address)
-                .link(address.to_string())
-                .underline(true)
-                .color(p.accent),
-        );
-        at = link.end;
+    let mut cuts: Vec<usize> = Vec::with_capacity((tokens.len() + links.len()) * 2 + 2);
+    cuts.push(0);
+    cuts.push(body.len());
+    for range in tokens.iter().map(|(r, _)| r).chain(links.iter()) {
+        cuts.push(range.start);
+        cuts.push(range.end);
     }
-    if at < body.len() {
-        spans.push(span(&body[at..]));
+    cuts.sort_unstable();
+    cuts.dedup();
+
+    let mut spans = Vec::with_capacity(cuts.len());
+    for pair in cuts.windows(2) {
+        let (start, end) = (pair[0], pair[1]);
+        let piece = &body[start..end];
+        if piece.is_empty() {
+            continue;
+        }
+        if let Some(link) = links.iter().find(|l| l.start <= start && end <= l.end) {
+            let address = &body[link.clone()];
+            spans.push(
+                span(piece)
+                    .link(address.to_string())
+                    .underline(true)
+                    .color(p.accent),
+            );
+            continue;
+        }
+        match tokens
+            .iter()
+            .find(|(r, _)| r.start <= start && end <= r.end)
+            .map(|(_, token)| ink(*token, p))
+        {
+            Some(colour) => spans.push(span(piece).color(colour)),
+            None => spans.push(span(piece)),
+        }
     }
     spans
+}
+
+/// Which of the palette's colours each kind takes. No new theme values: the
+/// five badge tints plus `faint` already form a family in every theme, so the
+/// highlighting follows a theme change without anyone choosing thirty colours.
+fn ink(token: Token, p: Palette) -> iced::Color {
+    match token {
+        Token::Comment => p.faint,
+        Token::Str => p.tint_url,
+        Token::Number => p.tint_image,
+        Token::Keyword => p.tint_text,
+        Token::Tag => p.tint_code,
+        Token::Key => p.tint_files,
+    }
 }
 
 /// French agreement: singular for 0 and 1, as French counts them.

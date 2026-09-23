@@ -244,6 +244,10 @@ pub enum Preview {
         /// Byte ranges of the web links inside `body`, found when the preview
         /// is built so the view only has to slice.
         links: Vec<std::ops::Range<usize>>,
+        /// What to colour, and as what — empty when no language was
+        /// recognised. Scanned here for the same reason as `links`: once per
+        /// selection, never per frame.
+        tokens: Vec<(std::ops::Range<usize>, copycopy_core::highlight::Token)>,
         /// Counted once, on the whole entry, when the preview is built.
         chars: usize,
         lines: usize,
@@ -274,9 +278,14 @@ impl Preview {
                     None => text.clone(),
                 };
                 let links = copycopy_core::links::find(&body);
+                let tokens = match lang {
+                    Some(lang) => copycopy_core::highlight::spans(&body, lang),
+                    None => Vec::new(),
+                };
                 Preview::Text {
                     body,
                     links,
+                    tokens,
                     code: lang.is_some() || item.kind == copycopy_core::Kind::Code,
                     lang,
                     chars,
@@ -1441,6 +1450,16 @@ fn seed_demo(history: &mut History) {
         ("مرحبا بالعالم، هذا نص عربي لاختبار الاتجاه من اليمين إلى اليسار", "telegram"),
         ("שלום עולם — טקסט בעברית לבדיקה", "telegram"),
         ("fn main() {\n    let watcher = copycopy_platform::start(None)?;\n}", "zed"),
+        // Seeded last, so it opens selected: the one entry that puts every
+        // token kind on screen at once — comment, link inside it, string,
+        // number, keyword, and a lifetime that must *not* read as a string.
+        (
+            "// doc : https://doc.rust-lang.org/std/ — 3 cas\n\
+             let name = \"copycopy\";\n\
+             let taille = 42;\n\
+             fn court<'a>(s: &'a str) -> bool { s.len() < taille }",
+            "zed",
+        ),
         ("Bonjour — voilà un texte français avec des accents, œufs, et une citation « longue » qui devrait être tronquée proprement", "firefox"),
         ("Mixed 混合 混ぜる mixed العربية mixed 🎉 sur une seule ligne", "notes"),
     ];
