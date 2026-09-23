@@ -1,0 +1,68 @@
+# Check, lint and test on the three target systems.
+#
+# This is the first thing in the project's life to compile macOS at all: it is
+# written but has never been built, because `rusqlite` is `bundled` and SQLite
+# is C — cross-compiling it needs the target's own toolchain. Expect this
+# workflow to fail there before it passes.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest, macos-14]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libxkbcommon-dev libwayland-dev libx11-dev \
+            libxcursor-dev libxi-dev libxrandr-dev libgl1-mesa-dev
+
+      - name: Toolchain
+        run: |
+          rustup update --no-self-update stable
+          rustup default stable
+          rustup component add rustfmt clippy
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      # Formatting is checked once: it cannot differ between systems.
+      - name: Format
+        if: runner.os == 'Linux'
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace
+
+      # The window needs a GPU and a display, so nothing here opens one: this
+      # only proves the release binary links.
+      - name: Build
+        run: cargo build --release -p copycopy
