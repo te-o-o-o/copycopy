@@ -41,8 +41,8 @@ cargo build --release -p copycopy
 |---|---|
 | Windows | utilisé pour de vrai, au quotidien |
 | Linux X11 | lancé et testé |
-| Linux Wayland | écrit, jamais exécuté |
-| macOS | écrit, jamais exécuté |
+| Linux Wayland | écrit, compilé par le CI, jamais exécuté |
+| macOS | écrit, compilé par le CI, jamais exécuté |
 
 Sous Wayland, aucun raccourci global côté client n'existe : liez-en un dans
 votre compositeur qui lance `copycopy --show`.

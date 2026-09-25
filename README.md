@@ -39,8 +39,8 @@ cargo build --release -p copycopy
 |---|---|
 | Windows | run for real, in daily use |
 | Linux X11 | run and tested |
-| Linux Wayland | written, never executed |
-| macOS | written, never executed |
+| Linux Wayland | written, built in CI, never executed |
+| macOS | written, built in CI, never executed |
 
 Under Wayland there is no client-side global shortcut: bind one in your
 compositor that runs `copycopy --show`.
