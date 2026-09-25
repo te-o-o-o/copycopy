@@ -7,21 +7,33 @@
 //!
 //!   copy something, then:
 //!   cargo run --release -p copycopy-platform --example targets
+//!
+//! Linux only. The tool drives an X11 or Wayland server, so it has nothing to
+//! talk to elsewhere — but it still has to *build* everywhere, or
+//! `--all-targets` breaks the Windows and macOS runs of the CI.
 
+#[cfg(target_os = "linux")]
 use std::time::{Duration, Instant};
 
+#[cfg(target_os = "linux")]
 use x11rb::connection::Connection;
+#[cfg(target_os = "linux")]
 use x11rb::protocol::xproto::{
     AtomEnum, ConnectionExt as _, CreateWindowAux, EventMask, Property, WindowClass,
 };
+#[cfg(target_os = "linux")]
 use x11rb::protocol::Event;
+#[cfg(target_os = "linux")]
 use x11rb::rust_connection::RustConnection;
+#[cfg(target_os = "linux")]
 use x11rb::COPY_DEPTH_FROM_PARENT;
 
 /// The same budget the backend gives an owner, so a timeout here means a
 /// timeout there.
+#[cfg(target_os = "linux")]
 const REPLY_TIMEOUT: Duration = Duration::from_millis(1500);
 
+#[cfg(target_os = "linux")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (conn, screen_num) = x11rb::connect(None)?;
     let screen = &conn.setup().roots[screen_num];
@@ -121,10 +133,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 /// What one target yielded: its property type and the bytes, or `None` when
 /// the owner refused the format.
+#[cfg(target_os = "linux")]
 type Offer = Option<(u32, Vec<u8>)>;
 
 /// Requests one target and reads the reply, INCR included — the same sequence
 /// the backend follows.
+#[cfg(target_os = "linux")]
 fn read(
     conn: &RustConnection,
     window: u32,
@@ -184,6 +198,7 @@ fn read(
     Ok(Some((type_, out)))
 }
 
+#[cfg(target_os = "linux")]
 fn read_property(
     conn: &RustConnection,
     window: u32,
@@ -207,4 +222,9 @@ fn read_property(
     let _ = conn.delete_property(window, prop);
     let _ = conn.flush();
     Ok((type_.unwrap_or(x11rb::NONE), out))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn main() {
+    eprintln!("targets : lecteur du presse-papier X11, sans objet sur ce système");
 }

@@ -1,6 +1,11 @@
 //! Probe: lists the Wayland globals exposed by the current compositor. Tells
 //! you whether an event-driven backend (data-control) is possible here.
+//!
+//! Linux only. The tool drives an X11 or Wayland server, so it has nothing to
+//! talk to elsewhere — but it still has to *build* everywhere, or
+//! `--all-targets` breaks the Windows and macOS runs of the CI.
 
+#[cfg(target_os = "linux")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use wayland_client::protocol::wl_registry;
     use wayland_client::{Connection, Dispatch, QueueHandle};
@@ -47,4 +52,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     println!("\n{} globaux", state.globals.len());
     Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn main() {
+    eprintln!("wl_globals : sonde Wayland, sans objet sur ce système");
 }
