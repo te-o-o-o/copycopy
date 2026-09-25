@@ -2,12 +2,20 @@
 //! shortcut without a physical keyboard.
 //!
 //!   cargo run -p copycopy-platform --example press_key -- ctrl alt v
+//!
+//! Linux only. The tool drives an X11 or Wayland server, so it has nothing to
+//! talk to elsewhere — but it still has to *build* everywhere, or
+//! `--all-targets` breaks the Windows and macOS runs of the CI.
 
+#[cfg(target_os = "linux")]
 use x11rb::connection::Connection;
+#[cfg(target_os = "linux")]
 use x11rb::protocol::xproto::{ConnectionExt as _, KEY_PRESS_EVENT, KEY_RELEASE_EVENT};
+#[cfg(target_os = "linux")]
 use x11rb::protocol::xtest::ConnectionExt as _;
 
 /// A few common X11 keysyms.
+#[cfg(target_os = "linux")]
 fn keysym(name: &str) -> Option<u32> {
     Some(match name.to_ascii_lowercase().as_str() {
         "ctrl" | "control" => 0xffe3,       // Control_L
@@ -21,6 +29,7 @@ fn keysym(name: &str) -> Option<u32> {
     })
 }
 
+#[cfg(target_os = "linux")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.is_empty() {
@@ -69,4 +78,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::thread::sleep(std::time::Duration::from_millis(60));
     println!("envoyée");
     Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn main() {
+    eprintln!("press_key : XTEST est une extension X11, sans objet sur ce système");
 }

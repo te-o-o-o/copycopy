@@ -4,16 +4,26 @@
 //! neither.
 //!
 //!   cargo run -p copycopy-platform --example fake_owner -- "text" MyClass 4
+//!
+//! Linux only. The tool drives an X11 or Wayland server, so it has nothing to
+//! talk to elsewhere — but it still has to *build* everywhere, or
+//! `--all-targets` breaks the Windows and macOS runs of the CI.
 
+#[cfg(target_os = "linux")]
 use x11rb::connection::Connection;
+#[cfg(target_os = "linux")]
 use x11rb::protocol::xproto::{
     AtomEnum, ConnectionExt as _, CreateWindowAux, EventMask, PropMode, SelectionNotifyEvent,
     WindowClass, SELECTION_NOTIFY_EVENT,
 };
+#[cfg(target_os = "linux")]
 use x11rb::protocol::Event;
+#[cfg(target_os = "linux")]
 use x11rb::wrapper::ConnectionExt as _;
+#[cfg(target_os = "linux")]
 use x11rb::COPY_DEPTH_FROM_PARENT;
 
+#[cfg(target_os = "linux")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
     let text = args.get(1).cloned().unwrap_or_else(|| "coucou".into());
@@ -112,4 +122,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
     Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn main() {
+    eprintln!("fake_owner : client X11, sans objet sur ce système");
 }

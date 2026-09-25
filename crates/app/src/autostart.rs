@@ -96,7 +96,10 @@ fn app_path() -> Result<String, String> {
         // The registry value is one string, path and arguments separated by a
         // space, and `auto-launch` does not quote it. Without these quotes any
         // path holding a space — `C:\Users\Jean Dupont\...` — starts nothing.
-        return Ok(format!("\"{path}\""));
+        //
+        // No `return`: once the other arm is stripped on Windows, this block is
+        // the function's tail, and clippy rejects the keyword there.
+        Ok(format!("\"{path}\""))
     }
     #[cfg(not(target_os = "windows"))]
     Ok(path.to_string())
