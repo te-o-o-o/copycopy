@@ -64,12 +64,25 @@ jobs:
           Compress-Archive -Path target/release/copycopy.exe `
             -DestinationPath dist/copycopy-windows-x86_64-portable.zip
 
+      # `${env:ProgramFiles(x86)}` and not `$env:ProgramFiles(x86)`: without the
+      # braces PowerShell expands the variable and then appends a literal
+      # `(x86)`, which points at `C:\Program Files(x86)` — a path that does not
+      # exist. The runner image already ships Inno Setup, so the install only
+      # happens if a future image drops it.
       - name: Installer
         run: |
-          choco install innosetup --no-progress -y
-          & "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe" `
-            /DAppVersion=${{ needs.version.outputs.version }} `
-            packaging\windows\copycopy.iss
+          $candidates = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+          )
+          $iscc = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) {
+            choco install innosetup --no-progress -y
+            $iscc = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+          if (-not $iscc) { throw "ISCC.exe introuvable : $candidates" }
+          Write-Output "Inno Setup : $iscc"
+          & $iscc /DAppVersion=${{ needs.version.outputs.version }} packaging\windows\copycopy.iss
 
       - uses: actions/upload-artifact@v7
         with:
