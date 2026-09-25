@@ -38,9 +38,16 @@ versioned.
 
 ## Conventions
 
-- **English everywhere**: code, comments, commit messages, `README.md`. A
-  French translation of the README is kept as `README.fr.md`; keep the two in
-  sync when either changes.
+- **English everywhere**: code, comments, commit messages, documentation. Each
+  document has a French translation beside it — `README.fr.md` next to
+  `README.md`, `docs/notes.fr.md` next to `docs/notes.md`; keep each pair in
+  sync when either side changes.
+- **`README.md` stays short**: what the program is, how to install it, where it
+  runs. Everything that explains *why* — decisions, dead ends, what is verified
+  on which system — belongs in `docs/notes.md`.
+- **Commit messages are one line.** A Conventional Commits subject and nothing
+  else: no body, no trailer. The reasoning goes in the code comments or in
+  `docs/notes.md`, where it can be read later.
 - **Conventional Commits**: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`,
   `chore`. Imperative subject, and a body that explains the *why*.
 - Comments explain decisions and traps, not syntax.
