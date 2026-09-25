@@ -38,7 +38,7 @@ image = { version = "0.25", default-features = false, features = ["png", "ico"] 
 # Everything below is read by `cargo deb`, which builds the Debian package in
 # the release workflow. Paths are relative to this file.
 [package.metadata.deb]
-maintainer = "Théo Delmas <USER@users.noreply.github.com>"
+maintainer = "Théo Delmas <delmas.theo.dev@gmail.com>"
 copyright = "2026 Théo Delmas"
 license-file = ["../../LICENSE", "0"]
 section = "utils"
