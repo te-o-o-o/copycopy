@@ -149,8 +149,11 @@ proof that a target platform works.
   `copycopy.log` beside the database (`console.rs`) — look there first when
   something fails on Windows.
 - **Wayland, macOS**: written, never executed. Do not describe them as working.
-  Since rusqlite `bundled` they no longer type-check from Linux either: SQLite
-  is C, and compiling it needs the target's own toolchain.
+  They cannot be built from this machine since rusqlite went `bundled` — SQLite
+  is C, and compiling it needs the target's own toolchain — but the CI builds
+  and lints macOS on a real runner at every push, and it passes. That settles
+  "does it compile", which had never been answered, and nothing else: nobody
+  has launched it.
 - **Global shortcut**: verified on X11, including an actual trigger, and on
   Windows. Under WSL
   it cannot fire from Windows applications — `XGrabKey` only sees keys reaching

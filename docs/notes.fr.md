@@ -350,10 +350,13 @@ notification de changement, `changeCount` est l'API.
 
 - X11 : exécuté et testé (texte, URL, code, CJK, arabe, emoji, PNG, fichiers,
   INCR sur 400 Kio, déduplication, attribution de la source).
-- Wayland, Windows, macOS : **type-checkés contre leurs vraies cibles**
-  (`cargo check --workspace --target x86_64-pc-windows-msvc` et
-  `aarch64-apple-darwin`). Mais jamais exécutés : cette machine est un WSL2. À
-  valider sur les vraies plateformes avant d'y croire.
+- Windows : utilisé pour de vrai, au quotidien.
+- Wayland, macOS : **compilés, lintés et testés sur un vrai runner** par le CI, à
+  chaque push. Depuis que rusqlite est en `bundled`, ils ne peuvent plus être
+  construits depuis cette machine — SQLite est du C — donc tant que le dépôt
+  n'était pas public et que le CI n'existait pas, personne ne savait si le code
+  macOS compilait. Il compile. Il n'a toujours jamais été exécuté : à valider
+  sur la vraie plateforme avant d'en croire davantage.
 - Le choix du backend est testé en conditions réelles : sous WSLg,
   `WAYLAND_DISPLAY` est présent mais le compositeur n'expose aucun
   data-control, et on bascule proprement sur X11 en disant pourquoi.

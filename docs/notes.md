@@ -336,10 +336,13 @@ macOS polling is not a workaround: Apple exposes no change notification at all,
 
 - X11: run and tested (text, URLs, code, CJK, Arabic, emoji, PNG, files, INCR
   over 400 KiB, deduplication, source attribution).
-- Wayland, Windows, macOS: **type-checked against their real targets**
-  (`cargo check --workspace --target x86_64-pc-windows-msvc` and
-  `aarch64-apple-darwin`). But never executed: this machine is a WSL2. Validate
-  on the real platforms before believing any of it.
+- Windows: run for real, in daily use.
+- Wayland, macOS: **compiled, linted and tested on a real runner** by the CI, at
+  every push. Since rusqlite went `bundled` they cannot be built from this
+  machine at all — SQLite is C — so until the repository went public and the CI
+  existed, nobody knew whether the macOS code compiled. It does. It has still
+  never been executed: validate on the real platform before believing anything
+  beyond that.
 - Backend selection is tested for real: under WSLg, `WAYLAND_DISPLAY` is set but
   the compositor exposes no data-control protocol, and we fall back to X11
   cleanly while saying why.
