@@ -27,7 +27,7 @@ jobs:
     outputs:
       version: ${{ steps.check.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - id: check
         run: |
           tag="${GITHUB_REF_NAME#v}"
@@ -43,7 +43,7 @@ jobs:
     needs: version
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Toolchain
         run: |
@@ -71,7 +71,7 @@ jobs:
             /DAppVersion=${{ needs.version.outputs.version }} `
             packaging\windows\copycopy.iss
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows
           path: dist/*
@@ -88,7 +88,7 @@ jobs:
       # unpack itself instead of mounting.
       APPIMAGE_EXTRACT_AND_RUN: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build dependencies
         run: |
@@ -128,7 +128,7 @@ jobs:
           cargo install cargo-deb --locked
           cargo deb -p copycopy --no-build --output dist/copycopy-linux-x86_64.deb
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux
           path: dist/*
@@ -139,7 +139,7 @@ jobs:
     needs: version
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Toolchain
         run: |
@@ -183,7 +183,7 @@ jobs:
             dist/copycopy-macos-universal.dmg
           rm -rf "$app"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos
           path: dist/*
@@ -194,7 +194,7 @@ jobs:
     needs: [version, windows, linux, macos]
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
