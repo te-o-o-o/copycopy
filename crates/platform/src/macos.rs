@@ -158,13 +158,6 @@ fn tiff_to_png(tiff: &[u8]) -> Option<(Vec<u8>, (u32, u32))> {
     Some((png, size))
 }
 
-/// Small guard rail: should `NSString` ever change representation, we want
-/// that to break at compile time rather than silently at run time.
-#[allow(dead_code)]
-fn _assert_string_api(s: &NSString) -> String {
-    s.to_string()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

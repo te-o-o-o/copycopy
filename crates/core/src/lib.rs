@@ -2,7 +2,7 @@
 
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Kind {
@@ -271,10 +271,6 @@ impl History {
     pub fn remove(&mut self, index: usize) {
         self.items.remove(index);
     }
-
-    pub fn clear_unpinned(&mut self) {
-        self.items.retain(|i| i.pinned);
-    }
 }
 
 /// 64-bit FNV-1a: stable across runs, unlike `DefaultHasher`, so it can be
@@ -405,13 +401,6 @@ fn human_bytes(n: usize) -> String {
     } else {
         format!("{:.1} Mio", n / (K * K))
     }
-}
-
-pub fn now_millis() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0)
 }
 
 #[cfg(test)]
