@@ -319,7 +319,7 @@ fn is_picture(path: &std::path::Path) -> bool {
         .extension()
         .and_then(|e| e.to_str())
         .unwrap_or_default();
-    ["png", "jpg", "jpeg"]
+    ["png", "jpg", "jpeg", "gif"]
         .iter()
         .any(|x| ext.eq_ignore_ascii_case(x))
 }

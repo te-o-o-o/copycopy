@@ -368,7 +368,7 @@ notification de changement, `changeCount` est l'API.
   retirer le schéma stockait cela comme chemin, et tout fichier copié depuis le
   Finder arrivait mort. `NSURL::filePathURL` les résout. Et comme copier une
   image dans le Finder est la façon habituelle d'en mettre une dans le
-  presse-papier là-bas, un fichier PNG ou JPEG seul est prévisualisé comme
+  presse-papier là-bas, un fichier PNG, JPEG ou GIF seul est prévisualisé comme
   l'image plutôt que comme son chemin.
   Le Finder dépose aussi l'icône de chaque fichier à côté de son URL, en PNG et
   en TIFF : les fichiers sont donc lus avant les images, sinon l'historique

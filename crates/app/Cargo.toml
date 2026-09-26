@@ -15,10 +15,10 @@ copycopy-core = { path = "../core" }
 copycopy-platform = { path = "../platform" }
 # `image-without-codecs` rather than `image`: every picture reaching the history
 # is normalised to PNG, and iced shares this crate's `image` 0.25, whose
-# features below are all the decoding the preview needs: `png`, plus `jpeg` for
-# a photo copied as a file. `image` would pull every codec in for nothing.
+# features below are all the decoding the preview needs: `png`, plus `jpeg` and
+# `gif` for a picture copied as a file. `image` would pull every codec in for nothing.
 iced = { version = "0.14", features = ["advanced", "tokio", "canvas", "image-without-codecs"] }
-image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif"] }
 global-hotkey = "0.8"
 # `shellexecute-on-windows`: hands the link to ShellExecuteW directly. Without it
 # Windows goes through `cmd /c start`, where a `&` inside a copied URL can chain
