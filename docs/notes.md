@@ -69,9 +69,15 @@ before the window.
 **Auto-paste**, off by default. Once an entry is copied, copycopy hands the
 focus back to the application you were in and presses `Ctrl+V` for you, so the
 entry lands where your cursor was. Windows through `SendInput`, X11 through
-XTEST; refused under Wayland, which needs the RemoteDesktop portal for that,
-and not available on macOS yet. Simulating keystrokes in another application
+XTEST, macOS through `CGEvent` (`Cmd+V`); refused under Wayland, which needs
+the RemoteDesktop portal for that. Simulating keystrokes in another application
 is something to switch on, never to discover.
+
+macOS drops synthetic keystrokes without a word unless copycopy is ticked in
+*System Settings → Privacy & Security → Accessibility*. The first paste that
+finds it missing raises the system prompt pointing there, and fails. The grant
+is tied to the binary's signature: every `cargo build` of an unsigned copy
+produces a new one, and it has to be ticked again.
 
 **Starting with the session**, off by default. The switch writes a per-user
 entry — the `Run` key under `HKCU` on Windows, with no administrator rights, a
@@ -226,9 +232,9 @@ confirms that *something* happened, but not *which* entry reached the clipboard.
 No toast beyond that — one would mean keeping the window open at the exact moment
 you want to be back in your application, pasting.
 
-The real goal is still automatic **pasting** (simulating `Ctrl+V` after
-closing), still to be done: `SendInput` on Windows, XTEST on X11, CGEvent on
-macOS with Accessibility permission — and impossible under Wayland without the
+The real goal was automatic **pasting** (simulating `Ctrl+V` after closing):
+`SendInput` on Windows, XTEST on X11, CGEvent on macOS with Accessibility
+permission — see *Auto-paste* above. Impossible under Wayland without the
 RemoteDesktop portal.
 
 ## Why iced and not egui
@@ -347,7 +353,8 @@ macOS polling is not a workaround: Apple exposes no change notification at all,
   over 400 KiB, deduplication, source attribution).
 - Windows: run for real, in daily use.
 - macOS: run on Apple Silicon (macOS 26) — text and image capture, files
-  copied in Finder, the window, the `Cmd+Shift+V` shortcut and copying back.
+  copied in Finder, the window, the `Cmd+Shift+V` shortcut, copying back and
+  auto-paste.
   The concealed types and autostart have not been checked one by one yet.
   Finder does not copy paths but file *reference* URLs,
   `file:///.file/id=6571367.918776`, which name an inode; stripping the scheme

@@ -9,7 +9,7 @@
 //! | Windows | `SendInput`, after handing the focus back | done      |
 //! | X11     | XTEST fake key events                     | done      |
 //! | Wayland | needs the RemoteDesktop portal            | refused   |
-//! | macOS   | `CGEvent`, behind the Accessibility grant | not yet   |
+//! | macOS   | `CGEvent`, behind the Accessibility grant | done      |
 
 pub use imp::{availability, remember_target, restore_target, send_paste};
 
@@ -146,7 +146,86 @@ mod imp {
     }
 }
 
-#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+#[cfg(target_os = "macos")]
+mod imp {
+    use std::ffi::c_void;
+    use std::sync::atomic::{AtomicI32, Ordering};
+
+    use objc2_app_kit::{NSApplicationActivationOptions, NSRunningApplication, NSWorkspace};
+
+    // Four C calls: not worth a crate. CoreGraphics posts the keystroke, and
+    // ApplicationServices says whether macOS lets us — it drops synthetic
+    // events without a word unless copycopy is ticked under Accessibility.
+    #[link(name = "ApplicationServices", kind = "framework")]
+    extern "C" {
+        fn AXIsProcessTrustedWithOptions(options: *const c_void) -> bool;
+        fn CGEventCreateKeyboardEvent(source: *const c_void, key: u16, down: bool) -> *mut c_void;
+        fn CGEventSetFlags(event: *mut c_void, flags: u64);
+        fn CGEventPost(tap: u32, event: *mut c_void);
+        fn CFRelease(object: *const c_void);
+    }
+
+    /// The application that had the focus when copycopy opened.
+    static TARGET: AtomicI32 = AtomicI32::new(0);
+
+    pub fn availability() -> Result<(), &'static str> {
+        Ok(())
+    }
+
+    pub fn remember_target() {
+        if let Some(app) = NSWorkspace::sharedWorkspace().frontmostApplication() {
+            TARGET.store(app.processIdentifier(), Ordering::Relaxed);
+        }
+    }
+
+    /// Hiding the window leaves copycopy the active application, so the focus
+    /// has to be handed back explicitly — while copycopy still holds it, as
+    /// on Windows: macOS only lets the active application yield.
+    pub fn restore_target() {
+        let pid = TARGET.load(Ordering::Relaxed);
+        if pid == std::process::id() as i32 {
+            return;
+        }
+        if let Some(app) = NSRunningApplication::runningApplicationWithProcessIdentifier(pid) {
+            app.activateWithOptions(NSApplicationActivationOptions::empty());
+        }
+    }
+
+    pub fn send_paste() -> Result<(), String> {
+        // Without options, only asks. The system prompt that sends the user to
+        // the Accessibility settings comes from the first refused paste
+        // instead: asking from `availability` would fire on every frame.
+        if !unsafe { AXIsProcessTrustedWithOptions(std::ptr::null()) } {
+            prompt_for_access();
+            return Err("copycopy is not allowed under Accessibility yet".to_string());
+        }
+        const KEY_V: u16 = 9; // kVK_ANSI_V
+        const COMMAND: u64 = 1 << 20; // kCGEventFlagMaskCommand
+        const HID_TAP: u32 = 0; // kCGHIDEventTap
+        for down in [true, false] {
+            let event = unsafe { CGEventCreateKeyboardEvent(std::ptr::null(), KEY_V, down) };
+            if event.is_null() {
+                return Err("CGEventCreateKeyboardEvent failed".to_string());
+            }
+            unsafe {
+                CGEventSetFlags(event, COMMAND);
+                CGEventPost(HID_TAP, event);
+                CFRelease(event);
+            }
+        }
+        Ok(())
+    }
+
+    fn prompt_for_access() {
+        use objc2_foundation::{NSDictionary, NSNumber, NSString};
+        // `kAXTrustedCheckOptionPrompt`'s value, toll-free bridged.
+        let key = NSString::from_str("AXTrustedCheckOptionPrompt");
+        let options = NSDictionary::from_slices(&[&*key], &[&*NSNumber::new_bool(true)]);
+        unsafe { AXIsProcessTrustedWithOptions(&*options as *const _ as *const c_void) };
+    }
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
 mod imp {
     pub fn availability() -> Result<(), &'static str> {
         Err("pas encore disponible sur ce système")
