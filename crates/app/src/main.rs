@@ -1440,35 +1440,59 @@ fn title(_state: &State, _window: window::Id) -> String {
 }
 
 fn seed_demo(history: &mut History) {
+    // This is also what the README screenshots show, so it reads as a real
+    // day of copying — while still putting the hard cases on screen: CJK,
+    // right-to-left, ZWJ emoji and skin tones, and code with every token kind.
     const SEED: &[(&str, &str)] = &[
-        ("Emoji simples: 🔥 ✅ 🚀 ⚡ 🎯 💡 📋 — ça doit être lisible", "discord"),
-        ("Emoji ZWJ + teintes: 👨‍👩‍👧‍👦 👩🏽‍💻 🧑🏿‍🚀 🏳️‍🌈 — le cas le plus dur", "discord"),
-        ("日本語のテキストです。クリップボードマネージャーのテスト。漢字とひらがな。", "slack"),
-        ("https://github.com/iced-rs/iced/blob/master/core/src/text.rs#L181", "firefox"),
-        ("简体中文的测试文本，用于检查字体回退是否正常工作。", "wechat"),
-        ("한국어 텍스트 테스트입니다. 클립보드 관리자.", "kakaotalk"),
-        ("مرحبا بالعالم، هذا نص عربي لاختبار الاتجاه من اليمين إلى اليسار", "telegram"),
-        ("שלום עולם — טקסט בעברית לבדיקה", "telegram"),
-        ("fn main() {\n    let watcher = copycopy_platform::start(None)?;\n}", "zed"),
-        // Seeded last, so it opens selected: the one entry that puts every
-        // token kind on screen at once — comment, link inside it, string,
-        // number, keyword, and a lifetime that must *not* read as a string.
+        // Pinned below, so it opens selected: comment, link inside it,
+        // string, number, keyword, and a lifetime that must *not* read as a string.
         (
-            "// doc : https://doc.rust-lang.org/std/ — 3 cas\n\
-             let name = \"copycopy\";\n\
-             let taille = 42;\n\
-             fn court<'a>(s: &'a str) -> bool { s.len() < taille }",
+            "// https://doc.rust-lang.org/std\n\
+             fn ok<'a>(s: &'a str) -> bool {\n\
+             \x20   let max = 42;\n\
+             \x20   s.len() < max && s != \"copy\"\n\
+             }",
             "zed",
         ),
-        ("Bonjour — voilà un texte français avec des accents, œufs, et une citation « longue » qui devrait être tronquée proprement", "firefox"),
-        ("Mixed 混合 混ぜる mixed العربية mixed 🎉 sur une seule ligne", "notes"),
+        ("Shipped! 🚀 v0.2 is out — thanks everyone 🎉🙌", "slack"),
+        (
+            "明日の打ち合わせは10時からです。資料は共有フォルダにあります 📎",
+            "line",
+        ),
+        (
+            "Hello · こんにちは · 안녕하세요 · 你好 · مرحبا · שלום · Bonjour 👋",
+            "notes",
+        ),
+        ("https://github.com/te-o-o-o/copycopy", "firefox"),
+        ("ssh deploy@staging.example.com -p 2222", "terminal"),
+        (
+            "SELECT name, count(*) AS clips\nFROM history\nGROUP BY name\nORDER BY clips DESC;",
+            "dbeaver",
+        ),
+        (
+            "👩🏽‍💻 🧑🏿‍🚀 👨‍👩‍👧‍👦 🏳️‍🌈 — skin tones and families stay in one piece",
+            "discord",
+        ),
+        (
+            "def greet(name: str) -> str:\n    return f\"Hello, {name}!\"",
+            "vscode",
+        ),
+        ("cargo build --release -p copycopy", "terminal"),
+        (
+            "Buy oat milk, coffee beans ☕ and a new keyboard ⌨️",
+            "notes",
+        ),
+        (
+            "{\n  \"theme\": \"dark\",\n  \"hotkey\": \"Cmd+Shift+V\"\n}",
+            "vscode",
+        ),
     ];
     for (text, source) in SEED.iter().rev() {
         history.push(ClipEvent::Text((*text).to_string()), (*source).to_string());
     }
-    // One pinned entry, so the demo exercises the marker and the reordering
-    // rather than only the text rendering.
-    history.toggle_pin(4);
+    // One pinned entry, so the demo exercises the marker. The code one: it
+    // stays on top, opens selected, and fills the preview with colours.
+    history.toggle_pin(0);
 }
 
 /// Console mode: checks capture without depending on the interface. It does
