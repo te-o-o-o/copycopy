@@ -370,6 +370,9 @@ notification de changement, `changeCount` est l'API.
   image dans le Finder est la façon habituelle d'en mettre une dans le
   presse-papier là-bas, un fichier PNG ou JPEG seul est prévisualisé comme
   l'image plutôt que comme son chemin.
+  Le Finder dépose aussi l'icône de chaque fichier à côté de son URL, en PNG et
+  en TIFF : les fichiers sont donc lus avant les images, sinon l'historique
+  garde une icône générique.
 - Wayland : **compilé, linté et testé sur un vrai runner** par le CI, à chaque
   push, et rien de plus. Il n'a jamais été exécuté : à valider sur la vraie
   plateforme avant d'en croire davantage.
