@@ -8,6 +8,7 @@
 <p align="center"><sub>v0.1.0 · Rust · Windows, Linux, macOS · MIT</sub></p>
 
 <p align="center">
+  <a href="#fonctionnalités">Fonctionnalités</a> ·
   <a href="#installer">Installer</a> ·
   <a href="#utiliser">Utiliser</a> ·
   <a href="#où-ça-tourne">Où ça tourne</a> ·
@@ -25,12 +26,29 @@
 Texte, code, liens, images, fichiers : un petit résident garde tout ce que vous
 copiez, et un raccourci le ramène. Anglais, 日本語, emoji 🎉 et code compris.
 
-- **Rien ne sort de la machine.** Pas de compte, pas de nuage, pas de télémétrie.
-- **Les secrets ne sont jamais conservés.** Ce qu'un gestionnaire de mots de
+## Fonctionnalités
+
+- **Capture tout** : texte, code, liens, images et fichiers — et, sous Windows
+  et X11, l'application d'où ils viennent.
+- **Recherche par n'importe quel fragment**, dans tout l'historique, pas
+  seulement ce qui est à l'écran.
+- **Filtres** par type — texte, code, URL, images, fichiers — avec
+  `Ctrl+1`…`6`.
+- **Aperçu complet** : le code en couleur, son langage reconnu d'après
+  l'extrait seul ; les images, y compris les fichiers image copiés dans le
+  Finder ou l'Explorateur.
+- **Épinglez** ce qui resert, supprimez le reste.
+- **Collage automatique** (optionnel) : l'entrée arrive là où était votre
+  curseur. Partout sauf sous Wayland.
+- **Démarre avec la session** (optionnel), en silence, en arrière-plan.
+- **Cinq thèmes** : Clair, Sombre, Purpledream, Aalto et Matrix.
+- **Les secrets ne sont jamais conservés** : ce qu'un gestionnaire de mots de
   passe marque comme confidentiel est écarté avant d'être écrit.
-- **Rapide.** 100 000 entrées, toujours 59 fps.
-- **Portable.** Posez un `copycopy.conf` à côté de l'exécutable et tout vit
+- **Rien ne sort de la machine** : pas de compte, pas de nuage, pas de
+  télémétrie.
+- **Portable** : posez un `copycopy.conf` à côté de l'exécutable, et tout vit
   dans ce dossier.
+- **Rapide** : 100 000 entrées, toujours 59 fps.
 
 ## Installer
 

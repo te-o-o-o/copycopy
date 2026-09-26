@@ -8,6 +8,7 @@
 <p align="center"><sub>v0.1.0 · Rust · Windows, Linux, macOS · MIT</sub></p>
 
 <p align="center">
+  <a href="#features">Features</a> ·
   <a href="#install">Install</a> ·
   <a href="#use">Use</a> ·
   <a href="#where-it-runs">Where it runs</a> ·
@@ -25,12 +26,26 @@
 Text, code, links, images, files: a small resident keeps everything you copy,
 and a shortcut brings it back. English, 日本語, emoji 🎉 and code all included.
 
-- **Nothing leaves your machine.** No account, no cloud, no telemetry.
-- **Secrets are never stored.** What a password manager marks as confidential
-  is dropped before it is written.
-- **Fast.** 100 000 entries, still 59 fps.
-- **Portable.** Put a `copycopy.conf` next to the executable and everything
+## Features
+
+- **Captures everything**: text, code, links, images and files — and, on
+  Windows and X11, which app they came from.
+- **Search by any fragment**, across the whole history, not just what is on
+  screen.
+- **Filters** by type — text, code, URL, images, files — with `Ctrl+1`…`6`.
+- **Full preview**: code in colour, its language recognised from the snippet
+  alone; pictures, including image files copied in Finder or Explorer.
+- **Pin** what you reuse, delete what you don't.
+- **Auto-paste** (optional): the entry lands where your cursor was. Everywhere
+  but Wayland.
+- **Starts with your session** (optional), silently in the background.
+- **Five themes**: Light, Dark, Purpledream, Aalto, and Matrix.
+- **Secrets are never stored**: whatever a password manager marks as
+  confidential is dropped before it is written.
+- **Nothing leaves your machine**: no account, no cloud, no telemetry.
+- **Portable**: put a `copycopy.conf` next to the executable, and everything
   lives in that folder.
+- **Fast**: 100 000 entries, still 59 fps.
 
 ## Install
 
