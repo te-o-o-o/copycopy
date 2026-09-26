@@ -360,10 +360,16 @@ notification de changement, `changeCount` est l'API.
 - X11 : exécuté et testé (texte, URL, code, CJK, arabe, emoji, PNG, fichiers,
   INCR sur 400 Kio, déduplication, attribution de la source).
 - Windows : utilisé pour de vrai, au quotidien.
-- macOS : exécuté sur Apple Silicon (macOS 26) — capture de texte, fenêtre,
-  raccourci `Cmd+Shift+V` et recopie. La capture d'images, les types
-  confidentiels et le démarrage automatique n'ont pas encore été vérifiés un à
-  un.
+- macOS : exécuté sur Apple Silicon (macOS 26) — capture de texte et
+  d'images, fichiers copiés dans le Finder, fenêtre, raccourci `Cmd+Shift+V` et
+  recopie. Les types confidentiels et le démarrage automatique n'ont pas encore
+  été vérifiés un à un. Le Finder ne copie pas des chemins mais des URL de
+  *référence*, `file:///.file/id=6571367.918776`, qui désignent un inode ;
+  retirer le schéma stockait cela comme chemin, et tout fichier copié depuis le
+  Finder arrivait mort. `NSURL::filePathURL` les résout. Et comme copier une
+  image dans le Finder est la façon habituelle d'en mettre une dans le
+  presse-papier là-bas, un fichier PNG ou JPEG seul est prévisualisé comme
+  l'image plutôt que comme son chemin.
 - Wayland : **compilé, linté et testé sur un vrai runner** par le CI, à chaque
   push, et rien de plus. Il n'a jamais été exécuté : à valider sur la vraie
   plateforme avant d'en croire davantage.
