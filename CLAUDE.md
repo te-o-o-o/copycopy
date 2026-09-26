@@ -148,12 +148,14 @@ proof that a target platform works.
   Output goes to the parent terminal when there is one, otherwise to
   `copycopy.log` beside the database (`console.rs`) — look there first when
   something fails on Windows.
-- **Wayland, macOS**: written, never executed. Do not describe them as working.
-  They cannot be built from this machine since rusqlite went `bundled` — SQLite
-  is C, and compiling it needs the target's own toolchain — but the CI builds
-  and lints macOS on a real runner at every push, and it passes. That settles
-  "does it compile", which had never been answered, and nothing else: nobody
-  has launched it.
+- **macOS**: run on Apple Silicon — text capture, the window, the
+  `Cmd+Shift+V` shortcut, copying back. Image capture, the concealed types and
+  autostart are not checked yet. First run found a stale `/tmp/copycopy.sock`
+  that left every later launch without IPC; `ipc::claim` now overwrites a
+  socket proven dead.
+- **Wayland**: written, never executed. Do not describe it as working. The CI
+  builds and lints it at every push; that settles "does it compile", and
+  nothing else.
 - **Global shortcut**: verified on X11, including an actual trigger, and on
   Windows. Under WSL
   it cannot fire from Windows applications — `XGrabKey` only sees keys reaching

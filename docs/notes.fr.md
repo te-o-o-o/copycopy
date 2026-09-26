@@ -23,8 +23,9 @@ Des paquets prêts à l'emploi sont attachés à chaque
 [release](../../releases). Rien n'est signé — c'est à quoi ressemble un
 certificat qu'on ne paie pas : Windows affiche un avertissement SmartScreen
 (*Informations complémentaires* → *Exécuter quand même*) et macOS refuse la
-première ouverture (clic droit sur l'app → *Ouvrir*, ou
-`xattr -d com.apple.quarantine /Applications/copycopy.app`).
+première ouverture (`xattr -dr com.apple.quarantine /Applications/copycopy.app`, ou tenter
+une fois, puis *Réglages Système → Confidentialité et sécurité → Ouvrir quand
+même*). Le clic droit → *Ouvrir* ne contourne plus Gatekeeper depuis macOS 15.
 
 | Système | Fichier | Remarques |
 |---|---|---|
@@ -108,7 +109,7 @@ Par défaut **`Ctrl+Alt+V`** (`Cmd+Shift+V` sur macOS), modifiable dans
 | Système | Mécanisme | État |
 |---|---|---|
 | Windows | `RegisterHotKey` | vérifié, utilisé au quotidien |
-| macOS | Carbon `RegisterEventHotKey` | écrit, jamais exécuté |
+| macOS | Carbon `RegisterEventHotKey` | vérifié sur Apple Silicon |
 | X11 | `XGrabKey` | vérifié, déclenchement compris |
 | Wayland | **aucun raccourci global côté client** | repli par l'IPC |
 
@@ -121,6 +122,14 @@ l'état — le lâcher désenregistrerait le raccourci.
 un raccourci qui lance `copycopy --show`. Ce second process détecte le résident
 par un socket local (`interprocess`), lui transmet la commande et s'efface. Le
 même mécanisme garantit qu'un seul daemon capture.
+
+Sur macOS, ce socket est un fichier, `/tmp/copycopy.sock`, et il survit au
+résident : `interprocess` ne le supprime qu'à la libération du listener, qu'un
+arrêt n'atteint jamais. Chaque lancement après le premier trouvait le nom pris,
+échouait à s'y connecter, et tournait sans IPC — `--show` et `--quit` morts, et
+la place pour un second résident. `ipc::claim` écrase désormais le fichier une
+fois qu'une connexion a prouvé que personne n'est derrière. Linux ne l'a jamais
+montré : le nom y vit dans l'espace de noms abstrait, sans fichier à laisser.
 
 Le portail `org.freedesktop.portal.GlobalShortcuts` reste à faire : c'est la
 voie propre sous Wayland, et la seule qui règle aussi le focus — un client
@@ -340,7 +349,7 @@ comme dernier recours — jamais comme choix par défaut.
 | **Linux / X11** | XFixes `SelectionNotify` | événementiel | `WM_CLASS`, sinon `_NET_WM_PID` | **testé ici** |
 | **Linux / Wayland** | `ext-data-control-v1`, repli `zwlr-data-control-v1` | événementiel | *indisponible* | écrit, **jamais exécuté** |
 | **Windows** | `AddClipboardFormatListener` sur fenêtre message-only | événementiel | `GetClipboardOwner` → `QueryFullProcessImageNameW` | écrit, **jamais exécuté** |
-| **macOS** | `NSPasteboard.changeCount` (200 ms) | sondage | *indisponible* | écrit, **jamais exécuté** |
+| **macOS** | `NSPasteboard.changeCount` (200 ms) | sondage | *indisponible* | exécuté sur Apple Silicon |
 | *repli universel* | `arboard` (200 ms) | sondage | *indisponible* | testé ici |
 
 Le sondage sous macOS n'est pas un pis-aller : Apple n'expose aucune
@@ -351,12 +360,13 @@ notification de changement, `changeCount` est l'API.
 - X11 : exécuté et testé (texte, URL, code, CJK, arabe, emoji, PNG, fichiers,
   INCR sur 400 Kio, déduplication, attribution de la source).
 - Windows : utilisé pour de vrai, au quotidien.
-- Wayland, macOS : **compilés, lintés et testés sur un vrai runner** par le CI, à
-  chaque push. Depuis que rusqlite est en `bundled`, ils ne peuvent plus être
-  construits depuis cette machine — SQLite est du C — donc tant que le dépôt
-  n'était pas public et que le CI n'existait pas, personne ne savait si le code
-  macOS compilait. Il compile. Il n'a toujours jamais été exécuté : à valider
-  sur la vraie plateforme avant d'en croire davantage.
+- macOS : exécuté sur Apple Silicon (macOS 26) — capture de texte, fenêtre,
+  raccourci `Cmd+Shift+V` et recopie. La capture d'images, les types
+  confidentiels et le démarrage automatique n'ont pas encore été vérifiés un à
+  un.
+- Wayland : **compilé, linté et testé sur un vrai runner** par le CI, à chaque
+  push, et rien de plus. Il n'a jamais été exécuté : à valider sur la vraie
+  plateforme avant d'en croire davantage.
 - Le choix du backend est testé en conditions réelles : sous WSLg,
   `WAYLAND_DISPLAY` est présent mais le compositeur n'expose aucun
   data-control, et on bascule proprement sur X11 en disant pourquoi.
