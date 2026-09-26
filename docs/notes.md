@@ -22,8 +22,9 @@ that directory, leaving the host machine untouched.
 Ready-made packages are attached to every [release](../../releases). Nothing is
 signed, which is what an unpaid certificate looks like: Windows shows a
 SmartScreen warning — *More info* → *Run anyway* — and macOS refuses the first
-open — right-click the app → *Open*, or
-`xattr -d com.apple.quarantine /Applications/copycopy.app`.
+open — `xattr -dr com.apple.quarantine /Applications/copycopy.app`, or try once,
+then *System Settings → Privacy & Security → Open Anyway*. Right-click → *Open*
+no longer bypasses Gatekeeper since macOS 15.
 
 | System | File | Notes |
 |---|---|---|
@@ -104,7 +105,7 @@ Defaults to **`Ctrl+Alt+V`** (`Cmd+Shift+V` on macOS), configurable in
 | System | Mechanism | Status |
 |---|---|---|
 | Windows | `RegisterHotKey` | verified, in daily use |
-| macOS | Carbon `RegisterEventHotKey` | written, never run |
+| macOS | Carbon `RegisterEventHotKey` | verified on Apple Silicon |
 | X11 | `XGrabKey` | verified, including an actual trigger |
 | Wayland | **no client-side global shortcut exists** | falls back to IPC |
 
@@ -117,6 +118,14 @@ dropping it would unregister the shortcut.
 your compositor that runs `copycopy --show`. That second process detects the
 resident through a local socket (`interprocess`), hands over the command and
 exits. The same mechanism guarantees that only one daemon captures.
+
+On macOS that socket is a file, `/tmp/copycopy.sock`, and it outlives the
+resident: `interprocess` only unlinks it when the listener is dropped, which a
+stop never reaches. Every launch after the first found the name taken, failed
+to connect, and ran without IPC — `--show` and `--quit` dead, and room for a
+second resident. `ipc::claim` now overwrites the file once a connection has
+proven nobody is behind it. Linux never showed it: there the name lives in the
+abstract namespace, with no file to leave behind.
 
 The `org.freedesktop.portal.GlobalShortcuts` portal is still to be done. It is
 the clean route under Wayland, and the only one that also solves focus — a
@@ -326,7 +335,7 @@ last resort — never as the default choice.
 | **Linux / X11** | XFixes `SelectionNotify` | event-driven | `WM_CLASS`, else `_NET_WM_PID` | **tested here** |
 | **Linux / Wayland** | `ext-data-control-v1`, falling back to `zwlr-data-control-v1` | event-driven | *unavailable* | written, **never run** |
 | **Windows** | `AddClipboardFormatListener` on a message-only window | event-driven | `GetClipboardOwner` → `QueryFullProcessImageNameW` | written, **never run** |
-| **macOS** | `NSPasteboard.changeCount` (200 ms) | polling | *unavailable* | written, **never run** |
+| **macOS** | `NSPasteboard.changeCount` (200 ms) | polling | *unavailable* | run on Apple Silicon |
 | *universal fallback* | `arboard` (200 ms) | polling | *unavailable* | tested here |
 
 macOS polling is not a workaround: Apple exposes no change notification at all,
@@ -337,12 +346,12 @@ macOS polling is not a workaround: Apple exposes no change notification at all,
 - X11: run and tested (text, URLs, code, CJK, Arabic, emoji, PNG, files, INCR
   over 400 KiB, deduplication, source attribution).
 - Windows: run for real, in daily use.
-- Wayland, macOS: **compiled, linted and tested on a real runner** by the CI, at
-  every push. Since rusqlite went `bundled` they cannot be built from this
-  machine at all — SQLite is C — so until the repository went public and the CI
-  existed, nobody knew whether the macOS code compiled. It does. It has still
-  never been executed: validate on the real platform before believing anything
-  beyond that.
+- macOS: run on Apple Silicon (macOS 26) — text capture, the window, the
+  `Cmd+Shift+V` shortcut and copying back. Image capture, the concealed types
+  and autostart have not been checked one by one yet.
+- Wayland: **compiled, linted and tested on a real runner** by the CI, at every
+  push, and nothing more. It has never been executed: validate on the real
+  platform before believing anything beyond that.
 - Backend selection is tested for real: under WSLg, `WAYLAND_DISPLAY` is set but
   the compositor exposes no data-control protocol, and we fall back to X11
   cleanly while saying why.
