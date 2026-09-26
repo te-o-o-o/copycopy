@@ -1,66 +1,82 @@
-# copycopy
+<h1 align="center">copycopy</h1>
 
-Un gestionnaire de presse-papier en Rust. Tout ce que vous copiez, retrouvé en
-une touche.
+<p align="center">
+  Un gestionnaire de presse-papier qui se souvient de tout ce que vous copiez —<br>
+  sauf de vos mots de passe. Curieux, pas malveillant.
+</p>
 
-![La fenêtre, thème sombre : l'historique à gauche, l'entrée sélectionnée en entier à droite.](docs/screenshot.png)
+<p align="center"><sub>v0.1.0 · Rust · Windows, Linux, macOS · MIT</sub></p>
 
-Un résident capture en continu — texte, code, images, fichiers — et la fenêtre
-s'ouvre sur **`Ctrl+Alt+V`** (`Cmd+Shift+V` sur macOS). Trois lettres, `Entrée`,
-c'est de retour dans le presse-papier.
+<p align="center">
+  <a href="#installer">Installer</a> ·
+  <a href="#utiliser">Utiliser</a> ·
+  <a href="#où-ça-tourne">Où ça tourne</a> ·
+  <a href="docs/notes.fr.md">Notes</a> ·
+  <a href="README.md">English</a>
+</p>
+
+<table align="center">
+  <tr>
+    <td align="center"><img src="docs/light.png" width="420" alt="copycopy, thème clair : l'historique à gauche, un extrait Rust épinglé affiché en couleur à droite"><br><sub>Clair</sub></td>
+    <td align="center"><img src="docs/dark.png" width="420" alt="copycopy, thème sombre : le même historique"><br><sub>Sombre</sub></td>
+  </tr>
+</table>
+
+Texte, code, liens, images, fichiers : un petit résident garde tout ce que vous
+copiez, et un raccourci le ramène. Anglais, 日本語, emoji 🎉 et code compris.
 
 - **Rien ne sort de la machine.** Pas de compte, pas de nuage, pas de télémétrie.
 - **Les secrets ne sont jamais conservés.** Ce qu'un gestionnaire de mots de
   passe marque comme confidentiel est écarté avant d'être écrit.
-- **100 000 entrées à 59 fps**, sur une liste virtualisée à la main.
-- **Portable** : posez un `copycopy.conf` à côté de l'exécutable et la
-  configuration, la base et les images vivent dans ce dossier.
+- **Rapide.** 100 000 entrées, toujours 59 fps.
+- **Portable.** Posez un `copycopy.conf` à côté de l'exécutable et tout vit
+  dans ce dossier.
 
 ## Installer
 
-Les paquets sont attachés à chaque [release](../../releases). Rien n'est signé :
-Windows affiche un avertissement SmartScreen (*Informations complémentaires* →
-*Exécuter quand même*) et macOS refuse la première ouverture (clic droit sur
-l'app → *Ouvrir*).
+Prenez le paquet de votre système dans les [releases](../../releases) :
 
 | Système | Fichier |
 |---|---|
+| macOS | `copycopy-macos-universal.dmg` |
 | Windows | `copycopy-windows-x86_64.exe`, ou `…-portable.zip` |
 | Linux | `copycopy-linux-x86_64.AppImage`, ou le `.deb` |
-| macOS | `copycopy-macos-universal.dmg` |
 
-Depuis les sources, une toolchain Rust suffit — SQLite est compilé dedans :
+Rien n'est signé, donc le premier lancement affiche un avertissement :
+
+- **macOS** : `xattr -dr com.apple.quarantine /Applications/copycopy.app`, ou
+  tenter une fois, puis *Réglages Système → Confidentialité et sécurité →
+  Ouvrir quand même*.
+- **Windows** : *Informations complémentaires* → *Exécuter quand même*.
+
+Ou compilez depuis les sources. Une toolchain Rust suffit :
 
 ```bash
-cargo build --release -p copycopy
+cargo build --release -p copycopy && ./target/release/copycopy
 ```
+
+## Utiliser
+
+| | |
+|---|---|
+| **`Cmd+Shift+V`** (macOS), **`Ctrl+Alt+V`** (ailleurs) | ouvrir la fenêtre |
+| taper | chercher |
+| `Entrée` | recopier et fermer |
+| `Ctrl+B` | épingler |
+| `Échap` | fermer |
 
 ## Où ça tourne
 
 | | |
 |---|---|
-| Windows | utilisé pour de vrai, au quotidien |
+| Windows | utilisé au quotidien |
+| macOS | lancé sur Apple Silicon |
 | Linux X11 | lancé et testé |
-| Linux Wayland | écrit, compilé par le CI, jamais exécuté |
-| macOS | écrit, compilé par le CI, jamais exécuté |
+| Linux Wayland | compilé par le CI, jamais lancé : liez un raccourci à `copycopy --show` dans votre compositeur |
 
-Sous Wayland, aucun raccourci global côté client n'existe : liez-en un dans
-votre compositeur qui lance `copycopy --show`.
-
-## Structure
-
-| Crate | Rôle |
-|---|---|
-| `copycopy-core` | modèle, historique, SQLite FTS5, détection et coloration du langage |
-| `copycopy-platform` | capture, un backend par système |
-| `copycopy` | le binaire : daemon iced, fenêtre, raccourci global |
-
-Les notes de travail — pourquoi chaque décision a été prise, ce qui a été
-essayé puis abandonné, ce qui est vérifié où — sont dans
-**[docs/notes.fr.md](docs/notes.fr.md)** ([English](docs/notes.md)).
-
-*An English version of this document is available in [README.md](README.md).*
+Pourquoi c'est construit ainsi, et ce qui est vérifié où :
+**[docs/notes.fr.md](docs/notes.fr.md)**.
 
 ## Licence
 
-MIT. Voir [LICENSE](LICENSE).
+MIT, voir [LICENSE](LICENSE).
