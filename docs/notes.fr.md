@@ -71,8 +71,14 @@ raccourci, collage automatique, démarrage, dossier des données et
 copycopy rend le focus à l'application où vous étiez et appuie sur `Ctrl+V` à
 votre place : l'entrée arrive là où était votre curseur. Sous Windows par
 `SendInput`, sous X11 par XTEST ; refusé sous Wayland, qui exige pour cela le
-portail RemoteDesktop, et pas encore disponible sous macOS. Simuler des frappes
-dans une autre application, ça s'active, ça ne se découvre pas.
+portail RemoteDesktop, et sous macOS par `CGEvent` (`Cmd+V`). Simuler des
+frappes dans une autre application, ça s'active, ça ne se découvre pas.
+
+macOS jette les frappes simulées sans un mot tant que copycopy n'est pas coché
+dans *Réglages Système → Confidentialité et sécurité → Accessibilité*. Le
+premier collage qui constate l'absence déclenche la demande système qui y
+mène, et échoue. L'autorisation est liée à la signature du binaire : chaque
+`cargo build` d'une copie non signée en produit une nouvelle, à recocher.
 
 **Démarrage avec la session**, désactivé par défaut. L'interrupteur écrit une
 entrée par utilisateur — la clé `Run` sous `HKCU` sous Windows, sans droits
@@ -237,10 +243,10 @@ entrées est partie. Rien de plus — un toast supposerait de garder la fenêtre
 ouverte alors qu'on veut justement être revenu dans son application, en train de
 coller.
 
-Le vrai objectif reste le **collage** automatique (simuler `Ctrl+V` après
-fermeture), à faire : `SendInput` sous Windows, XTEST sous X11, CGEvent sous
-macOS avec autorisation Accessibilité — et impossible sous Wayland sans le
-portail RemoteDesktop.
+Le vrai objectif était le **collage** automatique (simuler `Ctrl+V` après
+fermeture) : `SendInput` sous Windows, XTEST sous X11, CGEvent sous macOS avec
+autorisation Accessibilité — voir *Collage automatique* plus haut. Impossible
+sous Wayland sans le portail RemoteDesktop.
 
 ## Pourquoi iced et pas egui
 
@@ -361,8 +367,8 @@ notification de changement, `changeCount` est l'API.
   INCR sur 400 Kio, déduplication, attribution de la source).
 - Windows : utilisé pour de vrai, au quotidien.
 - macOS : exécuté sur Apple Silicon (macOS 26) — capture de texte et
-  d'images, fichiers copiés dans le Finder, fenêtre, raccourci `Cmd+Shift+V` et
-  recopie. Les types confidentiels et le démarrage automatique n'ont pas encore
+  d'images, fichiers copiés dans le Finder, fenêtre, raccourci `Cmd+Shift+V`,
+  recopie et collage automatique. Les types confidentiels et le démarrage automatique n'ont pas encore
   été vérifiés un à un. Le Finder ne copie pas des chemins mais des URL de
   *référence*, `file:///.file/id=6571367.918776`, qui désignent un inode ;
   retirer le schéma stockait cela comme chemin, et tout fichier copié depuis le

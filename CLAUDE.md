@@ -149,7 +149,7 @@ proof that a target platform works.
   `copycopy.log` beside the database (`console.rs`) — look there first when
   something fails on Windows.
 - **macOS**: run on Apple Silicon — text and image capture, Finder file copies,
-  the window, the `Cmd+Shift+V` shortcut, copying back. The concealed types and
+  the window, the `Cmd+Shift+V` shortcut, copying back, auto-paste. The concealed types and
   autostart are not checked yet. Finder copies `file:///.file/id=…` reference
   URLs, not paths: they go through `NSURL::filePathURL`. First run found a stale `/tmp/copycopy.sock`
   that left every later launch without IPC; `ipc::claim` now overwrites a
