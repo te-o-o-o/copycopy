@@ -63,7 +63,16 @@ pub fn claim() -> io::Result<Claim> {
             // to it settles the question.
             match Stream::connect(name()?) {
                 Ok(_) => Ok(Claim::AlreadyRunning),
-                Err(_) => Err(e),
+                // Dead. On macOS the name is a file in /tmp, and reclaiming
+                // only unlinks it when the listener is dropped — which
+                // `process::exit` in `State::quit` and any crash skip. Left
+                // alone, every later launch ran without IPC. Proven dead, the
+                // file can be overwritten; on Windows this does nothing.
+                Err(_) => ListenerOptions::new()
+                    .name(name()?)
+                    .try_overwrite(true)
+                    .create_sync()
+                    .map(Claim::Primary),
             }
         }
         Err(e) => Err(e),
