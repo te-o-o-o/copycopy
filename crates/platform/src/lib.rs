@@ -57,11 +57,6 @@ impl BackendKind {
             BackendKind::Poll => "arboard (sondage 200 ms)",
         }
     }
-
-    /// True when the OS wakes us up instead of us polling.
-    pub fn is_event_driven(self) -> bool {
-        !matches!(self, BackendKind::Poll | BackendKind::MacOs)
-    }
 }
 
 pub struct Watcher {
@@ -222,7 +217,7 @@ pub(crate) fn png_size(png: &[u8]) -> Option<(u32, u32)> {
     Some((w, h))
 }
 
-#[allow(dead_code)]
+#[cfg(not(windows))]
 pub(crate) fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
