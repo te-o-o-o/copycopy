@@ -13,7 +13,7 @@
 
 use std::str::FromStr;
 
-use global_hotkey::hotkey::{Code, HotKey, Modifiers};
+use global_hotkey::hotkey::HotKey;
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager};
 
 pub struct Hotkeys {
@@ -24,42 +24,10 @@ pub struct Hotkeys {
     pub registered: bool,
 }
 
-/// "Ctrl+Alt+V" becomes modifiers plus a key code.
+/// "Ctrl+Alt+V" becomes modifiers plus a key code. `global-hotkey` parses
+/// that itself, aliases included: Ctrl/Control, Alt/Option, Cmd/Super.
 pub fn parse(spec: &str) -> Option<HotKey> {
-    let mut mods = Modifiers::empty();
-    let mut code = None;
-
-    for part in spec.split('+') {
-        let part = part.trim();
-        match part.to_ascii_lowercase().as_str() {
-            "ctrl" | "control" => mods |= Modifiers::CONTROL,
-            "alt" | "option" => mods |= Modifiers::ALT,
-            "shift" => mods |= Modifiers::SHIFT,
-            "super" | "cmd" | "command" | "meta" | "win" => mods |= Modifiers::SUPER,
-            _ => code = key_code(part),
-        }
-    }
-    Some(HotKey::new(Some(mods), code?))
-}
-
-fn key_code(name: &str) -> Option<Code> {
-    let upper = name.to_ascii_uppercase();
-    let mut chars = upper.chars();
-    if let (Some(c), None) = (chars.next(), chars.next()) {
-        if c.is_ascii_alphabetic() {
-            return Code::from_str(&format!("Key{c}")).ok();
-        }
-        if c.is_ascii_digit() {
-            return Code::from_str(&format!("Digit{c}")).ok();
-        }
-    }
-    match upper.as_str() {
-        "SPACE" => Some(Code::Space),
-        "ENTER" | "RETURN" => Some(Code::Enter),
-        "TAB" => Some(Code::Tab),
-        // Remaining names follow the UI Events naming: F1, Escape and so on.
-        _ => Code::from_str(name).ok(),
-    }
+    HotKey::from_str(spec).ok()
 }
 
 /// Under Wayland, `XGrabKey` only sees X11 applications, so the shortcut will
