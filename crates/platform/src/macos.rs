@@ -14,7 +14,7 @@ use objc2_app_kit::{
     NSPasteboard, NSPasteboardType, NSPasteboardTypeFileURL, NSPasteboardTypePNG,
     NSPasteboardTypeString, NSPasteboardTypeTIFF,
 };
-use objc2_foundation::NSString;
+use objc2_foundation::{NSString, NSURL};
 
 use crate::Capture;
 
@@ -129,10 +129,20 @@ fn read_file_urls(pasteboard: &NSPasteboard) -> Option<Vec<PathBuf>> {
     Some(paths)
 }
 
+/// Finder copies file *reference* URLs — `file:///.file/id=6571367.918776` —
+/// which name an inode, not a path. Stripping the scheme stored that as the
+/// path, so every file copied from Finder showed as a dead `/.file/id=…`.
+/// `filePathURL` resolves a reference and leaves a plain file URL as it is.
 fn url_to_path(url: &str) -> PathBuf {
-    PathBuf::from(crate::percent_decode(
-        url.strip_prefix("file://").unwrap_or(url),
-    ))
+    NSURL::URLWithString(&NSString::from_str(url))
+        .and_then(|u| u.filePathURL())
+        .and_then(|u| u.path())
+        .map(|p| PathBuf::from(p.to_string()))
+        .unwrap_or_else(|| {
+            PathBuf::from(crate::percent_decode(
+                url.strip_prefix("file://").unwrap_or(url),
+            ))
+        })
 }
 
 fn tiff_to_png(tiff: &[u8]) -> Option<(Vec<u8>, (u32, u32))> {
@@ -150,4 +160,21 @@ fn tiff_to_png(tiff: &[u8]) -> Option<(Vec<u8>, (u32, u32))> {
 #[allow(dead_code)]
 fn _assert_string_api(s: &NSString) -> String {
     s.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn finder_file_references_resolve_to_paths() {
+        let path = std::env::current_exe().unwrap().canonicalize().unwrap();
+        let url = NSURL::fileURLWithPath(&NSString::from_str(path.to_str().unwrap()));
+        let reference = url.fileReferenceURL().unwrap().absoluteString().unwrap();
+        assert!(reference.to_string().contains("/.file/id="));
+        assert_eq!(
+            url_to_path(&reference.to_string()).canonicalize().unwrap(),
+            path
+        );
+    }
 }
