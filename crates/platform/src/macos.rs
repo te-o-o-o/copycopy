@@ -83,6 +83,15 @@ pub(crate) fn pasteboard_is_secret() -> bool {
 }
 
 fn read(pasteboard: &NSPasteboard) -> Option<ClipEvent> {
+    // Files before pictures: Finder puts each copied file's *icon* beside its
+    // URL, as PNG and TIFF. Pictures first kept a 1024×1024 generic icon and
+    // lost the file. An application copying a picture puts no file URL.
+    if let Some(paths) = read_file_urls(pasteboard) {
+        if !paths.is_empty() {
+            return Some(ClipEvent::Files(paths));
+        }
+    }
+
     // PNG first, then TIFF, which is what the system screenshot tool puts
     // there; it is converted back to PNG so only one format exists internally.
     let png_type: &NSPasteboardType = unsafe { NSPasteboardTypePNG };
@@ -100,12 +109,6 @@ fn read(pasteboard: &NSPasteboard) -> Option<ClipEvent> {
                 png,
                 size: Some(size),
             });
-        }
-    }
-
-    if let Some(paths) = read_file_urls(pasteboard) {
-        if !paths.is_empty() {
-            return Some(ClipEvent::Files(paths));
         }
     }
 

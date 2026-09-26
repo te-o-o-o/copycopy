@@ -355,6 +355,8 @@ macOS polling is not a workaround: Apple exposes no change notification at all,
   `NSURL::filePathURL` resolves them. And since copying a picture in Finder is
   how most images reach the clipboard there, a single PNG or JPEG file is
   previewed as the picture rather than as its path.
+  Finder also puts each file's icon beside its URL, as PNG and TIFF: files are
+  therefore read before pictures, or the history keeps a generic icon.
 - Wayland: **compiled, linted and tested on a real runner** by the CI, at every
   push, and nothing more. It has never been executed: validate on the real
   platform before believing anything beyond that.
