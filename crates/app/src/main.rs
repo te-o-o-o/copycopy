@@ -300,11 +300,28 @@ impl Preview {
                 },
                 Err(e) => Preview::Unavailable(format!("image illisible : {e}")),
             },
-            Payload::Files(paths) => {
-                Preview::Files(paths.iter().map(|p| p.display().to_string()).collect())
-            }
+            // One picture copied from a file manager — the everyday way to copy
+            // an image on macOS — is shown as the picture, not as its path.
+            Payload::Files(paths) => match paths.as_slice() {
+                [path] if is_picture(path) => Preview::Image {
+                    handle: iced::widget::image::Handle::from_path(path),
+                    size: image::image_dimensions(path).ok(),
+                },
+                _ => Preview::Files(paths.iter().map(|p| p.display().to_string()).collect()),
+            },
         }
     }
+}
+
+/// The formats the preview can decode — see the `image` features.
+fn is_picture(path: &std::path::Path) -> bool {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default();
+    ["png", "jpg", "jpeg"]
+        .iter()
+        .any(|x| ext.eq_ignore_ascii_case(x))
 }
 
 #[derive(Debug, Clone)]

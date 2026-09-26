@@ -346,9 +346,15 @@ macOS polling is not a workaround: Apple exposes no change notification at all,
 - X11: run and tested (text, URLs, code, CJK, Arabic, emoji, PNG, files, INCR
   over 400 KiB, deduplication, source attribution).
 - Windows: run for real, in daily use.
-- macOS: run on Apple Silicon (macOS 26) — text capture, the window, the
-  `Cmd+Shift+V` shortcut and copying back. Image capture, the concealed types
-  and autostart have not been checked one by one yet.
+- macOS: run on Apple Silicon (macOS 26) — text and image capture, files
+  copied in Finder, the window, the `Cmd+Shift+V` shortcut and copying back.
+  The concealed types and autostart have not been checked one by one yet.
+  Finder does not copy paths but file *reference* URLs,
+  `file:///.file/id=6571367.918776`, which name an inode; stripping the scheme
+  stored that as the path, and every file copied from Finder came out dead.
+  `NSURL::filePathURL` resolves them. And since copying a picture in Finder is
+  how most images reach the clipboard there, a single PNG or JPEG file is
+  previewed as the picture rather than as its path.
 - Wayland: **compiled, linted and tested on a real runner** by the CI, at every
   push, and nothing more. It has never been executed: validate on the real
   platform before believing anything beyond that.
