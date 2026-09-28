@@ -41,7 +41,7 @@ copiez, et un raccourci le ramène. Anglais, 日本語, emoji 🎉 et code compr
 - **Collage automatique** (optionnel) : l'entrée arrive là où était votre
   curseur. Partout sauf sous Wayland.
 - **Démarre avec la session** (optionnel), en silence, en arrière-plan.
-- **Cinq thèmes** : Clair, Sombre, Purpledream, Aalto et Matrix.
+- **Thèmes clair et sombre**.
 - **Les secrets ne sont jamais conservés** : ce qu'un gestionnaire de mots de
   passe marque comme confidentiel est écarté avant d'être écrit.
 - **Rien ne sort de la machine** : pas de compte, pas de nuage, pas de

@@ -11,38 +11,17 @@ const fn rgb(r: u8, g: u8, b: u8) -> Color {
 
 /// Which palette is active. Lives in the configuration, so the choice survives
 /// a restart, and is switched from the header icon.
-///
-/// `Dark` and `Light` are the plain, everyday pair: neutral enough to suit
-/// anyone, and the only two the header icon cycles through. `Purpledream`,
-/// `Aalto` and `Matrix` are the dressier options, chosen from the settings
-/// panel only — the earlier `Dark`/`Light` palettes, kept under their own
-/// names once the neutral pair took over the default slot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     Dark,
     Light,
-    Purpledream,
-    Aalto,
-    /// Neon pink on black: Matrix, but for a laugh. Reached from the footer
-    /// rather than the header icon, which keeps alternating between the two
-    /// everyday themes.
-    Matrix,
 }
 
 impl Mode {
     pub fn toggled(self) -> Self {
         match self {
             Mode::Dark => Mode::Light,
-            Mode::Light | Mode::Purpledream | Mode::Aalto | Mode::Matrix => Mode::Dark,
-        }
-    }
-
-    /// In and out of Matrix. Leaving it lands on the neutral dark theme: the
-    /// closest to where Matrix left you.
-    pub fn matrix_toggled(self) -> Self {
-        match self {
-            Mode::Matrix => Mode::Dark,
-            _ => Mode::Matrix,
+            Mode::Light => Mode::Dark,
         }
     }
 
@@ -50,9 +29,6 @@ impl Mode {
         match self {
             Mode::Dark => DARK,
             Mode::Light => LIGHT,
-            Mode::Purpledream => PURPLEDREAM,
-            Mode::Aalto => AALTO,
-            Mode::Matrix => MATRIX,
         }
     }
 
@@ -60,19 +36,15 @@ impl Mode {
         match self {
             Mode::Dark => "dark",
             Mode::Light => "light",
-            Mode::Purpledream => "purpledream",
-            Mode::Aalto => "aalto",
-            Mode::Matrix => "matrix",
         }
     }
 
+    /// Anything else — including the purpledream, aalto and matrix themes
+    /// older versions wrote — falls back to the default.
     pub fn parse(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
             "dark" => Some(Mode::Dark),
             "light" => Some(Mode::Light),
-            "purpledream" => Some(Mode::Purpledream),
-            "aalto" => Some(Mode::Aalto),
-            "matrix" => Some(Mode::Matrix),
             _ => None,
         }
     }
@@ -87,19 +59,28 @@ impl Mode {
 pub struct Palette {
     /// Tells icons that change shape with the theme which one to draw.
     pub light: bool,
-    /// Tells the footer switch which way it goes.
-    pub matrix: bool,
     pub card: Color,
+    /// Separators and the window rim.
     pub border: Color,
+    /// Outline of the shortcut chips: a step stronger than `border`, which
+    /// would vanish around something that small.
+    pub outline: Color,
     pub selected: Color,
     pub hover: Color,
+    /// Body text: previews, the code frame, unselected titles.
     pub text: Color,
+    /// The selected row's title and what is typed in the search.
+    pub bright: Color,
+    /// Placeholder, icons, inactive filter tabs.
     pub faint: Color,
-    /// The window's own small print: the entry count in the footer and the
-    /// shortcut legend in the header. Its own role so a theme can colour it
-    /// without touching the placeholder and icons that share `faint`.
+    /// The window's small print: the count, badges, meta lines, captions. A
+    /// step below `faint`, so it recedes behind what can be clicked.
     pub chrome: Color,
+    /// Text of the outlined shortcut chips.
+    pub key: Color,
+    /// The one colour: selection bar, active tab, primary chip, keywords.
     pub accent: Color,
+    /// Syntax colours only — `ink` in the view. The list itself stays grey.
     pub tint_text: Color,
     pub tint_url: Color,
     pub tint_code: Color,
@@ -112,200 +93,76 @@ pub struct Palette {
     /// accent: the accent already marks the selection, and a confirmation has
     /// to read as different, not as more.
     pub copied: Color,
-    /// Ground of the Carbon-style window around a text preview. A step away
-    /// from the card, so the window reads as an object set on the panel.
+    /// Ground of the frame around a preview, one step off the card.
     pub frame: Color,
-    /// Its drop shadow. Near-black on the dark theme, a warm brown on the light
-    /// one: a grey shadow on cream reads as dirt, not depth.
-    pub shadow: Color,
 }
 
-/// The default dark theme: plain graphite, no tint. Picked to be the "just
-/// works" option a first-time user — or a colleague trying the program for
-/// the first time — lands on, rather than [`PURPLEDREAM`]'s purple-black,
-/// which reads as a deliberate choice more than a neutral default. Grounds
-/// step up from near-black in even increments; the one accent colour is an
-/// ordinary blue, and the badge tints are the standard hues (green, amber,
-/// purple, cyan) rather than a single family run through its variations.
+/// White at a given opacity: the dark theme's lines are drawn this way, so
+/// they stay the same weight over the card, a selection or the code frame.
+const fn veil(a: f32) -> Color {
+    Color {
+        r: 1.0,
+        g: 1.0,
+        b: 1.0,
+        a,
+    }
+}
+
+/// "Clinique", dark: blue-grey graphite, one teal accent. Values are the
+/// redesign mockup's (variant G), unchanged.
 pub const DARK: Palette = Palette {
     light: false,
-    matrix: false,
-    card: rgb(0x1E, 0x1E, 0x1E),
-    border: rgb(0x3A, 0x3A, 0x3A),
-    selected: rgb(0x2C, 0x2C, 0x2C),
-    hover: rgb(0x26, 0x26, 0x26),
-    text: rgb(0xE8, 0xE8, 0xE8),
-    faint: rgb(0x8A, 0x8A, 0x8A),
-    chrome: rgb(0x9A, 0xA5, 0xB0),
-    accent: rgb(0x4E, 0x9A, 0xF5),
-    tint_text: rgb(0x4E, 0x9A, 0xF5),
+    card: rgb(0x0F, 0x11, 0x15),
+    border: veil(0.07),
+    outline: veil(0.10),
+    selected: rgb(0x1A, 0x1E, 0x28),
+    // Not in the mockup: halfway between the card and the selection.
+    hover: rgb(0x15, 0x18, 0x1F),
+    text: rgb(0xC9, 0xCF, 0xD9),
+    bright: rgb(0xF1, 0xF4, 0xF8),
+    faint: rgb(0x6B, 0x72, 0x80),
+    chrome: rgb(0x56, 0x5D, 0x69),
+    key: rgb(0x9A, 0xA2, 0xAE),
+    accent: rgb(0x2D, 0xD4, 0xBF),
+    tint_text: rgb(0x2D, 0xD4, 0xBF),
     tint_url: rgb(0x3D, 0xB8, 0x6A),
     tint_code: rgb(0xE0, 0xA5, 0x3E),
     tint_image: rgb(0xB0, 0x7C, 0xE0),
     tint_files: rgb(0x4F, 0xC1, 0xC6),
-    pin: rgb(0x3D, 0xB8, 0x6A),
+    pin: rgb(0xE0, 0xA5, 0x3E),
     copied: rgb(0x3D, 0xB8, 0x6A),
-    frame: rgb(0x24, 0x24, 0x24),
-    shadow: Color {
-        r: 0.0,
-        g: 0.0,
-        b: 0.0,
-        a: 0.5,
-    },
+    frame: rgb(0x15, 0x18, 0x21),
 };
 
-/// The default light theme: plain off-white, no tint. Its counterpart to
-/// [`DARK`] — same reasoning, same standard badge hues, none of [`AALTO`]'s
-/// cream-and-espresso warmth.
+/// "Clinique", light: the same layout on white, the teal darkened to hold
+/// contrast on it.
 pub const LIGHT: Palette = Palette {
     light: true,
-    matrix: false,
-    card: rgb(0xFA, 0xFA, 0xFA),
-    border: rgb(0xE0, 0xE0, 0xE0),
-    selected: rgb(0xEA, 0xEA, 0xEA),
-    hover: rgb(0xF0, 0xF0, 0xF0),
-    text: rgb(0x22, 0x22, 0x22),
-    faint: rgb(0x8A, 0x8A, 0x8A),
-    chrome: rgb(0x6E, 0x7A, 0x86),
-    accent: rgb(0x2E, 0x7C, 0xD6),
-    tint_text: rgb(0x2E, 0x7C, 0xD6),
+    card: rgb(0xFF, 0xFF, 0xFF),
+    border: rgb(0xE6, 0xE9, 0xEE),
+    outline: rgb(0xDF, 0xE4, 0xEA),
+    selected: rgb(0xEE, 0xF3, 0xF5),
+    hover: rgb(0xF5, 0xF8, 0xF9),
+    text: rgb(0x22, 0x26, 0x2E),
+    bright: rgb(0x0A, 0x0C, 0x10),
+    faint: rgb(0x73, 0x7A, 0x85),
+    chrome: rgb(0x94, 0x9B, 0xA6),
+    key: rgb(0x5B, 0x62, 0x6D),
+    accent: rgb(0x0E, 0x8C, 0x7F),
+    tint_text: rgb(0x0E, 0x8C, 0x7F),
     tint_url: rgb(0x2E, 0x9E, 0x5B),
     tint_code: rgb(0xB8, 0x86, 0x0B),
     tint_image: rgb(0x8A, 0x4F, 0xC2),
     tint_files: rgb(0x2E, 0x8F, 0x93),
-    pin: rgb(0x2E, 0x9E, 0x5B),
+    pin: rgb(0xB8, 0x86, 0x0B),
     copied: rgb(0x2E, 0x9E, 0x5B),
-    frame: rgb(0xFF, 0xFF, 0xFF),
-    shadow: Color {
-        r: 0.0,
-        g: 0.0,
-        b: 0.0,
-        a: 0.15,
-    },
+    frame: rgb(0xF7, 0xF9, 0xFB),
 };
-
-/// Base16 Purpledream, by malet — values from the tinted-theming scheme, mapped
-/// onto the interface roles. The grounds walk the scheme's purple-black ramp
-/// (base00 card, base01 selection, base02 border); the one invented value is
-/// the hover, which sits between base00 and base01 because the scheme has no
-/// step there. The window's small print takes the scheme's gold, base09, and
-/// the badge tints use its accent colours untouched.
-///
-/// No longer the default — see [`DARK`] — but kept for anyone who wants more
-/// personality than the neutral pair, from the settings panel.
-pub const PURPLEDREAM: Palette = Palette {
-    light: false,
-    matrix: false,
-    card: rgb(0x10, 0x05, 0x10),     // base00
-    border: rgb(0x40, 0x30, 0x40),   // base02
-    selected: rgb(0x30, 0x20, 0x30), // base01
-    hover: rgb(0x1E, 0x10, 0x1E),
-    text: rgb(0xDD, 0xD0, 0xDD),       // base05
-    faint: rgb(0x60, 0x50, 0x60),      // base03
-    chrome: rgb(0xCC, 0xAE, 0x14),     // base09
-    accent: rgb(0xF0, 0x00, 0xA0),     // base0A
-    tint_text: rgb(0x00, 0xA0, 0xF0),  // base0D
-    tint_url: rgb(0x14, 0xCC, 0x64),   // base0B
-    tint_code: rgb(0xCC, 0xAE, 0x14),  // base09
-    tint_image: rgb(0xB0, 0x00, 0xD0), // base0E
-    tint_files: rgb(0x00, 0x75, 0xB0), // base0C
-    pin: rgb(0x14, 0xCC, 0x64),        // base0B
-    copied: rgb(0x14, 0xCC, 0x64),     // base0B
-    frame: rgb(0x30, 0x20, 0x30),      // base01
-    shadow: Color {
-        r: 0.0,
-        g: 0.0,
-        b: 0.0,
-        a: 0.55,
-    },
-};
-
-/// Aalto Light, warmed and dimmed: its cream ground (#FFFFE0) is nearly as
-/// bright as white, so it is taken a few steps down while keeping the hue.
-/// Text is an espresso brown rather than the theme's dark slate grey, which ran
-/// cold against the cream: ink on paper, softer than black. The window's small
-/// print is terracotta, the warm counterpart of the dark theme's gold. The badge
-/// tints come from its font-lock colours — forest green, dark goldenrod, purple,
-/// cadet blue.
-///
-/// No longer the default — see [`LIGHT`] — but kept for anyone who wants more
-/// personality than the neutral pair, from the settings panel.
-pub const AALTO: Palette = Palette {
-    light: true,
-    matrix: false,
-    card: rgb(0xF0, 0xEB, 0xCF),
-    border: rgb(0xD8, 0xD1, 0xB0),
-    selected: rgb(0xE0, 0xD8, 0xB4),
-    hover: rgb(0xE8, 0xE2, 0xC4),
-    text: rgb(0x3B, 0x30, 0x24),
-    faint: rgb(0x8A, 0x84, 0x68),
-    chrome: rgb(0xB5, 0x55, 0x2B),
-    accent: rgb(0x8A, 0x2B, 0xC2),
-    tint_text: rgb(0x3B, 0x5B, 0xA8),
-    tint_url: rgb(0x22, 0x8B, 0x22),
-    tint_code: rgb(0xB8, 0x86, 0x0B),
-    tint_image: rgb(0x8A, 0x2B, 0xC2),
-    tint_files: rgb(0x5F, 0x9E, 0xA0),
-    pin: rgb(0x22, 0x8B, 0x22),
-    copied: rgb(0x22, 0x8B, 0x22),
-    frame: rgb(0xF9, 0xF5, 0xE3),
-    shadow: Color {
-        r: 0.35,
-        g: 0.27,
-        b: 0.08,
-        a: 0.22,
-    },
-};
-
-/// Neon pink on black — the film's falling code, repainted for a laugh.
-/// Borrowed from no scheme: one hot pink, #FF4FC0, and every other colour is
-/// that same pink at a lower intensity, so the whole window stays a single hue.
-pub const MATRIX: Palette = Palette {
-    light: false,
-    matrix: true,
-    card: rgb(0x05, 0x00, 0x04),
-    border: rgb(0x3D, 0x0B, 0x2A),
-    selected: rgb(0x2B, 0x06, 0x20),
-    hover: rgb(0x16, 0x03, 0x0F),
-    text: rgb(0xFF, 0x4F, 0xC0),
-    faint: rgb(0x9A, 0x1E, 0x6A),
-    chrome: rgb(0x9A, 0x1E, 0x6A),
-    accent: rgb(0xFF, 0x4F, 0xC0),
-    tint_text: rgb(0xFF, 0x4F, 0xC0),
-    tint_url: rgb(0xFF, 0x8A, 0xD0),
-    tint_code: rgb(0xFF, 0xB0, 0xE0),
-    tint_image: rgb(0xC8, 0x00, 0x7A),
-    tint_files: rgb(0xF0, 0x6A, 0xC0),
-    pin: rgb(0xFF, 0x4F, 0xC0),
-    copied: rgb(0xFF, 0x4F, 0xC0),
-    frame: rgb(0x10, 0x02, 0x0B),
-    // A pink glow rather than a shadow: on black, darkness casts nothing.
-    shadow: Color {
-        r: 1.0,
-        g: 0.31,
-        b: 0.75,
-        a: 0.18,
-    },
-};
-
-impl Palette {
-    pub fn tint(&self, kind: copycopy_core::Kind) -> Color {
-        use copycopy_core::Kind;
-        match kind {
-            Kind::Text => self.tint_text,
-            Kind::Url => self.tint_url,
-            Kind::Code => self.tint_code,
-            Kind::Image => self.tint_image,
-            Kind::Files => self.tint_files,
-        }
-    }
-}
 
 pub const ROW_H: f32 = 50.0;
 pub const HEADER_H: f32 = 58.0;
 /// The type filter band under the search.
 pub const FILTERS_H: f32 = 36.0;
-pub const FOOTER_H: f32 = 30.0;
 /// Rounded window. It only holds up on top of two other things: the window is
 /// created `transparent`, and `root` clears the surface with a transparent
 /// colour — otherwise iced paints the theme colour across the whole surface and
@@ -316,7 +173,7 @@ pub const FOOTER_H: f32 = 30.0;
 /// come back within 6 px. Nothing but the card itself is ever drawn in the
 /// corner, which is what lets it round cleanly.
 pub const CARD_RADIUS: f32 = 12.0;
-pub const ROW_RADIUS: f32 = 8.0;
+pub const ROW_RADIUS: f32 = 6.0;
 /// Vertical breathing room for the highlight inside its row. The row keeps its
 /// exact height, which the virtualisation depends on; only the background is
 /// shrunk.

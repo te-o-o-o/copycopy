@@ -1,16 +1,16 @@
-//! The popup: header, virtualised list, footer.
+//! The popup: header, filter tabs, virtualised list beside the preview.
 //!
-//! Layout rule: each band (header, row, footer) is a fixed-height `container`
+//! Layout rule: each band (header, tabs, row) is a fixed-height `container`
 //! that **centres** its content vertically through `center_y`. A
 //! `row.align_y(Center)` is not enough: it aligns children relative to each
 //! other but leaves the row stuck to the top of its container.
 
 use iced::widget::{
-    canvas, column, container, image, mouse_area, rich_text, row, scrollable, span, stack, text,
+    canvas, column, container, image, mouse_area, rich_text, row, scrollable, span, text,
     text_input, Space,
 };
 use iced::{
-    font, mouse, window, Background, Border, ContentFit, Element, Font, Length, Padding, Point,
+    mouse, window, Background, Border, ContentFit, Element, Font, Length, Padding, Point,
     Rectangle, Size,
 };
 
@@ -27,38 +27,15 @@ pub fn view(state: &State, _window: iced::window::Id) -> Element<'_, Message> {
     let p = state.palette();
     let content = column![
         header(state, p),
-        hairline(p),
         filters(state, p),
         hairline(p),
         body(state, p),
-        hairline(p),
-        footer(state, p),
     ];
-
-    // The rain is the one `stack` in the application, and it only exists in the
-    // Matrix theme. It sits *under* the interface, never over it: a layer laid
-    // over a row stops that row from repainting (rule 3), and whether a layer
-    // underneath is safe is exactly what this is trying out. The other themes
-    // keep the layout-only tree, untouched.
-    let inside: Element<'_, Message> = if p.matrix {
-        stack![
-            canvas(Rain {
-                t: state.rain_t,
-                ink: p.text,
-            })
-            .width(Length::Fill)
-            .height(Length::Fill),
-            resize_frame(content.into()),
-        ]
-        .into()
-    } else {
-        resize_frame(content.into())
-    };
 
     // The card is on the outside and the handles inside: the window stays
     // opaque all the way to its own rim, and only what falls outside the
     // rounded corner is left to the desktop.
-    container(inside)
+    container(resize_frame(content.into()))
         .width(Length::Fill)
         .height(Length::Fill)
         .style(t::card(p, state.card_radius()))
@@ -190,95 +167,6 @@ impl canvas::Program<Message> for Pin {
         );
         // Hollow centre, so the shape stays legible against a light row.
         frame.fill(&canvas::Path::circle(head, 1.9), self.hole);
-        vec![frame.into_geometry()]
-    }
-}
-
-/// Matrix rain: columns of glyphs falling slowly and fading along their trail.
-///
-/// Stateless. Each column takes its speed, length and phase from a hash of its
-/// index, and every position follows from the time alone — there is no list of
-/// drops to keep up to date, and a frame draws a few hundred glyphs at most.
-struct Rain {
-    t: f32,
-    ink: iced::Color,
-}
-
-/// Half-width katakana and a few digits and signs, as in the film.
-const RAIN_GLYPHS: &str = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789:.=*+-<>";
-/// Horizontal pitch of the columns, and vertical pitch of the glyphs. Twenty
-/// pixels rather than the first try's twenty-two: a column spends much of its
-/// cycle off screen between two trails, so extra rain only shows as extra
-/// columns, not as a higher share of wet ones.
-const RAIN_COLUMN: f32 = 20.0;
-const RAIN_ROW: f32 = 17.0;
-
-/// SplitMix64's finaliser: a cheap, well-spread hash, so neighbouring columns
-/// get unrelated speeds without pulling a random number crate in.
-fn scramble(mut x: u64) -> u64 {
-    x = x.wrapping_add(0x9E37_79B9_7F4A_7C15);
-    x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-    x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    x ^ (x >> 31)
-}
-
-impl canvas::Program<Message> for Rain {
-    type State = ();
-
-    fn draw(
-        &self,
-        _state: &Self::State,
-        renderer: &iced::Renderer,
-        _theme: &iced::Theme,
-        bounds: Rectangle,
-        _cursor: iced::mouse::Cursor,
-    ) -> Vec<canvas::Geometry> {
-        let mut frame = canvas::Frame::new(renderer, bounds.size());
-        let glyphs: Vec<char> = RAIN_GLYPHS.chars().collect();
-        let columns = (bounds.width / RAIN_COLUMN) as u64 + 1;
-        let rows = (bounds.height / RAIN_ROW) as i64 + 1;
-
-        for column in 0..columns {
-            let seed = scramble(column);
-            // One column in three stays dry: enough rain to fill the window,
-            // sparse enough to read as atmosphere rather than noise laid over
-            // the list. One in two was tried first and felt too thin.
-            if seed.is_multiple_of(3) {
-                continue;
-            }
-            let speed = 1.0 + ((seed >> 8) % 200) as f32 / 100.0; // 1 to 3 rows a second
-            let length = 6 + ((seed >> 20) % 10) as i64; // 6 to 15 glyphs
-            let cycle = rows + length + 8 + ((seed >> 32) % 24) as i64;
-            let offset = ((seed >> 40) % 1000) as f32;
-            let head = ((self.t * speed + offset) % cycle as f32).floor() as i64;
-            let x = column as f32 * RAIN_COLUMN + 4.0;
-
-            for k in 0..length {
-                let row = head - k;
-                if !(0..rows).contains(&row) {
-                    continue;
-                }
-                let alpha = if k == 0 {
-                    0.42
-                } else {
-                    0.24 * (1.0 - k as f32 / length as f32)
-                };
-                // Each cell changes glyph about every two seconds, each on its
-                // own beat: a slow flicker rather than the whole screen pulsing.
-                let cell = seed ^ (row as u64).wrapping_mul(0x9E37_79B9);
-                let beat = (self.t * 0.5 + (cell % 100) as f32 / 50.0) as u64;
-                let pick = scramble(cell ^ beat);
-                frame.fill_text(canvas::Text {
-                    content: glyphs[(pick % glyphs.len() as u64) as usize].to_string(),
-                    position: Point::new(x, row as f32 * RAIN_ROW),
-                    color: t::alpha(self.ink, alpha),
-                    size: iced::Pixels(13.0),
-                    font: Font::MONOSPACE,
-                    shaping: text::Shaping::Advanced,
-                    ..canvas::Text::default()
-                });
-            }
-        }
         vec![frame.into_geometry()]
     }
 }
@@ -559,16 +447,35 @@ fn header(state: &State, p: Palette) -> Element<'_, Message> {
     let field = text_input("Rechercher dans le presse-papier…", &state.query)
         .id(SEARCH_ID)
         .on_input(Message::Query)
-        .size(15.5)
+        .size(13.5)
         .padding(0)
         .style(move |_theme, _status| text_input::Style {
             background: Background::Color(iced::Color::TRANSPARENT),
             border: Border::default(),
             icon: p.faint,
             placeholder: p.faint,
-            value: p.text,
+            value: p.bright,
             selection: t::alpha(p.accent, 0.35),
         });
+
+    // The count, or for three seconds an error in its place — the one message
+    // the window has to show, now that there is no footer to carry it.
+    let (status, ink) = match &state.flash {
+        Some((msg, at)) if at.elapsed().as_secs_f32() < 3.0 => (msg.clone(), p.bright),
+        _ => {
+            let n = state.history.len();
+            (
+                format!(
+                    "{} {}",
+                    copycopy_core::grouped(n),
+                    plural(n, "ÉLÉMENT", "ÉLÉMENTS")
+                ),
+                p.chrome,
+            )
+        }
+    };
+
+    let gap = || Space::new().width(Length::Fixed(14.0));
 
     // `mouse_area` lets the child capture first, so clicking the search field
     // will not start dragging the window.
@@ -578,23 +485,28 @@ fn header(state: &State, p: Palette) -> Element<'_, Message> {
                 canvas(LogoMark)
                     .width(Length::Fixed(22.0))
                     .height(Length::Fixed(22.0)),
-                Space::new().width(Length::Fixed(14.0)),
+                gap(),
                 canvas(Magnifier { color: p.faint })
                     .width(Length::Fixed(16.0))
                     .height(Length::Fixed(16.0)),
-                Space::new().width(Length::Fixed(12.0)),
+                gap(),
                 field,
-                Space::new().width(Length::Fixed(20.0)),
-                // The arrows need no caption; deleting does, since nothing
-                // else in the window hints that it is possible.
-                text("Enter copier   ·   Ctrl-B épingler   ·   Suppr supprimer   ·   Esc")
-                    .size(11.0)
-                    .color(p.chrome),
-                Space::new().width(Length::Fixed(16.0)),
+                gap(),
+                // Bounded and clipped: an OS error can run long, and must not
+                // squeeze the search field to nothing.
+                container(
+                    text(status)
+                        .size(10.0)
+                        .color(ink)
+                        .wrapping(text::Wrapping::None),
+                )
+                .max_width(280)
+                .clip(true),
+                gap(),
                 mouse_area(
                     canvas(ThemeMark {
                         light: p.light,
-                        ink: t::alpha(p.text, 0.55),
+                        ink: p.faint,
                         ground: p.card,
                     })
                     .width(Length::Fixed(t::SLOT))
@@ -602,13 +514,13 @@ fn header(state: &State, p: Palette) -> Element<'_, Message> {
                 )
                 .interaction(mouse::Interaction::Pointer)
                 .on_press(Message::ToggleTheme),
-                Space::new().width(Length::Fixed(12.0)),
+                gap(),
                 mouse_area(
                     canvas(GearMark {
                         color: if state.settings_open {
                             p.accent
                         } else {
-                            t::alpha(p.text, 0.55)
+                            p.faint
                         },
                         hole: p.card,
                     })
@@ -617,16 +529,14 @@ fn header(state: &State, p: Palette) -> Element<'_, Message> {
                 )
                 .interaction(mouse::Interaction::Pointer)
                 .on_press(Message::ToggleSettings),
-                Space::new().width(Length::Fixed(8.0)),
+                gap(),
                 // Closes the window, never the resident: quitting lives in the
                 // settings, under its own name, so nobody stops capture by
                 // reaching for the usual corner.
                 mouse_area(
-                    canvas(CloseMark {
-                        color: t::alpha(p.text, 0.7),
-                    })
-                    .width(Length::Fixed(20.0))
-                    .height(Length::Fixed(20.0)),
+                    canvas(CloseMark { color: p.faint })
+                        .width(Length::Fixed(20.0))
+                        .height(Length::Fixed(20.0)),
                 )
                 .interaction(mouse::Interaction::Pointer)
                 .on_press(Message::Close),
@@ -635,7 +545,7 @@ fn header(state: &State, p: Palette) -> Element<'_, Message> {
         )
         .width(Length::Fill)
         .center_y(Length::Fixed(t::HEADER_H))
-        .padding(Padding::from([0, 18])),
+        .padding(Padding::from([0, 16])),
     )
     .on_press(Message::DragWindow)
     .into()
@@ -710,7 +620,7 @@ fn list(state: &State, p: Palette) -> Element<'_, Message> {
         top: 0.0,
         right: 0.0,
         bottom: 0.0,
-        left: 14.0,
+        left: 12.0,
     }))
     .id(SCROLL_ID)
     .height(Length::Fill)
@@ -745,13 +655,13 @@ fn row_widget<'a>(
     icon: Option<&iced::widget::image::Handle>,
     p: Palette,
 ) -> Element<'a, Message> {
-    let tint = p.tint(item.kind);
+    let lit = selected > 0.5;
 
     // Always present, transparent when the row is not selected, so the content
     // width does not shift from one row to the next.
     let accent = container(Space::new())
-        .width(Length::Fixed(3.0))
-        .height(Length::Fixed(24.0))
+        .width(Length::Fixed(2.0))
+        .height(Length::Fixed(26.0))
         .style(move |_| container::Style {
             background: if copied {
                 Some(Background::Color(p.copied))
@@ -760,22 +670,19 @@ fn row_widget<'a>(
             } else {
                 None
             },
-            border: Border::default().rounded(2),
             ..Default::default()
         });
 
+    // Plain letters, no pill: the type is read, not looked at. Grey like the
+    // rest of the small print, until the row is selected.
     let badge = container(
         text(t::badge(item.kind))
-            .size(9.5)
-            .color(tint)
-            .font(iced::Font::MONOSPACE),
+            .size(10.0)
+            .color(if lit { p.accent } else { p.chrome })
+            .font(Font::MONOSPACE)
+            .wrapping(text::Wrapping::None),
     )
-    .center(Length::Fixed(30.0))
-    .style(move |_| container::Style {
-        background: Some(Background::Color(t::alpha(tint, 0.16))),
-        border: Border::default().rounded(9),
-        ..Default::default()
-    });
+    .center_x(Length::Fixed(22.0));
 
     let source = if item.source.is_empty() {
         "—"
@@ -783,9 +690,9 @@ fn row_widget<'a>(
         item.source.as_str()
     };
 
-    // Right-hand gutter: the pin slot, then the cross slot. Both are always
-    // laid out; only what they contain is conditional, so the preview always
-    // clips at the same x.
+    // Right-hand gutter: pin, copy, cross. All three are always laid out; only
+    // what they contain is conditional, so the title always clips at the same
+    // x instead of shifting when a row is hovered or pinned.
     let pin_slot: Element<'_, Message> = if item.pinned {
         canvas(Pin {
             color: p.pin,
@@ -798,19 +705,30 @@ fn row_widget<'a>(
         Space::new().width(Length::Fixed(t::SLOT)).into()
     };
 
-    // Shown on the row under the pointer, and on the selected row, so one is
-    // always visible without repeating a cross on every line.
-    let cross_slot: Element<'_, Message> = if hovered || selected > 0.5 {
+    // On the selected row, and on the row under the pointer: the list stays
+    // clean, and the row about to be acted on still says it can be copied.
+    let copy_slot: Element<'_, Message> = if hovered || lit {
         mouse_area(
-            canvas(Cross {
-                color: if hovered {
-                    p.text
-                } else {
-                    t::alpha(p.text, 0.45)
-                },
+            canvas(CopyMark {
+                color: if hovered { p.bright } else { p.faint },
             })
             .width(Length::Fixed(t::SLOT))
             .height(Length::Fixed(t::SLOT)),
+        )
+        .interaction(mouse::Interaction::Pointer)
+        .on_press(Message::CopyRow(index))
+        .into()
+    } else {
+        Space::new().width(Length::Fixed(t::SLOT)).into()
+    };
+
+    // Under the pointer only. Suppr does the same from the keyboard, and the
+    // panel's shortcut chips say so.
+    let cross_slot: Element<'_, Message> = if hovered {
+        mouse_area(
+            canvas(Cross { color: p.bright })
+                .width(Length::Fixed(t::SLOT))
+                .height(Length::Fixed(t::SLOT)),
         )
         .interaction(mouse::Interaction::Pointer)
         .on_press(Message::Delete(index))
@@ -819,32 +737,14 @@ fn row_widget<'a>(
         Space::new().width(Length::Fixed(t::SLOT)).into()
     };
 
-    // Always drawn, unlike the cross: copying is the point of the application,
-    // so the affordance does not wait to be discovered by hovering. It still
-    // brightens with the row, to say which one it would act on.
-    let copy_slot: Element<'_, Message> = mouse_area(
-        canvas(CopyMark {
-            color: if hovered {
-                p.text
-            } else {
-                t::alpha(p.text, 0.30)
-            },
-        })
-        .width(Length::Fixed(t::SLOT))
-        .height(Length::Fixed(t::SLOT)),
-    )
-    .interaction(mouse::Interaction::Pointer)
-    .on_press(Message::CopyRow(index))
-    .into();
-
     let preview = container(
         text(item.preview.as_str())
             .size(14.0)
             .font(Font {
-                weight: font::Weight::Semibold,
+                weight: iced::font::Weight::Semibold,
                 ..Font::DEFAULT
             })
-            .color(p.text)
+            .color(if lit { p.bright } else { p.text })
             .wrapping(text::Wrapping::None),
     )
     .width(Length::Fill)
@@ -854,14 +754,12 @@ fn row_widget<'a>(
     // at the far edge.
     .clip(true);
 
-    // The meta line recedes through opacity rather than a flat grey: it keeps
-    // the same hue as the preview, so the two read as one block at two depths.
     let words = text(match item.overflow_hint() {
         Some(hint) => format!("{}  ·  {}  ·  {}", source, item.age(), hint),
         None => format!("{}  ·  {}", source, item.age()),
     })
-    .size(11.0)
-    .color(t::alpha(p.text, 0.42))
+    .size(10.0)
+    .color(p.chrome)
     .wrapping(text::Wrapping::None);
 
     // The icon of the application the entry was copied from, drawn only when
@@ -884,24 +782,12 @@ fn row_widget<'a>(
 
     let meta = container(meta_line).width(Length::Fill).clip(true);
 
-    // The gutter sits on the preview line, not on the row: centring it over the
-    // whole row would drag it down by half the meta line, leaving pin and cross
-    // visibly below the text they belong to.
-    let top = row![
-        preview,
-        Space::new().width(Length::Fixed(t::GUTTER_GAP)),
-        copy_slot,
-        Space::new().width(Length::Fixed(8.0)),
-        cross_slot,
-    ]
-    .align_y(iced::Alignment::Center);
-
-    let body = column![top, meta].spacing(2);
+    let body = column![preview, meta].spacing(3);
 
     // Ranked, and the order is the whole point. The row being copied is almost
     // always the selected one — you press Enter on it — so with the selection
-    // first the green was never reached: the confirmation came down to a three
-    // pixel accent bar, and a copy read as nothing happening at all.
+    // first the green was never reached: the confirmation came down to a thin
+    // accent bar, and a copy read as nothing happening at all.
     let background = if copied {
         Some(Background::Color(t::alpha(p.copied, 0.38)))
     } else if selected > 0.0 {
@@ -912,24 +798,31 @@ fn row_widget<'a>(
         None
     };
 
-    // The pin sits on the left, and its slot is laid out whether or not
-    // anything is drawn in it: pinning a row must not shift the badge and the
-    // preview of every row around it.
     let content = row![
+        Space::new().width(Length::Fixed(4.0)),
         accent,
-        Space::new().width(Length::Fixed(9.0)),
+        Space::new().width(Length::Fixed(14.0)),
+        badge,
+        Space::new().width(Length::Fixed(14.0)),
+        body,
+        Space::new().width(Length::Fixed(t::GUTTER_GAP)),
         pin_slot,
         Space::new().width(Length::Fixed(6.0)),
-        badge,
-        Space::new().width(Length::Fixed(13.0)),
-        body,
+        copy_slot,
+        Space::new().width(Length::Fixed(6.0)),
+        cross_slot,
     ]
     .align_y(iced::Alignment::Center);
 
     let highlight = container(content)
         .width(Length::Fill)
         .center_y(Length::Fixed(t::ROW_H - 2.0 * t::ROW_GAP))
-        .padding(Padding::from([0, 10]))
+        .padding(Padding {
+            top: 0.0,
+            right: 10.0,
+            bottom: 0.0,
+            left: 0.0,
+        })
         .clip(true)
         .style(move |_| container::Style {
             background,
@@ -973,7 +866,7 @@ fn row_widget<'a>(
     }
 }
 
-// ----------------------------------------------------------------- footer
+// ------------------------------------------------------------------ panel
 
 /// The list and the detail panel, side by side. Proportions rather than fixed
 /// widths, so resizing the window shares the room out instead of starving one
@@ -1039,9 +932,9 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         caption.push_str(&detail);
     }
     let caption = container(
-        text(caption)
-            .size(11.0)
-            .color(p.faint)
+        text(caption.to_uppercase())
+            .size(10.0)
+            .color(p.chrome)
             .wrapping(text::Wrapping::None),
     )
     .width(Length::Fill)
@@ -1056,18 +949,20 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
             tokens,
             ..
         } => {
-            let font = if *code {
-                Font::MONOSPACE
+            let (font, size, line) = if *code {
+                (Font::MONOSPACE, 12.5, 1.75)
             } else {
-                Font::DEFAULT
+                (Font::DEFAULT, 13.0, 1.5)
             };
+            let line = text::LineHeight::Relative(line);
             // `WordOrGlyph`, not the default `Word`: a URL with no spaces is a
             // single word, so plain word-wrapping never breaks it — it just
             // keeps growing past the frame instead. Falling back to a glyph
             // break is what actually keeps it inside the window.
             let content: Element<'_, Message> = if links.is_empty() && tokens.is_empty() {
                 text(body.as_str())
-                    .size(13.0)
+                    .size(size)
+                    .line_height(line)
                     .font(font)
                     .color(p.text)
                     .width(Length::Fill)
@@ -1075,7 +970,8 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
                     .into()
             } else {
                 rich_text(painted_spans(body, tokens, links, p))
-                    .size(13.0)
+                    .size(size)
+                    .line_height(line)
                     .font(font)
                     .color(p.text)
                     .width(Length::Fill)
@@ -1115,18 +1011,15 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
             .into(),
             p,
         ),
-        Preview::Unavailable(why) => text(why.as_str()).size(12.0).color(p.faint).into(),
-        Preview::Empty => Space::new().into(),
+        Preview::Unavailable(why) => container(text(why.as_str()).size(12.0).color(p.faint))
+            .height(Length::Fill)
+            .into(),
+        Preview::Empty => Space::new().height(Length::Fill).into(),
     };
 
-    column![caption, content]
+    column![caption, content, shortcuts(p)]
         .spacing(12)
-        .padding(Padding {
-            top: 14.0,
-            right: 8.0,
-            bottom: 10.0,
-            left: 16.0,
-        })
+        .padding(Padding::from([16, 18]))
         .width(Length::Fill)
         .height(Length::Fill)
         .into()
@@ -1210,26 +1103,51 @@ fn plural(n: usize, one: &'static str, many: &'static str) -> &'static str {
     }
 }
 
-/// The type filters, on their own band under the search. Neutral pills, the
-/// same as the settings': the list below already carries the type colours in its
-/// badges, and a second set would only compete with them. Counts come from
-/// `refilter`, never from here.
+/// The type filters, as tabs on their own band under the search: capitals, the
+/// active one in the accent and underlined. Counts come from `refilter`, never
+/// from here.
 fn filters(state: &State, p: Palette) -> Element<'_, Message> {
-    let mut pills = row![].spacing(8).align_y(iced::Alignment::Center);
+    let mut tabs = row![].spacing(20).align_y(iced::Alignment::End);
     for (label, kind) in crate::FILTERS {
         let count = kind.map_or(state.counts.all, |k| state.counts.of(k));
-        pills = pills.push(choice_pill(
-            label,
-            Some(count),
-            Message::SetKindFilter(kind),
-            state.kind_filter == kind,
-            p,
-        ));
+        let active = state.kind_filter == kind;
+        let ink = if active {
+            p.accent
+        } else if count == 0 {
+            // Dimmed, never hidden: tabs must not shift as the content changes.
+            t::alpha(p.faint, 0.55)
+        } else {
+            p.faint
+        };
+        let underline = container(Space::new())
+            .width(Length::Fill)
+            .height(Length::Fixed(2.0))
+            .style(move |_| container::Style {
+                background: active.then_some(Background::Color(p.accent)),
+                ..Default::default()
+            });
+        // `Shrink` set after the children, on purpose: pushing a `Fill` child
+        // turns a column `Fill`, and the tab would take the whole band. Shrunk
+        // again, it is laid out at its text's width, and the `Fill` underline
+        // stretches to exactly that.
+        let tab = column![
+            text(format!("{} {count}", label.to_uppercase()))
+                .size(11.5)
+                .color(ink),
+            Space::new().height(Length::Fixed(7.0)),
+            underline,
+        ]
+        .width(Length::Shrink);
+        tabs = tabs.push(
+            mouse_area(tab)
+                .interaction(mouse::Interaction::Pointer)
+                .on_press(Message::SetKindFilter(kind)),
+        );
     }
-    container(pills)
+    container(tabs)
         .width(Length::Fill)
-        .center_y(Length::Fixed(t::FILTERS_H))
-        .padding(Padding::from([0, 24]))
+        .align_bottom(Length::Fixed(t::FILTERS_H))
+        .padding(Padding::from([0, 16]))
         .into()
 }
 
@@ -1290,43 +1208,19 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
         choice_pill(name, None, on_press, active, p)
     };
     let current = state.theme_mode();
-    // Two rows: the neutral pair first, since it is the default and the one
-    // most people want; the dressier options below, for anyone who came
-    // looking for them.
-    let themes = column![
-        row![
-            pill(
-                "Sombre",
-                Message::SetTheme(crate::theme::Mode::Dark),
-                current == crate::theme::Mode::Dark,
-            ),
-            pill(
-                "Clair",
-                Message::SetTheme(crate::theme::Mode::Light),
-                current == crate::theme::Mode::Light,
-            ),
-        ]
-        .spacing(8),
-        row![
-            pill(
-                "Purpledream",
-                Message::SetTheme(crate::theme::Mode::Purpledream),
-                current == crate::theme::Mode::Purpledream,
-            ),
-            pill(
-                "Aalto",
-                Message::SetTheme(crate::theme::Mode::Aalto),
-                current == crate::theme::Mode::Aalto,
-            ),
-            pill(
-                "Matrix",
-                Message::SetTheme(crate::theme::Mode::Matrix),
-                current == crate::theme::Mode::Matrix,
-            ),
-        ]
-        .spacing(8),
+    let themes = row![
+        pill(
+            "Sombre",
+            Message::SetTheme(crate::theme::Mode::Dark),
+            current == crate::theme::Mode::Dark,
+        ),
+        pill(
+            "Clair",
+            Message::SetTheme(crate::theme::Mode::Light),
+            current == crate::theme::Mode::Light,
+        ),
     ]
-    .spacing(6);
+    .spacing(8);
 
     let hotkey = row![
         container(
@@ -1472,14 +1366,9 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
     .style(move |_| container::Style {
         background: Some(Background::Color(p.frame)),
         border: Border {
-            color: t::alpha(p.border, 0.6),
+            color: p.border,
             width: 1.0,
-            radius: 10.0.into(),
-        },
-        shadow: iced::Shadow {
-            color: p.shadow,
-            offset: iced::Vector::new(0.0, 8.0),
-            blur_radius: 22.0,
+            radius: 6.0.into(),
         },
         ..Default::default()
     });
@@ -1511,78 +1400,81 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
     .into()
 }
 
-/// A Carbon-style window around a text preview: rounded, lifted off the panel
-/// by a shadow, a copy button in its title bar. Built through layout like
-/// everything else — the button sits in a row above the text, not in a layer
-/// laid over it.
+/// The frame around a text or file preview: flat, one step off the card, and
+/// as tall as the panel allows — the shortcut chips stay pinned under it
+/// whatever the length of the entry. Long content scrolls inside.
 fn framed<'a>(inner: Element<'a, Message>, p: Palette) -> Element<'a, Message> {
-    // The title bar keeps a single control: copying what the window shows.
-    // It is the selected entry, so this is the same as pressing Enter.
-    let bar = row![
-        Space::new().width(Length::Fill),
-        mouse_area(
-            canvas(CopyMark {
-                color: t::alpha(p.text, 0.55),
-            })
-            .width(Length::Fixed(t::SLOT))
-            .height(Length::Fixed(t::SLOT)),
-        )
-        .interaction(mouse::Interaction::Pointer)
-        .on_press(Message::Activate),
-    ]
-    .padding(Padding {
-        top: 0.0,
-        right: 10.0,
-        bottom: 0.0,
-        left: 0.0,
-    });
-
     let body = scrollable(container(inner).padding(Padding {
         top: 0.0,
-        right: 16.0,
+        right: 12.0,
         bottom: 0.0,
         left: 0.0,
     }))
     .id(PREVIEW_ID)
-    // Shrink, as in Carbon: a short entry gets a small window hugging it, a
-    // long one grows until the panel is full and then scrolls inside.
-    .height(Length::Shrink)
+    .height(Length::Fill)
     .direction(thin_scrollbar())
     .style(quiet_scroll(p));
 
-    let window = container(column![bar, body].spacing(10))
+    container(body)
         .padding(Padding {
             top: 14.0,
-            right: 6.0,
-            bottom: 18.0,
-            left: 18.0,
+            right: 4.0,
+            bottom: 14.0,
+            left: 14.0,
         })
         .width(Length::Fill)
+        .height(Length::Fill)
         .style(move |_| container::Style {
             background: Some(Background::Color(p.frame)),
             border: Border {
-                color: t::alpha(p.border, 0.6),
+                color: p.border,
                 width: 1.0,
-                radius: 10.0.into(),
-            },
-            shadow: iced::Shadow {
-                color: p.shadow,
-                offset: iced::Vector::new(0.0, 8.0),
-                blur_radius: 22.0,
+                radius: 6.0.into(),
             },
             ..Default::default()
-        });
-
-    // Room around the window for the shadow to fall into, mostly below.
-    container(window)
-        .padding(Padding {
-            top: 2.0,
-            right: 12.0,
-            bottom: 24.0,
-            left: 0.0,
         })
-        .width(Length::Fill)
         .into()
+}
+
+/// The keys that act on the selected entry, under its preview. Copying is the
+/// one filled chip, and the one that can be clicked: it is the point of the
+/// application. The others are reminders — the header no longer carries a
+/// legend, and nothing else in the window says that Suppr deletes.
+fn shortcuts<'a>(p: Palette) -> Element<'a, Message> {
+    let chip = |label: &'static str| {
+        container(text(label).size(10.0).color(p.key))
+            .padding(Padding::from([5, 10]))
+            .style(move |_| container::Style {
+                border: Border {
+                    color: p.outline,
+                    width: 1.0,
+                    radius: 5.0.into(),
+                },
+                ..Default::default()
+            })
+    };
+    let copy = mouse_area(
+        container(text("ENTER · COPIER").size(10.0).color(p.card))
+            .padding(Padding::from([6, 11]))
+            .style(move |_| container::Style {
+                background: Some(Background::Color(p.accent)),
+                border: Border::default().rounded(5),
+                ..Default::default()
+            }),
+    )
+    .interaction(mouse::Interaction::Pointer)
+    .on_press(Message::Activate);
+
+    row![
+        copy,
+        chip("CTRL-B · ÉPINGLER"),
+        chip("SUPPR · SUPPRIMER"),
+        chip("ESC · FERMER"),
+    ]
+    .spacing(6)
+    .align_y(iced::Alignment::Center)
+    .wrap()
+    .into()
 }
 
 /// The list's scrollbar, shared with the panel: thin, and only the scroller
@@ -1609,50 +1501,4 @@ fn quiet_scroll(p: Palette) -> impl Fn(&iced::Theme, scrollable::Status) -> scro
         },
         ..scrollable::default(theme, status)
     }
-}
-
-fn footer(state: &State, p: Palette) -> Element<'_, Message> {
-    let left = match &state.flash {
-        Some((msg, at)) if at.elapsed().as_secs_f32() < 3.0 => msg.clone(),
-        _ => format!("{} éléments", state.history.len()),
-    };
-
-    // A wink rather than a setting: the Matrix palette is one click away, and
-    // the same click brings the usual dark theme back.
-    let matrix = mouse_area(
-        text(if p.matrix { "exit matrix" } else { "matrix" })
-            .size(11.0)
-            .font(Font::MONOSPACE)
-            .color(if p.matrix {
-                p.accent
-            } else {
-                t::alpha(p.text, 0.28)
-            }),
-    )
-    .interaction(mouse::Interaction::Pointer)
-    .on_press(Message::ToggleMatrix);
-
-    container(
-        row![
-            // `Fill` + `clip`, not wrapping: the footer is one fixed-height
-            // line, so a long flash message (an OS error can run long)
-            // clips here the same way a row's own preview does, rather than
-            // pushing `matrix` off the edge or spilling onto a second line
-            // the footer has no room for.
-            container(
-                text(left)
-                    .size(11.0)
-                    .color(p.chrome)
-                    .wrapping(text::Wrapping::None),
-            )
-            .width(Length::Fill)
-            .clip(true),
-            matrix,
-        ]
-        .align_y(iced::Alignment::Center),
-    )
-    .width(Length::Fill)
-    .center_y(Length::Fixed(t::FOOTER_H))
-    .padding(Padding::from([0, 18]))
-    .into()
 }

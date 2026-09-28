@@ -61,7 +61,8 @@ cargo run -p copycopy-platform --example fake_owner -- "texte" Firefox 3
 
 Navigation : `↑↓` / `Ctrl-N` `Ctrl-P`, `PageUp/Down`, `Enter` copier,
 `Ctrl-B` épingler, `Suppr` ou `Ctrl-D` supprimer — accessible aussi par la croix
-qui apparaît sur la rangée survolée et sur la sélectionnée. `Esc` ferme la
+qui apparaît sur la rangée survolée. Les mêmes touches sont rappelées en puces
+sous l'aperçu, et la première, *Enter · copier*, est cliquable. `Esc` ferme la
 fenêtre ; `Ctrl-Q` (`Cmd-Q` sur macOS) arrête complètement le résident, comme
 `--quit`. L'engrenage ouvre les réglages dans le panneau de droite — thème,
 raccourci, collage automatique, démarrage, dossier des données et
@@ -93,7 +94,7 @@ aperçoit au démarrage suivant, plutôt que de prétendre le contraire.
 La croix de l'en-tête masque la fenêtre, comme `Esc` : elle ne quitte
 jamais, pour que personne n'arrête la capture en visant le coin habituel.
 
-**Les filtres par type** occupent une barre sous la recherche — Tout, Texte,
+**Les filtres par type** sont des onglets sur une barre sous la recherche — Tout, Texte,
 Code, URL, Images, Fichiers — chacun avec le nombre d'entrées qu'il afficherait
 pour la recherche en cours. Ils se combinent avec elle : *Code* et `select` ne
 listent que le code qui contient « select ». `Ctrl-1` à `Ctrl-6` changent de
@@ -220,9 +221,8 @@ c'est le principe, pas un raccourci. Un fragment ne satisfait aucune grammaire,
 il n'y a donc rien à parser, et un scanner ne peut pas être désarçonné par la
 moitié du fichier qu'on n'a pas copiée. Il trouve six catégories : commentaires,
 chaînes, nombres, mots-clés, balises et clés. Six parce que la palette a
-justement cinq teintes de badge plus `faint` à leur consacrer — aucune couleur
-n'a été inventée pour aucun thème, ce qui fait que la coloration suit un
-changement de thème toute seule, Matrix compris.
+justement cinq teintes syntaxiques plus `faint` à leur consacrer, ce qui fait
+que la coloration suit un changement de thème toute seule.
 
 Deux pièges, devenus deux tests. Une lifetime Rust n'est pas une chaîne :
 `&'a str` se referme sur la lifetime suivante neuf octets plus loin, donc une
@@ -331,7 +331,7 @@ constante. À reprendre avec un widget sur mesure si le besoin revient.
 
 ### Trois règles de mise en page
 
-1. **Centrage vertical.** Chaque bande (en-tête, rangée, pied) est un
+1. **Centrage vertical.** Chaque bande (en-tête, onglets, rangée) est un
    `container` de hauteur fixe qui centre son contenu avec `center_y`. Un
    `row.align_y(Center)` ne suffit pas : il aligne les enfants entre eux, mais
    laisse la rangée collée en haut de son conteneur.
@@ -341,6 +341,26 @@ constante. À reprendre avec un widget sur mesure si le besoin revient.
    `ROW_H` — le calcul de virtualisation en dépend — et c'est le fond, à
    l'intérieur, qui est rétréci de `ROW_GAP`. D'où l'espace entre deux
    surbrillances, sans toucher au pas de la liste.
+
+### La refonte
+
+L'interface suit une maquette — la variante G, « Clinique » — avec quelques
+écarts voulus :
+
+- **Plus de pied de page.** Son seul rôle vivant était d'afficher une erreur
+  pendant trois secondes ; ce message prend désormais la place du compteur
+  d'entrées dans l'en-tête.
+- **Badges gris.** Le type se lit, il ne se regarde pas : le badge ne prend
+  l'accent que sur la rangée sélectionnée, et les teintes par type ne servent
+  plus qu'à la coloration syntaxique.
+- **Titres en semi-gras, 14 px.** Le Light 13 px de la maquette a été essayé :
+  trop pâle pour se lire d'un coup d'œil.
+- **Les badges nomment le type, pas le langage** — `{ }`, pas `RS` ni `SQL`. Le
+  langage n'est pas stocké avec l'entrée, et le détecter pour chaque rangée
+  visible à chaque frame enfreindrait la règle : rien ne se calcule dans
+  `view()`.
+- **Deux thèmes seulement.** Purpledream, Aalto et Matrix sont partis avec elle,
+  et la pluie Matrix aussi — le seul `stack` que l'application avait.
 
 La loupe de la barre de recherche est dessinée au `canvas`, pas prise dans une
 police : nette à toutes les échelles et indépendante des glyphes disponibles.
@@ -551,17 +571,11 @@ pas sur l'aperçu, lui-même plafonné.
 
 ## Crédits
 
-Les deux palettes de couleurs sont empruntées à des thèmes existants, adaptées
-et non recopiées sous forme de code :
-
-- **Sombre** — [Base16 Purpledream](https://github.com/tinted-theming/schemes/blob/spec-0.11/base16/purpledream.yaml)
-  de malet, chez Tinted Theming (MIT). Les valeurs du schéma sont reprises telles
-  quelles.
-- **Clair** — [Aalto Light](https://github.com/emacs-jp/replace-colorthemes/blob/master/aalto-light-theme.el)
-  de Jari Aalto, porté par Syohei Yoshida (GPL-3.0+). Seules des valeurs de
-  couleur sont reprises, et le fond est assombri par rapport à la crème d'origine.
-
-`crates/app/src/theme.rs` indique la provenance de chaque valeur.
+Les palettes sombre et claire sont propres à copycopy, tirées de la maquette de
+la refonte. Les versions précédentes empruntaient [Base16 Purpledream](https://github.com/tinted-theming/schemes/blob/spec-0.11/base16/purpledream.yaml)
+de malet (MIT) et [Aalto Light](https://github.com/emacs-jp/replace-colorthemes/blob/master/aalto-light-theme.el)
+de Jari Aalto, porté par Syohei Yoshida (GPL-3.0+) ; les deux ont disparu avec
+la refonte.
 
 ## Licence
 
