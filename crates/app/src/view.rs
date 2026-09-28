@@ -694,6 +694,7 @@ fn list(state: &State, p: Palette) -> Element<'_, Message> {
             weight,
             state.hovered == Some(index),
             state.copied.is_some_and(|c| c.id == item.id),
+            state.icons.get(item.source.as_str()),
             p,
         ));
     }
@@ -735,14 +736,15 @@ fn list(state: &State, p: Palette) -> Element<'_, Message> {
     .into()
 }
 
-fn row_widget(
-    item: &ClipItem,
+fn row_widget<'a>(
+    item: &'a ClipItem,
     index: usize,
     selected: f32,
     hovered: bool,
     copied: bool,
+    icon: Option<&iced::widget::image::Handle>,
     p: Palette,
-) -> Element<'_, Message> {
+) -> Element<'a, Message> {
     let tint = p.tint(item.kind);
 
     // Always present, transparent when the row is not selected, so the content
@@ -854,17 +856,33 @@ fn row_widget(
 
     // The meta line recedes through opacity rather than a flat grey: it keeps
     // the same hue as the preview, so the two read as one block at two depths.
-    let meta = container(
-        text(match item.overflow_hint() {
-            Some(hint) => format!("{}  ·  {}  ·  {}", source, item.age(), hint),
-            None => format!("{}  ·  {}", source, item.age()),
-        })
-        .size(11.0)
-        .color(t::alpha(p.text, 0.42))
-        .wrapping(text::Wrapping::None),
-    )
-    .width(Length::Fill)
-    .clip(true);
+    let words = text(match item.overflow_hint() {
+        Some(hint) => format!("{}  ·  {}  ·  {}", source, item.age(), hint),
+        None => format!("{}  ·  {}", source, item.age()),
+    })
+    .size(11.0)
+    .color(t::alpha(p.text, 0.42))
+    .wrapping(text::Wrapping::None);
+
+    // The icon of the application the entry was copied from, drawn only when
+    // the platform could learn one. No reserved slot: X11 and Wayland have
+    // none today, and an empty slot on every row would indent the whole list
+    // for nothing. Aligned with `align_y` because these are siblings inside a
+    // line, not a band — a band centres with `center_y`.
+    let meta_line: Element<'_, Message> = match icon {
+        Some(handle) => row![
+            image(handle.clone())
+                .width(Length::Fixed(t::SOURCE_ICON))
+                .height(Length::Fixed(t::SOURCE_ICON)),
+            Space::new().width(Length::Fixed(5.0)),
+            words,
+        ]
+        .align_y(iced::Alignment::Center)
+        .into(),
+        None => words.into(),
+    };
+
+    let meta = container(meta_line).width(Length::Fill).clip(true);
 
     // The gutter sits on the preview line, not on the row: centring it over the
     // whole row would drag it down by half the meta line, leaving pin and cross

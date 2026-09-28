@@ -236,6 +236,7 @@ macro_rules! impl_data_control {
                                         // No Wayland protocol exposes the
                                         // source application.
                                         source: String::new(),
+                                        icon: None,
                                     })
                                     .is_err()
                                 {

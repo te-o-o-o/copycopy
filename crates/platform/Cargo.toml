@@ -32,5 +32,7 @@ windows-sys = { version = "0.61", features = [
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSPasteboardItem", "NSWorkspace", "NSRunningApplication"] }
+# `NSImage` is what `NSRunningApplication::icon` is gated on; the icon is
+# converted through TIFF by the `image` crate above rather than by AppKit.
+objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSPasteboardItem", "NSWorkspace", "NSRunningApplication", "NSImage"] }
 objc2-foundation = { version = "0.3", features = ["NSString", "NSArray", "NSData", "NSURL", "NSDictionary", "NSValue"] }

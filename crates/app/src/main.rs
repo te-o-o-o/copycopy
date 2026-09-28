@@ -121,6 +121,12 @@ pub struct State {
     /// finding it checks the disk for a portable configuration, which has no
     /// place in a frame.
     pub data_dir: Option<std::path::PathBuf>,
+    /// One icon per source application, never one per entry — at a hundred
+    /// thousand entries coming from a dozen applications, the difference is
+    /// the design. Keyed by the source name the entry carries, filled as
+    /// captures arrive and kept on disk beside the database so a restart does
+    /// not start blind.
+    pub icons: std::collections::HashMap<String, iced::widget::image::Handle>,
     pub selected: usize,
     /// The selected index, animated. Each row derives its highlight from the
     /// distance to this value, so the outgoing row fades out while the
@@ -825,6 +831,87 @@ fn parse_args() -> Args {
     }
 }
 
+/// Where the application icons live: one PNG per source, beside the database.
+fn icon_dir(dir: Option<&std::path::Path>) -> Option<std::path::PathBuf> {
+    dir.map(|d| d.join("icons"))
+}
+
+/// A file name that cannot escape the folder, whatever the application is
+/// called: a source string comes from another program and can hold a slash, a
+/// backslash, or a run of dots.
+///
+/// The extension is `.icon` and not `.png` on purpose. The file is not a PNG:
+/// it carries the exact source name on its first line, then the image — because
+/// sanitising the name loses information no reverse could recover. Calling it
+/// `.png` would be a lie to whoever opens the folder.
+fn icon_file(source: &str) -> String {
+    let safe: String = source
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c } else { '_' })
+        .collect();
+    format!("{safe}.icon")
+}
+
+/// Reads back what earlier sessions learnt. A missing folder is the normal
+/// first run, not a failure.
+fn load_icons(
+    dir: Option<&std::path::Path>,
+) -> std::collections::HashMap<String, iced::widget::image::Handle> {
+    let mut icons = std::collections::HashMap::new();
+    let Some(path) = icon_dir(dir) else {
+        return icons;
+    };
+    let Ok(entries) = std::fs::read_dir(&path) else {
+        return icons;
+    };
+    for entry in entries.flatten() {
+        let file = entry.path();
+        if file.extension().is_none_or(|e| e != "icon") {
+            continue;
+        }
+        // The source is read from inside the file: its name is sanitised and
+        // cannot be turned back into what it came from.
+        let Ok(bytes) = std::fs::read(&file) else {
+            continue;
+        };
+        let Some((source, png)) = split_icon(&bytes) else {
+            continue;
+        };
+        let _ = icons.insert(source, iced::widget::image::Handle::from_bytes(png));
+    }
+    icons
+}
+
+/// The source name is kept in front of the PNG, on its own line, so a
+/// sanitised file name never has to be reversed.
+fn split_icon(bytes: &[u8]) -> Option<(String, Vec<u8>)> {
+    let cut = bytes.iter().position(|b| *b == b'\n')?;
+    let source = String::from_utf8(bytes[..cut].to_vec()).ok()?;
+    Some((source, bytes[cut + 1..].to_vec()))
+}
+
+/// Keeps an icon the backend just sent, once per application. Failing to write
+/// it to disk costs the next session a relearn, never the running one.
+fn remember_icon(state: &mut State, source: &str, icon: Option<Vec<u8>>) {
+    let Some(png) = icon else { return };
+    if source.is_empty() || state.icons.contains_key(source) {
+        return;
+    }
+    let _ = state.icons.insert(
+        source.to_string(),
+        iced::widget::image::Handle::from_bytes(png.clone()),
+    );
+    let Some(dir) = icon_dir(state.data_dir.as_deref()) else {
+        return;
+    };
+    if std::fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let mut body = format!("{source}\n").into_bytes();
+    body.extend_from_slice(&png);
+    let _ = std::fs::write(dir.join(icon_file(source)), body);
+}
+
 fn boot() -> (State, Task<Message>) {
     let args = parse_args();
     let mut config = Config::load();
@@ -930,6 +1017,7 @@ fn boot() -> (State, Task<Message>) {
         kind_filter: args.filter,
         counts: FilterCounts::default(),
         data_dir: dir.clone(),
+        icons: load_icons(dir.as_deref()),
         selected: 0,
         selection: Animation::new(0.0).duration(SELECT_FADE),
         hovered: None,
@@ -1156,6 +1244,7 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             if state.setter.echoes(&capture.event) {
                 return Task::none();
             }
+            remember_icon(state, &capture.source, capture.icon);
             state.history.push(capture.event, capture.source);
             let written = match (&state.store, state.history.get(0)) {
                 (Some(store), Some(item)) => {
