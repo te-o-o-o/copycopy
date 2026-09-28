@@ -39,7 +39,7 @@ and a shortcut brings it back. English, 日本語, emoji 🎉 and code all inclu
 - **Auto-paste** (optional): the entry lands where your cursor was. Everywhere
   but Wayland.
 - **Starts with your session** (optional), silently in the background.
-- **Five themes**: Light, Dark, Purpledream, Aalto, and Matrix.
+- **Light and dark themes**.
 - **Secrets are never stored**: whatever a password manager marks as
   confidential is dropped before it is written.
 - **Nothing leaves your machine**: no account, no cloud, no telemetry.

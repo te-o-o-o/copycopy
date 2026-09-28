@@ -60,7 +60,8 @@ cargo run -p copycopy-platform --example fake_owner -- "text" Firefox 3
 
 Navigation: `↑↓` / `Ctrl-N` `Ctrl-P`, `PageUp/Down`, `Enter` to copy,
 `Ctrl-B` to pin, `Delete` or `Ctrl-D` to remove — also reachable through the
-cross that appears on the hovered and selected rows. `Esc` closes the window;
+cross that appears on the hovered row. The same keys are listed as chips under
+the preview, and the first one, *Enter · copier*, can be clicked. `Esc` closes the window;
 `Ctrl-Q` (`Cmd-Q` on macOS) stops the resident altogether, like `--quit`.
 The gear button opens the settings in the right-hand panel — theme, shortcut,
 auto-paste, startup, data folder, and *Quitter copycopy* — and `Esc` closes them
@@ -90,7 +91,7 @@ Manager and copycopy notices at the next start and stops claiming otherwise.
 The header cross hides the window, like `Esc`: it never quits, so nobody stops
 capture by reaching for the usual corner.
 
-**Type filters** sit on a band under the search — All, Text, Code, URL, Images,
+**Type filters** are tabs on a band under the search — All, Text, Code, URL, Images,
 Files — each with the number of entries it would show for the current search.
 They combine with it: *Code* and `select` list only the code containing
 "select". `Ctrl-1` to `Ctrl-6` switch filters without leaving the search field,
@@ -210,10 +211,9 @@ The colouring itself, `core/highlight.rs`, is a scanner and not a parser —
 which is the point rather than a shortcut. A fragment satisfies no grammar,
 so there is nothing to parse, and a scanner cannot be thrown off by the half of
 the file that was not copied. It finds six kinds: comments, strings, numbers,
-keywords, markup tags and keys. Six because the palette already has exactly five
-badge tints plus `faint` to spend on them — no colour was invented for any
-theme, which is why the highlighting follows a theme change on its own, Matrix
-included.
+keywords, markup tags and keys. Six because the palette has exactly five
+syntax tints plus `faint` to spend on them, which is why the highlighting
+follows a theme change on its own.
 
 Two traps, both now tests. A Rust lifetime is not a string: `&'a str` closes on
 the next lifetime nine bytes later, so a length limit swallows it happily — a
@@ -317,7 +317,7 @@ widget if the need returns.
 
 ### Three layout rules
 
-1. **Vertical centring.** Each band (header, row, footer) is a fixed-height
+1. **Vertical centring.** Each band (header, tabs, row) is a fixed-height
    `container` that centres its content with `center_y`. A
    `row.align_y(Center)` is not enough: it aligns children relative to each
    other but leaves the row stuck to the top of its container.
@@ -327,6 +327,24 @@ widget if the need returns.
    `ROW_H` — the virtualisation maths depends on it — and it is the background,
    inside, that is shrunk by `ROW_GAP`. That is where the breathing room
    between highlights comes from, without touching the list pitch.
+
+### The redesign
+
+The interface follows a mockup — variant G, "Clinique" — with a few deliberate
+departures:
+
+- **No footer.** Its one live job was showing an error for three seconds; that
+  message now takes the place of the entry count in the header.
+- **Grey badges.** The type is read, not looked at: the badge takes the accent
+  only on the selected row, and the per-type tints are kept for syntax
+  colouring alone.
+- **Titles stay semibold at 14 px.** The mockup's light 13 px was tried and was
+  too faint to read at a glance.
+- **Badges name the type, not the language** — `{ }`, not `RS` or `SQL`. The
+  language is not stored with an entry, and detecting it for every visible row
+  on every frame would break the rule that nothing is computed in `view()`.
+- **Only two themes.** Purpledream, Aalto and Matrix went with it; so did the
+  Matrix rain, the one `stack` the application had.
 
 The magnifier in the search bar is drawn on a `canvas` rather than taken from a
 font: crisp at every scale and independent of which glyphs happen to exist.
@@ -533,16 +551,11 @@ shows — counted on the full content, not on the preview, which is itself cappe
 
 ## Credits
 
-The two colour palettes are borrowed from existing themes, adapted rather than
-copied as code:
-
-- **Dark** — [Base16 Purpledream](https://github.com/tinted-theming/schemes/blob/spec-0.11/base16/purpledream.yaml)
-  by malet, from Tinted Theming (MIT). The scheme's values are used as they are.
-- **Light** — [Aalto Light](https://github.com/emacs-jp/replace-colorthemes/blob/master/aalto-light-theme.el)
-  by Jari Aalto, ported by Syohei Yoshida (GPL-3.0+). Only colour values are
-  taken, and the ground is darkened from its original cream.
-
-`crates/app/src/theme.rs` notes where each value comes from.
+The dark and light palettes are copycopy's own, from the redesign mockup.
+Earlier versions borrowed [Base16 Purpledream](https://github.com/tinted-theming/schemes/blob/spec-0.11/base16/purpledream.yaml)
+by malet (MIT) and [Aalto Light](https://github.com/emacs-jp/replace-colorthemes/blob/master/aalto-light-theme.el)
+by Jari Aalto, ported by Syohei Yoshida (GPL-3.0+); both were dropped with the
+redesign.
 
 ## Licence
 

@@ -19,7 +19,7 @@ use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager};
 pub struct Hotkeys {
     /// Kept alive: dropping it would unregister the shortcut.
     _manager: Option<GlobalHotKeyManager>,
-    /// Message shown in the footer and at startup.
+    /// Message printed at startup.
     pub status: String,
     pub registered: bool,
 }

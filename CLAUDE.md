@@ -68,12 +68,8 @@ Each of these cost real debugging time. Re-introducing them is a regression.
    row itself.
 3. **Never use `stack` as an overlay.** A layer placed over a row stops that
    row from repainting: its text freezes on the first render, then disappears.
-   Anything that must sit on top goes through layout.
-   A layer *underneath* is a different case, and exactly one exists: the Matrix
-   rain, built in that theme only. It passed a repaint protocol — rows still
-   drawn after a hundred redraws, a capture arriving mid-animation, a scrolled
-   open — but under WSLg only. If rows ever freeze in the Matrix theme, suspect
-   it first; the other themes never build the stack at all.
+   Anything that must sit on top goes through layout. The application has no
+   `stack` at all since the Matrix theme and its rain were removed.
 4. **Each band centres with `center_y`**, not `row.align_y(Center)`. The latter
    aligns children relative to each other but leaves the band stuck to the top
    of its container.

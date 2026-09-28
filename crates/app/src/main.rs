@@ -65,10 +65,6 @@ const FOCUS_GRACE: Duration = Duration::from_millis(600);
 /// enough to register, short enough not to feel like a wait — 160 ms was the
 /// former, and it is below what the eye catches on a colour change alone.
 const COPY_FLASH: Duration = Duration::from_millis(260);
-/// Cadence of the Matrix rain: about twelve frames a second. The rain falls a
-/// row or three per second, so more frames would redraw the whole window for
-/// no visible gain.
-const RAIN_TICK: Duration = Duration::from_millis(83);
 /// How long quitting waits for the event loop to stop on its own before the
 /// process is ended regardless. See `State::quit`.
 const QUIT_GRACE: Duration = Duration::from_millis(1500);
@@ -108,9 +104,6 @@ pub struct State {
     /// when the selection really lands on another entry — not on every arrow
     /// press that ends where it started, nor on a refilter that kept it.
     pub preview_key: Option<u64>,
-    /// Seconds since start, sampled on each rain tick. The rain is drawn from
-    /// this alone, so it only moves when a tick says so.
-    pub rain_t: f32,
     /// The right-hand panel shows the settings instead of the preview.
     pub settings_open: bool,
     /// Only entries of this type are listed; `None` lists them all.
@@ -340,10 +333,6 @@ pub enum Message {
     CopyRow(usize),
     /// Switch between the light and dark palettes, from the header icon.
     ToggleTheme,
-    /// Enter or leave the Matrix palette, from the footer.
-    ToggleMatrix,
-    /// Advance the Matrix rain by one frame.
-    RainTick,
     /// Show or hide the settings in the right-hand panel, from the ⋮ button.
     ToggleSettings,
     /// Pick a theme from the settings.
@@ -757,7 +746,7 @@ impl State {
                 Task::none()
             }
             Err(e) => {
-                // Console as well as the footer: a footer line lasts three
+                // Console as well as the header: a message there lasts three
                 // seconds and is easy to miss, and this is the failure that
                 // reads as "nothing happened".
                 eprintln!("copy failed: {e}");
@@ -1012,7 +1001,6 @@ fn boot() -> (State, Task<Message>) {
         query: args.query,
         preview: Preview::Empty,
         preview_key: None,
-        rain_t: 0.0,
         settings_open: args.settings,
         kind_filter: args.filter,
         counts: FilterCounts::default(),
@@ -1150,11 +1138,6 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             state.config.save();
             Task::none()
         }
-        Message::ToggleMatrix => {
-            state.config.theme = state.config.theme.matrix_toggled();
-            state.config.save();
-            Task::none()
-        }
         Message::OpenLink(link) => {
             // Checked again here, whatever built the link: this string came out
             // of the clipboard, and only a web address may reach the system.
@@ -1204,10 +1187,6 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
         Message::SetKindFilter(kind) => state.set_kind_filter(kind),
         Message::Close => state.hide(),
         Message::Quit => state.quit(),
-        Message::RainTick => {
-            state.rain_t = BOOT.get().map_or(0.0, |boot| boot.elapsed().as_secs_f32());
-            Task::none()
-        }
         Message::Hover(index) => {
             state.hovered = Some(index);
             Task::none()
@@ -1231,7 +1210,7 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             Task::none()
         }
         Message::Backend(kind) => {
-            // Console rather than the footer: it tells the developer which
+            // Console rather than the window: it tells the developer which
             // backend won, and has no place in the window.
             println!("capture backend: {}", kind.label());
             Task::none()
@@ -1517,11 +1496,6 @@ fn subscription(state: &State) -> Subscription<Message> {
         // window closes.
         subs.push(iced::time::every(COPY_FLASH).map(|_| Message::FinishCopy));
     }
-    // Only while it can be seen: in another theme, or with the window hidden,
-    // the rain costs nothing at all.
-    if state.config.theme == theme::Mode::Matrix && state.window_shown {
-        subs.push(iced::time::every(RAIN_TICK).map(|_| Message::RainTick));
-    }
     if state.shot_path.is_some() && !state.shot_done {
         subs.push(iced::time::every(Duration::from_millis(300)).map(|_| Message::Shot));
     }
@@ -1532,8 +1506,8 @@ fn subscription(state: &State) -> Subscription<Message> {
 /// text selection of the search field — so they follow the palette too.
 fn theme_of(state: &State, _window: window::Id) -> Theme {
     match state.config.theme {
-        theme::Mode::Dark | theme::Mode::Purpledream | theme::Mode::Matrix => Theme::Dark,
-        theme::Mode::Light | theme::Mode::Aalto => Theme::Light,
+        theme::Mode::Dark => Theme::Dark,
+        theme::Mode::Light => Theme::Light,
     }
 }
 
