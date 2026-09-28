@@ -172,23 +172,6 @@ fn tiff_to_png(tiff: &[u8]) -> Option<(Vec<u8>, (u32, u32))> {
     Some((png, size))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn finder_file_references_resolve_to_paths() {
-        let path = std::env::current_exe().unwrap().canonicalize().unwrap();
-        let url = NSURL::fileURLWithPath(&NSString::from_str(path.to_str().unwrap()));
-        let reference = url.fileReferenceURL().unwrap().absoluteString().unwrap();
-        assert!(reference.to_string().contains("/.file/id="));
-        assert_eq!(
-            url_to_path(&reference.to_string()).canonicalize().unwrap(),
-            path
-        );
-    }
-}
-
 /// Who to credit a copy to.
 ///
 /// `NSPasteboard` carries no owner — unlike an X11 selection, which belongs to
@@ -277,4 +260,21 @@ fn icon_png(app: &NSRunningApplication) -> Option<Vec<u8>> {
     let mut png = std::io::Cursor::new(Vec::new());
     small.write_to(&mut png, image::ImageFormat::Png).ok()?;
     Some(png.into_inner())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn finder_file_references_resolve_to_paths() {
+        let path = std::env::current_exe().unwrap().canonicalize().unwrap();
+        let url = NSURL::fileURLWithPath(&NSString::from_str(path.to_str().unwrap()));
+        let reference = url.fileReferenceURL().unwrap().absoluteString().unwrap();
+        assert!(reference.to_string().contains("/.file/id="));
+        assert_eq!(
+            url_to_path(&reference.to_string()).canonicalize().unwrap(),
+            path
+        );
+    }
 }
