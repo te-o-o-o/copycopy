@@ -129,7 +129,11 @@ unsafe extern "system" fn wnd_proc(
         if let Some((event, source)) = unsafe { read_clipboard(hwnd) } {
             SENDER.with(|s| {
                 if let Some(tx) = s.borrow().as_ref() {
-                    let _ = tx.send(Capture { event, source });
+                    let _ = tx.send(Capture {
+                        event,
+                        source,
+                        icon: None,
+                    });
                 }
             });
         }

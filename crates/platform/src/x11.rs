@@ -173,7 +173,14 @@ fn run(conn: RustConnection, window: u32, atoms: Atoms, tx: Sender<Capture>) {
                 if redundant {
                     continue;
                 }
-                if tx.send(Capture { event, source }).is_err() {
+                if tx
+                    .send(Capture {
+                        event,
+                        source,
+                        icon: None,
+                    })
+                    .is_err()
+                {
                     return; // L'UI est partie.
                 }
             }

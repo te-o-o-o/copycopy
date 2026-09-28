@@ -84,6 +84,7 @@ fn run(tx: Sender<Capture>) {
                 event,
                 // Polling cannot tell where the content came from.
                 source: String::new(),
+                icon: None,
             })
             .is_err()
         {

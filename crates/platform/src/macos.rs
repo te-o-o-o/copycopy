@@ -5,6 +5,7 @@
 //! workaround here, it is the official API — and what every clipboard manager
 //! on this platform does.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::time::Duration;
@@ -12,13 +13,18 @@ use std::time::Duration;
 use copycopy_core::ClipEvent;
 use objc2_app_kit::{
     NSPasteboard, NSPasteboardType, NSPasteboardTypeFileURL, NSPasteboardTypePNG,
-    NSPasteboardTypeString, NSPasteboardTypeTIFF,
+    NSPasteboardTypeString, NSPasteboardTypeTIFF, NSRunningApplication, NSWorkspace,
 };
 use objc2_foundation::{NSString, NSURL};
 
 use crate::Capture;
 
 const INTERVAL: Duration = Duration::from_millis(200);
+
+/// Icons are normalised to this before they leave the backend: an application
+/// icon arrives at whatever size its bundle ships, sometimes 1024 square, and
+/// the interface draws it at a dozen pixels.
+const ICON_SIZE: u32 = 32;
 
 /// Conventions honoured by macOS password managers (1Password, Bitwarden and
 /// friends) to ask that the content not be recorded in history.
@@ -37,9 +43,17 @@ pub fn spawn(tx: Sender<Capture>) -> Result<(), String> {
 fn run(tx: Sender<Capture>) {
     let pasteboard = NSPasteboard::generalPasteboard();
     let mut last_change = pasteboard.changeCount();
+    let mut front = Frontmost::new();
 
     loop {
         std::thread::sleep(INTERVAL);
+
+        // Read who is in front *before* looking at the clipboard, and at every
+        // tick rather than only when something was copied: the answer then
+        // predates the copy instead of following it, which is the difference
+        // between naming the application that copied and naming the one the
+        // user switched to afterwards.
+        front.observe();
 
         let change = pasteboard.changeCount();
         if change == last_change {
@@ -53,12 +67,12 @@ fn run(tx: Sender<Capture>) {
         let Some(event) = read(&pasteboard) else {
             continue;
         };
+        let (source, icon) = front.source();
         if tx
             .send(Capture {
                 event,
-                // macOS does not expose which application wrote to the
-                // clipboard: `NSPasteboard` does not carry that information.
-                source: String::new(),
+                source,
+                icon,
             })
             .is_err()
         {
@@ -173,4 +187,94 @@ mod tests {
             path
         );
     }
+}
+
+/// Who to credit a copy to.
+///
+/// `NSPasteboard` carries no owner — unlike an X11 selection, which belongs to
+/// a window, or the Windows clipboard, which answers `GetClipboardOwner`. Every
+/// clipboard manager on this platform therefore credits the application that
+/// was in front when `changeCount` moved, and so does this one.
+///
+/// It is a guess, and the one case it gets wrong is worth stating: copy, then
+/// switch application within the polling interval, and the copy is credited to
+/// the application you switched to. Observing at every tick keeps that window
+/// to the 200 ms it cannot avoid.
+struct Frontmost {
+    /// Our own bundle identifier. The window opens in front of everything, so
+    /// without this copycopy would end up crediting itself.
+    us: Option<String>,
+    /// The last application seen in front that was not us: its identifier, and
+    /// the name to show.
+    current: Option<(String, String)>,
+    /// One icon per application, converted once. The same bytes then travel
+    /// with every capture from that source; the interface keeps one copy.
+    icons: HashMap<String, Option<Vec<u8>>>,
+}
+
+impl Frontmost {
+    fn new() -> Self {
+        Self {
+            us: NSRunningApplication::currentApplication()
+                .bundleIdentifier()
+                .map(|id| id.to_string()),
+            current: None,
+            icons: HashMap::new(),
+        }
+    }
+
+    fn observe(&mut self) {
+        let Some(app) = NSWorkspace::sharedWorkspace().frontmostApplication() else {
+            return;
+        };
+        // No bundle identifier: a process with no `Info.plist`, which the name
+        // alone still identifies well enough to key an icon on.
+        let id = app
+            .bundleIdentifier()
+            .map(|id| id.to_string())
+            .or_else(|| app.localizedName().map(|n| n.to_string()));
+        let Some(id) = id else { return };
+        if self.us.as_deref() == Some(id.as_str()) {
+            return;
+        }
+        let name = app
+            .localizedName()
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| id.clone());
+
+        if !self.icons.contains_key(&id) {
+            let png = icon_png(&app);
+            let _ = self.icons.insert(id.clone(), png);
+        }
+        self.current = Some((id, name));
+    }
+
+    fn source(&self) -> (String, Option<Vec<u8>>) {
+        match &self.current {
+            Some((id, name)) => (
+                name.clone(),
+                self.icons.get(id).cloned().unwrap_or_default(),
+            ),
+            None => (String::new(), None),
+        }
+    }
+}
+
+/// The application's icon as a small PNG.
+///
+/// Through TIFF rather than AppKit's drawing APIs: `NSImage` would have to be
+/// redrawn into a sized context, which drags in graphics contexts and their
+/// main-thread rules, while this crate already decodes TIFF and encodes PNG for
+/// the clipboard itself.
+fn icon_png(app: &NSRunningApplication) -> Option<Vec<u8>> {
+    let tiff = app.icon()?.TIFFRepresentation()?.to_vec();
+    let decoded = image::load_from_memory_with_format(&tiff, image::ImageFormat::Tiff).ok()?;
+    let small = decoded.resize_exact(
+        ICON_SIZE,
+        ICON_SIZE,
+        image::imageops::FilterType::CatmullRom,
+    );
+    let mut png = std::io::Cursor::new(Vec::new());
+    small.write_to(&mut png, image::ImageFormat::Png).ok()?;
+    Some(png.into_inner())
 }

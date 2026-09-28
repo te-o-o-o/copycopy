@@ -326,6 +326,10 @@ pub const ROW_GAP: f32 = 3.0;
 /// undecorated window gives no other affordance, and a thin band is hard to
 /// aim at.
 pub const EDGE: f32 = 10.0;
+/// The source application's icon on a row's meta line. Thirteen pixels, to sit
+/// on an eleven-pixel line without pushing it taller — the row's height is what
+/// the virtualisation counts on.
+pub const SOURCE_ICON: f32 = 13.0;
 /// Width of one slot in a row's gutters. A gutter is always laid out, whether
 /// or not anything is drawn in it, so the preview always clips at the same x
 /// instead of shifting when a row is hovered or pinned.

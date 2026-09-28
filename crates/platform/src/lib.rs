@@ -30,6 +30,17 @@ pub use setter::Setter;
 pub struct Capture {
     pub event: ClipEvent,
     pub source: String,
+    /// The source application's icon, as PNG bytes — the same icon its dock or
+    /// taskbar shows.
+    ///
+    /// It belongs to the *application*, not to this capture: a backend answers
+    /// the same bytes for every copy from the same source, and the interface
+    /// keeps one copy per source rather than one per entry. At a hundred
+    /// thousand entries the distinction is the whole design.
+    ///
+    /// `None` where the platform cannot name the source at all — Wayland — or
+    /// has not learnt its icon yet.
+    pub icon: Option<Vec<u8>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
