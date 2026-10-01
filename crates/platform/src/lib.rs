@@ -177,6 +177,20 @@ pub(crate) fn secret_marked() -> Option<bool> {
     None
 }
 
+/// Whether a window at `x, y` sized `w, h` would show on a connected screen.
+///
+/// Only Windows needs asking: it alone honours coordinates that land off
+/// every monitor. Elsewhere the answer is always yes.
+#[cfg(target_os = "windows")]
+pub fn on_screen(x: f32, y: f32, w: f32, h: f32) -> bool {
+    windows::on_screen(x, y, w, h)
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn on_screen(_x: f32, _y: f32, _w: f32, _h: f32) -> bool {
+    true
+}
+
 /// A normalised picture: PNG bytes, plus its dimensions when they are known.
 ///
 /// This and the two helpers below serve the Linux backends only: X11 and

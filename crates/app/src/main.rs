@@ -587,6 +587,8 @@ impl State {
         let position = self
             .config
             .position
+            // A screen unplugged since would leave the window out of sight.
+            .filter(|&(x, y)| copycopy_platform::on_screen(x, y, size.width, size.height))
             .map(|(x, y)| window::Position::Specific(iced::Point::new(x, y)))
             .unwrap_or(window::Position::Centered);
         let (id, task) = window::open(window::Settings {
