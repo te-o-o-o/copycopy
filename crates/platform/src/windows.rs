@@ -375,3 +375,21 @@ fn dib_to_png(dib: &[u8]) -> Option<Vec<u8>> {
         .ok()?;
     Some(png)
 }
+
+/// Whether a rectangle overlaps a connected monitor. Windows places a window
+/// wherever it is told, so a position remembered on a screen since unplugged
+/// opens the popup where nobody can see it.
+// ponytail: the remembered position is logical and monitor bounds physical; an
+// overlap test absorbs the gap at the scales in use. Convert if one shows up.
+pub fn on_screen(x: f32, y: f32, w: f32, h: f32) -> bool {
+    use windows_sys::Win32::Foundation::RECT;
+    use windows_sys::Win32::Graphics::Gdi::{MonitorFromRect, MONITOR_DEFAULTTONULL};
+    let rect = RECT {
+        left: x as i32,
+        top: y as i32,
+        right: (x + w) as i32,
+        bottom: (y + h) as i32,
+    };
+    // SAFETY: reads the rectangle and nothing else.
+    !unsafe { MonitorFromRect(&rect, MONITOR_DEFAULTTONULL) }.is_null()
+}
