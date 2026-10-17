@@ -102,7 +102,7 @@ pub fn set_taskbar(window: &dyn iced::window::Window) {
     // AND mask stays empty — its rows padded to 16 bits, as a monochrome
     // bitmap's are, or 40 pixels at 125 % would read past the end.
     let mut bgra = rgba(size);
-    for px in bgra.chunks_exact_mut(4) {
+    for px in bgra.as_chunks_mut::<4>().0 {
         px.swap(0, 2);
     }
     let mask = vec![0u8; (size.div_ceil(16) * 2 * size) as usize];
