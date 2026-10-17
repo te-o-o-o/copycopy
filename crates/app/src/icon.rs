@@ -77,6 +77,60 @@ pub fn window() -> Option<iced::window::Icon> {
     iced::window::icon::from_rgba(rgba(SIZE), SIZE, SIZE).ok()
 }
 
+/// Sets the big icon (`ICON_BIG`), the one the taskbar shows. iced only passes
+/// `window()` to winit's `with_window_icon`, which on Windows is `ICON_SMALL`
+/// alone — the title bar's — and winit's `with_taskbar_icon` is not reachable
+/// through iced's settings. Without a big icon, and with no icon resource in
+/// the `.exe`, the taskbar falls back to the generic one.
+#[cfg(target_os = "windows")]
+pub fn set_taskbar(window: &dyn iced::window::Window) {
+    use iced::window::raw_window_handle::RawWindowHandle;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        CreateIcon, GetSystemMetrics, SendMessageW, ICON_BIG, SM_CXICON, WM_SETICON,
+    };
+
+    let Ok(handle) = window.window_handle() else {
+        return;
+    };
+    let RawWindowHandle::Win32(handle) = handle.as_raw() else {
+        return;
+    };
+    // Drawn at the size the system asks for, which follows the DPI, rather
+    // than scaled down from a fixed one.
+    let size = (unsafe { GetSystemMetrics(SM_CXICON) }).clamp(16, 256) as u32;
+    // `CreateIcon` wants BGRA; the alpha channel carries the shape, so the
+    // AND mask stays empty — its rows padded to 16 bits, as a monochrome
+    // bitmap's are, or 40 pixels at 125 % would read past the end.
+    let mut bgra = rgba(size);
+    for px in bgra.chunks_exact_mut(4) {
+        px.swap(0, 2);
+    }
+    let mask = vec![0u8; (size.div_ceil(16) * 2 * size) as usize];
+    let icon = unsafe {
+        CreateIcon(
+            std::ptr::null_mut(),
+            size as i32,
+            size as i32,
+            1,
+            32,
+            mask.as_ptr(),
+            bgra.as_ptr(),
+        )
+    };
+    if icon.is_null() {
+        return;
+    }
+    // Never destroyed: the window keeps it for the life of the process.
+    unsafe {
+        SendMessageW(
+            handle.hwnd.get() as _,
+            WM_SETICON,
+            ICON_BIG as usize,
+            icon as isize,
+        )
+    };
+}
+
 fn lerp(from: f32, to: f32, t: f32) -> f32 {
     from + (to - from) * t
 }

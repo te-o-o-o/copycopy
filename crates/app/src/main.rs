@@ -1268,6 +1268,7 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             Task::batch([
                 window::gain_focus(id),
                 iced::widget::operation::focus(SEARCH_ID),
+                taskbar_icon(id),
             ])
         }
         Message::DragWindow => match state.window {
@@ -1502,6 +1503,18 @@ fn subscription(state: &State) -> Subscription<Message> {
         subs.push(iced::time::every(Duration::from_millis(300)).map(|_| Message::Shot));
     }
     Subscription::batch(subs)
+}
+
+/// The taskbar's icon, which iced leaves unset on Windows: see
+/// `icon::set_taskbar`.
+#[cfg(target_os = "windows")]
+fn taskbar_icon(id: window::Id) -> Task<Message> {
+    window::run(id, icon::set_taskbar).discard()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn taskbar_icon(_: window::Id) -> Task<Message> {
+    Task::none()
 }
 
 /// Drives the defaults of the widgets iced styles itself — the caret and the
