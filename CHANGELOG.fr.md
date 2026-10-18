@@ -1,6 +1,6 @@
 # Journal des modifications
 
-## 0.2.0 (non publiée)
+## 0.2.0 (2026-10-18)
 
 ### Ajouts
 

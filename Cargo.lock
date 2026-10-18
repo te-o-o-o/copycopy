@@ -600,7 +600,7 @@ dependencies = [
 
 [[package]]
 name = "copycopy"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "auto-launch",
  "copycopy-core",
@@ -620,14 +620,14 @@ dependencies = [
 
 [[package]]
 name = "copycopy-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rusqlite",
 ]
 
 [[package]]
 name = "copycopy-platform"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arboard",
  "copycopy-core",
