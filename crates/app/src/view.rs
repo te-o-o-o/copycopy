@@ -604,7 +604,7 @@ fn list(state: &State, p: Palette) -> Element<'_, Message> {
             weight,
             state.hovered == Some(index),
             state.copied.is_some_and(|c| c.id == item.id),
-            state.icons.get(item.source.as_str()),
+            state,
             p,
         ));
     }
@@ -652,10 +652,12 @@ fn row_widget<'a>(
     selected: f32,
     hovered: bool,
     copied: bool,
-    icon: Option<&iced::widget::image::Handle>,
+    state: &'a State,
     p: Palette,
 ) -> Element<'a, Message> {
     let lit = selected > 0.5;
+    let icon = state.icons.get(item.source.as_str());
+    let missing = state.missing.get(&item.hash).copied().unwrap_or(0);
 
     // Always present, transparent when the row is not selected, so the content
     // width does not shift from one row to the next.
@@ -744,7 +746,15 @@ fn row_widget<'a>(
                 weight: iced::font::Weight::Semibold,
                 ..Font::DEFAULT
             })
-            .color(if lit { p.bright } else { p.text })
+            // Faded when the files are gone: still listed, but no longer
+            // something to reach for.
+            .color(if missing > 0 {
+                p.faint
+            } else if lit {
+                p.bright
+            } else {
+                p.text
+            })
             .wrapping(text::Wrapping::None),
     )
     .width(Length::Fill)
@@ -790,12 +800,31 @@ fn row_widget<'a>(
         }
         None => None,
     };
-    let meta_line: Element<'_, Message> = match mark {
-        Some(mark) => row![mark, Space::new().width(Length::Fixed(5.0)), words]
-            .align_y(iced::Alignment::Center)
-            .into(),
-        None => words.into(),
-    };
+    // A separate text, so the warning can take its own colour.
+    let gone = (missing > 0).then(|| {
+        let label = match item.payload {
+            copycopy_core::Payload::Files(ref paths) if missing < paths.len() => format!(
+                "  ·  {missing} introuvable{}",
+                if missing > 1 { "s" } else { "" }
+            ),
+            _ => "  ·  introuvable".to_string(),
+        };
+        text(label)
+            .size(10.0)
+            .color(p.tint_code)
+            .wrapping(text::Wrapping::None)
+    });
+    // `None` pushes nothing: iced turns it into an empty element.
+    let mark_gap = mark
+        .is_some()
+        .then(|| Space::new().width(Length::Fixed(5.0)));
+    let meta_line: Element<'_, Message> = row![]
+        .push(mark)
+        .push(mark_gap)
+        .push(words)
+        .push(gone)
+        .align_y(iced::Alignment::Center)
+        .into();
 
     let meta = container(meta_line).width(Length::Fill).clip(true);
 
@@ -939,7 +968,15 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         } => format!("{w}×{h}"),
         Preview::Files(paths) => {
             let n = paths.len();
-            format!("{n} {}", plural(n, "fichier", "fichiers"))
+            let gone = paths.iter().filter(|(_, exists)| !exists).count();
+            let mut detail = format!("{n} {}", plural(n, "fichier", "fichiers"));
+            if gone > 0 {
+                detail.push_str(&format!(
+                    "  ·  {gone} {}",
+                    plural(gone, "introuvable", "introuvables")
+                ));
+            }
+            detail
         }
         _ => String::new(),
     };
@@ -1017,12 +1054,18 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
                 .into()
         }
         Preview::Files(paths) => framed(
-            iced::widget::Column::with_children(paths.iter().map(|path| {
-                text(path.as_str())
+            iced::widget::Column::with_children(paths.iter().map(|(path, exists)| {
+                let path = text(path.as_str())
                     .size(12.5)
                     .font(Font::MONOSPACE)
-                    .color(p.text)
-                    .into()
+                    .color(if *exists { p.text } else { p.faint });
+                if *exists {
+                    path.into()
+                } else {
+                    row![path, text("  introuvable").size(11.0).color(p.tint_code)]
+                        .align_y(iced::Alignment::Center)
+                        .into()
+                }
             }))
             .spacing(6)
             .into(),
