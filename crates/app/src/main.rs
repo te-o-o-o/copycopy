@@ -388,6 +388,9 @@ pub enum Message {
     DragWindow,
     ResizeFrom(window::Direction),
     WindowOpened(window::Id),
+    /// The event loop is running: what the platform only accepts after
+    /// launch can be done now.
+    Launched,
     WindowEvent(window::Id, window::Event),
     Shot,
     Screenshotted(iced::window::Screenshot),
@@ -937,8 +940,6 @@ fn remember_icon(state: &mut State, source: &str, icon: Option<Vec<u8>>) {
 }
 
 fn boot() -> (State, Task<Message>) {
-    #[cfg(target_os = "macos")]
-    icon::set_dock();
     let args = parse_args();
     let mut config = Config::load();
     // Before the file is written, so a preference the system no longer agrees
@@ -1068,7 +1069,10 @@ fn boot() -> (State, Task<Message>) {
     };
     state.refilter();
 
-    let mut tasks = Vec::new();
+    // Not set here: iced boots the program before the event loop runs, so
+    // before AppKit has finished launching, and finishing launching puts the
+    // default icon back over ours. A task only runs once the loop does.
+    let mut tasks = vec![Task::done(Message::Launched)];
     if args.open {
         tasks.push(state.open_window(true));
     }
@@ -1304,6 +1308,11 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             ipc::QUIT => state.quit(),
             _ => Task::none(),
         },
+        Message::Launched => {
+            #[cfg(target_os = "macos")]
+            icon::set_dock();
+            Task::none()
+        }
         Message::WindowOpened(id) => {
             state.window = Some(id);
             state.opened_at = Some(Instant::now());
