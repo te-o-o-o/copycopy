@@ -349,6 +349,9 @@ departures:
   "Surligneur" (white, highlighter-yellow selection, the logo's magenta as
   accent) are now the defaults, and the mockup's "Clinique" pair stays in the
   settings. The header icon switches within a pair.
+- **A colour per application.** When the platform gives no icon for the
+  source, a small square stands in for it, its colour chosen from the name
+  (`theme::app_colour`, FNV-1a so it never changes between releases).
 
 The magnifier in the search bar is drawn on a `canvas` rather than taken from a
 font: crisp at every scale and independent of which glyphs happen to exist.

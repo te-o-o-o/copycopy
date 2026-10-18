@@ -264,6 +264,9 @@ pub const EDGE: f32 = 10.0;
 /// on an eleven-pixel line without pushing it taller — the row's height is what
 /// the virtualisation counts on.
 pub const SOURCE_ICON: f32 = 13.0;
+/// The coloured square standing in for that icon when there is none. Smaller
+/// than the icon: a flat square reads heavier than a drawing of the same size.
+pub const SOURCE_SWATCH: f32 = 10.0;
 /// Width of one slot in a row's gutters. A gutter is always laid out, whether
 /// or not anything is drawn in it, so the preview always clips at the same x
 /// instead of shifting when a row is hovered or pinned.
@@ -281,6 +284,28 @@ pub fn badge(kind: copycopy_core::Kind) -> &'static str {
         Kind::Image => "IMG",
         Kind::Files => "DIR",
     }
+}
+
+/// The colour of the square beside the source's name, when the platform gave
+/// no icon: one per application, the same from one run, and one release, to
+/// the next. Chosen from the name with FNV-1a rather than `DefaultHasher`,
+/// whose output Rust does not promise to keep. Mid-tones, so every one reads on
+/// both the indigo and the white card.
+pub fn app_colour(source: &str) -> Color {
+    const COLOURS: [Color; 8] = [
+        rgb(0x3B, 0x82, 0xF6),
+        rgb(0xE0, 0x54, 0x8E),
+        rgb(0xF5, 0x9E, 0x0B),
+        rgb(0x10, 0xB9, 0x81),
+        rgb(0x8B, 0x5C, 0xF6),
+        rgb(0xEF, 0x6C, 0x35),
+        rgb(0x06, 0xB6, 0xD4),
+        rgb(0x84, 0xCC, 0x16),
+    ];
+    let hash = source.bytes().fold(0x811C_9DC5_u32, |h, b| {
+        (h ^ u32::from(b.to_ascii_lowercase())).wrapping_mul(0x0100_0193)
+    });
+    COLOURS[hash as usize % COLOURS.len()]
 }
 
 pub fn alpha(color: Color, a: f32) -> Color {
@@ -319,5 +344,17 @@ pub fn separator(p: Palette) -> impl Fn(&Theme) -> iced::widget::container::Styl
     move |_theme| iced::widget::container::Style {
         background: Some(Background::Color(p.border)),
         ..Default::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_application_keeps_its_colour() {
+        // Case does not matter, and two common sources do not collide.
+        assert_eq!(app_colour("Firefox"), app_colour("firefox"));
+        assert_ne!(app_colour("Firefox"), app_colour("Terminal"));
     }
 }
