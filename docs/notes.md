@@ -343,8 +343,12 @@ departures:
 - **Badges name the type, not the language** — `{ }`, not `RS` or `SQL`. The
   language is not stored with an entry, and detecting it for every visible row
   on every frame would break the rule that nothing is computed in `view()`.
-- **Only two themes.** Purpledream, Aalto and Matrix went with it; so did the
-  Matrix rain, the one `stack` the application had.
+- **Two pairs of themes.** Purpledream, Aalto and Matrix went with it; so did the
+  Matrix rain, the one `stack` the application had. A second pair came
+  later, palettes only, layout untouched: "Minuit" (indigo, coral accent) and
+  "Surligneur" (white, highlighter-yellow selection, the logo's magenta as
+  accent) are now the defaults, and the mockup's "Clinique" pair stays in the
+  settings. The header icon switches within a pair.
 
 The magnifier in the search bar is drawn on a `canvas` rather than taken from a
 font: crisp at every scale and independent of which glyphs happen to exist.

@@ -1520,9 +1520,10 @@ fn taskbar_icon(_: window::Id) -> Task<Message> {
 /// Drives the defaults of the widgets iced styles itself — the caret and the
 /// text selection of the search field — so they follow the palette too.
 fn theme_of(state: &State, _window: window::Id) -> Theme {
-    match state.config.theme {
-        theme::Mode::Dark => Theme::Dark,
-        theme::Mode::Light => Theme::Light,
+    if state.palette().light {
+        Theme::Light
+    } else {
+        Theme::Dark
     }
 }
 
