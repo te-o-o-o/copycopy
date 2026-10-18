@@ -366,7 +366,7 @@ last resort — never as the default choice.
 | **Linux / X11** | XFixes `SelectionNotify` | event-driven | `WM_CLASS`, else `_NET_WM_PID` | **tested here** |
 | **Linux / Wayland** | `ext-data-control-v1`, falling back to `zwlr-data-control-v1` | event-driven | *unavailable* | written, **never run** |
 | **Windows** | `AddClipboardFormatListener` on a message-only window | event-driven | `GetClipboardOwner` → `QueryFullProcessImageNameW` | written, **never run** |
-| **macOS** | `NSPasteboard.changeCount` (200 ms) | polling | *unavailable* | run on Apple Silicon |
+| **macOS** | `NSPasteboard.changeCount` (200 ms) | polling | *unavailable* | in daily use on Apple Silicon |
 | *universal fallback* | `arboard` (200 ms) | polling | *unavailable* | tested here |
 
 macOS polling is not a workaround: Apple exposes no change notification at all,
@@ -377,7 +377,7 @@ macOS polling is not a workaround: Apple exposes no change notification at all,
 - X11: run and tested (text, URLs, code, CJK, Arabic, emoji, PNG, files, INCR
   over 400 KiB, deduplication, source attribution).
 - Windows: run for real, in daily use.
-- macOS: run on Apple Silicon (macOS 26) — text and image capture, files
+- macOS: in daily use on Apple Silicon (macOS 26) — text and image capture, files
   copied in Finder, the window, the `Cmd+Shift+V` shortcut, copying back and
   auto-paste.
   The concealed types and autostart have not been checked one by one yet.

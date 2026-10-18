@@ -18,18 +18,20 @@
 
 <table align="center">
   <tr>
-    <td align="center"><img src="docs/light.png" width="420" alt="copycopy, thème clair : l'historique à gauche, un extrait Rust épinglé affiché en couleur à droite"><br><sub>Clair</sub></td>
-    <td align="center"><img src="docs/dark.png" width="420" alt="copycopy, thème sombre : le même historique"><br><sub>Sombre</sub></td>
+    <td align="center"><img src="docs/light.png" width="420" alt="copycopy, thème clair Surligneur : l'historique à gauche, un extrait Rust épinglé affiché en couleur à droite"><br><sub>Surligneur, clair</sub></td>
+    <td align="center"><img src="docs/dark.png" width="420" alt="copycopy, thème sombre Minuit : le même historique"><br><sub>Minuit, sombre</sub></td>
   </tr>
 </table>
+
+<p align="center"><sub>D'autres thèmes dans les réglages : Clinique, clair et sombre.</sub></p>
 
 Texte, code, liens, images, fichiers : un petit résident garde tout ce que vous
 copiez, et un raccourci le ramène. Anglais, 日本語, emoji 🎉 et code compris.
 
 ## Fonctionnalités
 
-- **Capture tout** : texte, code, liens, images et fichiers — et, sous Windows
-  et X11, l'application d'où ils viennent.
+- **Capture tout** : texte, code, liens, images et fichiers — et, sous
+  Windows, macOS et X11, l'application d'où ils viennent.
 - **Recherche par n'importe quel fragment**, dans tout l'historique, pas
   seulement ce qui est à l'écran.
 - **Filtres** par type — texte, code, URL, images, fichiers — avec
@@ -37,11 +39,16 @@ copiez, et un raccourci le ramène. Anglais, 日本語, emoji 🎉 et code compr
 - **Aperçu complet** : le code en couleur, son langage reconnu d'après
   l'extrait seul ; les images, y compris les fichiers image copiés dans le
   Finder ou l'Explorateur.
+- **Les fichiers repartent comme des fichiers** : collez-les dans un
+  gestionnaire de fichiers, une messagerie ou un mail, ou glissez-les
+  directement hors de la liste (Windows, macOS). Ceux qui ont été déplacés ou
+  supprimés depuis sont signalés.
 - **Épinglez** ce qui resert, supprimez le reste.
 - **Collage automatique** (optionnel) : l'entrée arrive là où était votre
   curseur. Partout sauf sous Wayland.
 - **Démarre avec la session** (optionnel), en silence, en arrière-plan.
-- **Thèmes clair et sombre**.
+- **Deux paires de thèmes clair et sombre** : Minuit et Surligneur, ou
+  Clinique.
 - **Les secrets ne sont jamais conservés** : ce qu'un gestionnaire de mots de
   passe marque comme confidentiel est écarté avant d'être écrit.
 - **Rien ne sort de la machine** : pas de compte, pas de nuage, pas de
@@ -75,7 +82,7 @@ cargo build --release -p copycopy && ./target/release/copycopy
 
 ## Utiliser
 
-| | |
+| Touche | Action |
 |---|---|
 | **`Cmd+Shift+V`** (macOS), **`Ctrl+Alt+V`** (ailleurs) | ouvrir la fenêtre |
 | taper | chercher |
@@ -85,10 +92,10 @@ cargo build --release -p copycopy && ./target/release/copycopy
 
 ## Où ça tourne
 
-| | |
+| Système | État |
 |---|---|
 | Windows | utilisé au quotidien |
-| macOS | lancé sur Apple Silicon |
+| macOS | utilisé au quotidien, sur Apple Silicon |
 | Linux X11 | lancé et testé |
 | Linux Wayland | compilé par le CI, jamais lancé : liez un raccourci à `copycopy --show` dans votre compositeur |
 

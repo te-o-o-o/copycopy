@@ -384,7 +384,7 @@ comme dernier recours — jamais comme choix par défaut.
 | **Linux / X11** | XFixes `SelectionNotify` | événementiel | `WM_CLASS`, sinon `_NET_WM_PID` | **testé ici** |
 | **Linux / Wayland** | `ext-data-control-v1`, repli `zwlr-data-control-v1` | événementiel | *indisponible* | écrit, **jamais exécuté** |
 | **Windows** | `AddClipboardFormatListener` sur fenêtre message-only | événementiel | `GetClipboardOwner` → `QueryFullProcessImageNameW` | écrit, **jamais exécuté** |
-| **macOS** | `NSPasteboard.changeCount` (200 ms) | sondage | *indisponible* | exécuté sur Apple Silicon |
+| **macOS** | `NSPasteboard.changeCount` (200 ms) | sondage | *indisponible* | utilisé au quotidien sur Apple Silicon |
 | *repli universel* | `arboard` (200 ms) | sondage | *indisponible* | testé ici |
 
 Le sondage sous macOS n'est pas un pis-aller : Apple n'expose aucune
@@ -395,7 +395,7 @@ notification de changement, `changeCount` est l'API.
 - X11 : exécuté et testé (texte, URL, code, CJK, arabe, emoji, PNG, fichiers,
   INCR sur 400 Kio, déduplication, attribution de la source).
 - Windows : utilisé pour de vrai, au quotidien.
-- macOS : exécuté sur Apple Silicon (macOS 26) — capture de texte et
+- macOS : utilisé au quotidien sur Apple Silicon (macOS 26) — capture de texte et
   d'images, fichiers copiés dans le Finder, fenêtre, raccourci `Cmd+Shift+V`,
   recopie et collage automatique. Les types confidentiels et le démarrage automatique n'ont pas encore
   été vérifiés un à un. Le Finder ne copie pas des chemins mais des URL de
