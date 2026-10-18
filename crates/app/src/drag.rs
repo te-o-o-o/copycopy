@@ -160,14 +160,29 @@ fn ghost(paths: &[PathBuf]) -> drag::Image {
 /// AppKit to load the file itself *as an image*, which a text file, a PDF or a
 /// folder is not. TIFF because that is what `NSImage` hands out and what the
 /// crate's `Image::Raw` reads back.
+///
+/// Redrawn at `GHOST` first: the icon holds every size up to 1024 pixels, and
+/// read back from TIFF it took the largest, a ghost covering the screen
+/// beside the 160-pixel thumbnails of pictures.
 #[cfg(target_os = "macos")]
 fn finder_icon(path: &std::path::Path) -> Option<drag::Image> {
-    use objc2_app_kit::NSWorkspace;
-    use objc2_foundation::NSString;
+    use objc2::AllocAnyThread;
+    use objc2_app_kit::{NSImage, NSWorkspace};
+    use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 
     let path = NSString::from_str(path.to_str()?);
     let icon = NSWorkspace::sharedWorkspace().iconForFile(&path);
-    Some(drag::Image::Raw(icon.TIFFRepresentation()?.to_vec()))
+    let size = NSSize::new(f64::from(GHOST), f64::from(GHOST));
+    let ghost = NSImage::initWithSize(NSImage::alloc(), size);
+    // Deprecated for resolution independence, which is beside the point here:
+    // one bitmap at one size is exactly what is wanted.
+    #[allow(deprecated)]
+    {
+        ghost.lockFocus();
+        icon.drawInRect(NSRect::new(NSPoint::new(0.0, 0.0), size));
+        ghost.unlockFocus();
+    }
+    Some(drag::Image::Raw(ghost.TIFFRepresentation()?.to_vec()))
 }
 
 #[cfg(any(target_os = "windows", target_os = "macos"))]
