@@ -185,16 +185,20 @@ jobs:
 
       - name: Bundle and disk image
         run: |
-          app="dist/copycopy.app"
+          # The disk image holds the app and a link to /Applications, so it can
+          # be dragged into place. Without the link the app stayed on the
+          # read-only volume, where removing the quarantine cannot work.
+          app="dmg/copycopy.app"
           mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
           cp dist/copycopy "$app/Contents/MacOS/copycopy"
           rm dist/copycopy
           cp copycopy.icns "$app/Contents/Resources/copycopy.icns"
           sed "s/__VERSION__/${{ needs.version.outputs.version }}/g" \
             packaging/macos/Info.plist > "$app/Contents/Info.plist"
-          hdiutil create -volname copycopy -srcfolder "$app" -ov -format UDZO \
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname copycopy -srcfolder dmg -ov -format UDZO \
             dist/copycopy-macos-universal.dmg
-          rm -rf "$app"
+          rm -rf dmg
 
       - uses: actions/upload-artifact@v7
         with:
