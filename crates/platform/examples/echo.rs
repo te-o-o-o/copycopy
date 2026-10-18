@@ -9,6 +9,7 @@
 //!
 //!   cargo run --release -p copycopy-platform --example echo -- shot.png
 //!   cargo run --release -p copycopy-platform --example echo -- "some text"
+//!   cargo run --release -p copycopy-platform --example echo -- files:a.txt,b.pdf
 
 use std::time::{Duration, Instant};
 
@@ -25,7 +26,9 @@ fn main() {
         .and_then(|i| std::env::args().nth(i + 1));
 
     let path = std::path::PathBuf::from(&arg);
-    let payload = if path.is_file() {
+    let payload = if let Some(list) = arg.strip_prefix("files:") {
+        Payload::Files(list.split(',').map(std::path::PathBuf::from).collect())
+    } else if path.is_file() {
         Payload::Image {
             data: Image::File(path),
             size: None,

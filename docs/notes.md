@@ -389,6 +389,10 @@ macOS polling is not a workaround: Apple exposes no change notification at all,
   previewed as the picture rather than as its path.
   Finder also puts each file's icon beside its URL, as PNG and TIFF: files are
   therefore read before pictures, or the history keeps a generic icon.
+  A file entry is copied back as files, not as its paths in text, so pasting
+  into Finder copies them; the `echo` example (`files:a,b`) checked that they
+  come back as files and are recognised as our own write. Windows and Linux
+  use the same `arboard` call but have not been run.
 - Wayland: **compiled, linted and tested on a real runner** by the CI, at every
   push, and nothing more. It has never been executed: validate on the real
   platform before believing anything beyond that.
