@@ -171,13 +171,18 @@ impl canvas::Program<Message> for Pin {
     }
 }
 
-/// The application's mark: "cc" on a rounded tile, magenta fading to violet.
+/// The application's mark, from the geometry and colours `icon` rasterises
+/// for the taskbar and the installers, so the two cannot drift apart.
 ///
 /// Drawn rather than typeset, like every other glyph here: a bold monospace
-/// face is not guaranteed on every system, and the same geometry is meant to
-/// become the installers' icon. Brand colours, not palette ones — a logo does
-/// not change with the theme.
-struct LogoMark;
+/// face is not guaranteed on every system. Brand colours, not palette ones — a
+/// logo does not change with the theme.
+///
+/// The tile is Minuit's card colour, so on that theme it would vanish into the
+/// header: a hairline in the theme's outline colour keeps its edge.
+struct LogoMark {
+    rim: iced::Color,
+}
 
 impl canvas::Program<Message> for LogoMark {
     type State = ();
@@ -190,35 +195,42 @@ impl canvas::Program<Message> for LogoMark {
         bounds: Rectangle,
         _cursor: iced::mouse::Cursor,
     ) -> Vec<canvas::Geometry> {
+        use crate::icon;
+
         let mut frame = canvas::Frame::new(renderer, bounds.size());
         let side = bounds.width.min(bounds.height);
+        let rgb = |[r, g, b]: [u8; 3], a: f32| iced::Color::from_rgba8(r, g, b, a);
 
         let tile = canvas::Path::rounded_rectangle(
             Point::ORIGIN,
             Size::new(side, side),
-            (side * 0.27).into(),
+            (side * icon::CORNER).into(),
         );
-        let fill = canvas::gradient::Linear::new(Point::ORIGIN, Point::new(side, side))
-            .add_stop(0.0, iced::Color::from_rgb8(0xF0, 0x00, 0xA0))
-            .add_stop(1.0, iced::Color::from_rgb8(0x8A, 0x2B, 0xC2));
-        frame.fill(&tile, fill);
+        frame.fill(&tile, rgb(icon::TILE, 1.0));
+        frame.stroke(
+            &tile,
+            canvas::Stroke::default()
+                .with_color(self.rim)
+                .with_width(1.0),
+        );
 
-        // Two arcs open on the right: each "c" runs clockwise from 45° below
-        // the horizontal, round the left, to 45° above it.
-        let ink = canvas::Stroke::default()
-            .with_color(iced::Color::WHITE)
-            .with_width(side * 0.095)
-            .with_line_cap(canvas::LineCap::Round);
-        for centre_x in [0.33, 0.66] {
+        // Each arc open on the right: it runs clockwise from 45° below the
+        // horizontal, round the left, to 45° above it. Back to front, faded
+        // copies first.
+        for ((cx, cy), ink, opacity) in icon::ARCS {
             let c = canvas::Path::new(|b| {
                 b.arc(canvas::path::Arc {
-                    center: Point::new(side * centre_x, side * 0.5),
-                    radius: side * 0.15,
+                    center: Point::new(side * cx, side * cy),
+                    radius: side * icon::RING,
                     start_angle: iced::Radians(std::f32::consts::FRAC_PI_4),
                     end_angle: iced::Radians(7.0 * std::f32::consts::FRAC_PI_4),
                 });
             });
-            frame.stroke(&c, ink);
+            let stroke = canvas::Stroke::default()
+                .with_color(rgb(ink, opacity))
+                .with_width(side * 2.0 * icon::HALF_STROKE)
+                .with_line_cap(canvas::LineCap::Round);
+            frame.stroke(&c, stroke);
         }
         vec![frame.into_geometry()]
     }
@@ -482,7 +494,7 @@ fn header(state: &State, p: Palette) -> Element<'_, Message> {
     mouse_area(
         container(
             row![
-                canvas(LogoMark)
+                canvas(LogoMark { rim: p.outline })
                     .width(Length::Fixed(22.0))
                     .height(Length::Fixed(22.0)),
                 gap(),
