@@ -61,6 +61,14 @@ assets = [
 # to tell a drop back into our own window from a real one elsewhere.
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Console", "Win32_UI_WindowsAndMessaging"] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+# The Dock icon: winit ignores the window icon on macOS, so `icon::set_dock`
+# hands the mark to `NSApplication` itself. Already in the tree through the
+# platform crate.
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSResponder", "NSImage"] }
+objc2-foundation = { version = "0.3", features = ["NSData"] }
+
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # Dragging a row out of the window. Linux is missing on purpose: the crate
 # itself says winit cannot use it there yet, GTK only — see `drag.rs`.

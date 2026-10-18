@@ -131,6 +131,47 @@ pub fn set_taskbar(window: &dyn iced::window::Window) {
     };
 }
 
+/// Puts the mark in the Dock. winit ignores the window icon on macOS, and a
+/// binary run outside a bundle — `target/release/copycopy` — has no `.icns`
+/// either, so the Dock showed the generic executable.
+///
+/// The tile is drawn at 80 % of the canvas, centred: macOS icons leave that
+/// margin, and a tile filling the whole square looks a size too big beside
+/// the others.
+#[cfg(target_os = "macos")]
+pub fn set_dock() {
+    use objc2::AllocAnyThread;
+    use objc2_app_kit::{NSApplication, NSImage};
+    use objc2_foundation::{MainThreadMarker, NSData};
+
+    const CANVAS: u32 = 512;
+    const TILE: u32 = CANVAS * 4 / 5;
+
+    // AppKit only on the main thread; anywhere else, no icon rather than a crash.
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    let tile = rgba(TILE);
+    let offset = (CANVAS - TILE) / 2;
+    let mut canvas = image::RgbaImage::new(CANVAS, CANVAS);
+    let line = (TILE * 4) as usize;
+    for row in 0..TILE {
+        let from = row as usize * line;
+        let to = (((offset + row) * CANVAS + offset) * 4) as usize;
+        canvas.as_mut()[to..to + line].copy_from_slice(&tile[from..from + line]);
+    }
+    let mut png = std::io::Cursor::new(Vec::new());
+    if canvas.write_to(&mut png, image::ImageFormat::Png).is_err() {
+        return;
+    }
+    let data = NSData::from_vec(png.into_inner());
+    let Some(icon) = NSImage::initWithData(NSImage::alloc(), &data) else {
+        return;
+    };
+    // SAFETY: a real image, never `None`, which is what the setter is wary of.
+    unsafe { NSApplication::sharedApplication(mtm).setApplicationIconImage(Some(&icon)) };
+}
+
 fn lerp(from: f32, to: f32, t: f32) -> f32 {
     from + (to - from) * t
 }

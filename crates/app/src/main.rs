@@ -904,6 +904,8 @@ fn remember_icon(state: &mut State, source: &str, icon: Option<Vec<u8>>) {
 }
 
 fn boot() -> (State, Task<Message>) {
+    #[cfg(target_os = "macos")]
+    icon::set_dock();
     let args = parse_args();
     let mut config = Config::load();
     // Before the file is written, so a preference the system no longer agrees
