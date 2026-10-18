@@ -1308,7 +1308,7 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
     let themes = column![
         row![
             theme_pill("Minuit", crate::theme::Mode::Dark),
-            theme_pill("Surligneur", crate::theme::Mode::Light),
+            theme_pill("Lavande", crate::theme::Mode::Light),
         ]
         .spacing(8),
         row![

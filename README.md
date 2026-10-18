@@ -18,7 +18,7 @@
 
 <table align="center">
   <tr>
-    <td align="center"><img src="docs/light.png" width="420" alt="copycopy, Surligneur light theme: the history on the left, a pinned Rust snippet shown in colour on the right"><br><sub>Surligneur, light</sub></td>
+    <td align="center"><img src="docs/light.png" width="420" alt="copycopy, Lavande light theme: the history on the left, a pinned Rust snippet shown in colour on the right"><br><sub>Lavande, light</sub></td>
     <td align="center"><img src="docs/dark.png" width="420" alt="copycopy, Minuit dark theme: the same history"><br><sub>Minuit, dark</sub></td>
   </tr>
 </table>
@@ -44,7 +44,7 @@ and a shortcut brings it back. English, 日本語, emoji 🎉 and code all inclu
 - **Auto-paste** (optional): the entry lands where your cursor was. Everywhere
   but Wayland.
 - **Starts with your session** (optional), silently in the background.
-- **Two pairs of light and dark themes**: Minuit and Surligneur, or Clinique.
+- **Two pairs of light and dark themes**: Minuit and Lavande, or Clinique.
 - **Secrets are never stored**: whatever a password manager marks as
   confidential is dropped before it is written.
 - **Nothing leaves your machine**: no account, no cloud, no telemetry.

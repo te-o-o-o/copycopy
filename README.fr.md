@@ -18,7 +18,7 @@
 
 <table align="center">
   <tr>
-    <td align="center"><img src="docs/light.png" width="420" alt="copycopy, thème clair Surligneur : l'historique à gauche, un extrait Rust épinglé affiché en couleur à droite"><br><sub>Surligneur, clair</sub></td>
+    <td align="center"><img src="docs/light.png" width="420" alt="copycopy, thème clair Lavande : l'historique à gauche, un extrait Rust épinglé affiché en couleur à droite"><br><sub>Lavande, clair</sub></td>
     <td align="center"><img src="docs/dark.png" width="420" alt="copycopy, thème sombre Minuit : le même historique"><br><sub>Minuit, sombre</sub></td>
   </tr>
 </table>
@@ -47,7 +47,7 @@ copiez, et un raccourci le ramène. Anglais, 日本語, emoji 🎉 et code compr
 - **Collage automatique** (optionnel) : l'entrée arrive là où était votre
   curseur. Partout sauf sous Wayland.
 - **Démarre avec la session** (optionnel), en silence, en arrière-plan.
-- **Deux paires de thèmes clair et sombre** : Minuit et Surligneur, ou
+- **Deux paires de thèmes clair et sombre** : Minuit et Lavande, ou
   Clinique.
 - **Les secrets ne sont jamais conservés** : ce qu'un gestionnaire de mots de
   passe marque comme confidentiel est écarté avant d'être écrit.
