@@ -120,6 +120,12 @@ pub struct State {
     /// captures arrive and kept on disk beside the database so a restart does
     /// not start blind.
     pub icons: std::collections::HashMap<String, iced::widget::image::Handle>,
+    /// How many of a file entry's paths no longer exist, keyed by the entry's
+    /// hash; absent means all are there. Filled by `refilter` for the file
+    /// entries it has not checked yet, and emptied each time the window opens,
+    /// so a file is looked up once per opening — never in `view()`, and not
+    /// again on every keystroke of a search.
+    pub missing: std::collections::HashMap<u64, usize>,
     pub selected: usize,
     /// The selected index, animated. Each row derives its highlight from the
     /// distance to this value, so the outgoing row fades out while the
@@ -258,7 +264,8 @@ pub enum Preview {
         handle: iced::widget::image::Handle,
         size: Option<(u32, u32)>,
     },
-    Files(Vec<String>),
+    /// Each path, and whether it still exists.
+    Files(Vec<(String, bool)>),
     /// The entry exists but its content could not be read — an image whose
     /// file has gone, typically.
     Unavailable(String),
@@ -302,11 +309,19 @@ impl Preview {
             // One picture copied from a file manager — the everyday way to copy
             // an image on macOS — is shown as the picture, not as its path.
             Payload::Files(paths) => match paths.as_slice() {
+                [path] if !path.exists() => {
+                    Preview::Unavailable(format!("fichier introuvable : {}", path.display()))
+                }
                 [path] if is_picture(path) => Preview::Image {
                     handle: iced::widget::image::Handle::from_path(path),
                     size: image::image_dimensions(path).ok(),
                 },
-                _ => Preview::Files(paths.iter().map(|p| p.display().to_string()).collect()),
+                _ => Preview::Files(
+                    paths
+                        .iter()
+                        .map(|p| (p.display().to_string(), p.exists()))
+                        .collect(),
+                ),
             },
         }
     }
@@ -403,6 +418,13 @@ impl State {
         }
 
         pinned_first(&mut self.visible);
+        for item in &self.visible {
+            if let Payload::Files(paths) = &item.payload {
+                self.missing
+                    .entry(item.hash)
+                    .or_insert_with(|| paths.iter().filter(|p| !p.exists()).count());
+            }
+        }
         self.selected = self.selected.min(self.visible.len().saturating_sub(1));
         self.update_preview();
     }
@@ -546,6 +568,8 @@ impl State {
     /// on the first row. Done on the way **in**, never on the way out, so none
     /// of it is ever drawn over a window that is still disappearing.
     fn reset_for_open(&mut self) {
+        // Files may have moved or gone while the window was hidden.
+        self.missing.clear();
         self.query.clear();
         self.settings_open = false;
         self.kind_filter = None;
@@ -1018,6 +1042,7 @@ fn boot() -> (State, Task<Message>) {
         counts: FilterCounts::default(),
         data_dir: dir.clone(),
         icons: load_icons(dir.as_deref()),
+        missing: std::collections::HashMap::new(),
         selected: 0,
         selection: Animation::new(0.0).duration(SELECT_FADE),
         hovered: None,
