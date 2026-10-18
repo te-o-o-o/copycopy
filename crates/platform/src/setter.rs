@@ -30,15 +30,11 @@ impl Setter {
                 clip.set_text(t.clone()).map_err(|e| e.to_string())?;
                 self.last_written = Some(hash_event(&ClipEvent::Text(t.clone())));
             }
+            // As files, not as their paths in text: pasted into a file manager
+            // this copies the files, into a chat or a mail it attaches them.
             Payload::Files(paths) => {
-                let joined = paths
-                    .iter()
-                    .map(|p| p.display().to_string())
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                clip.set_text(joined.clone()).map_err(|e| e.to_string())?;
-                // Written as text, so text is what will come back.
-                self.last_written = Some(hash_event(&ClipEvent::Text(joined)));
+                clip.set().file_list(paths).map_err(|e| e.to_string())?;
+                self.last_written = Some(hash_event(&ClipEvent::Files(paths.clone())));
             }
             Payload::Image { data, .. } => {
                 let bytes = data.load()?;

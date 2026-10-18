@@ -408,6 +408,11 @@ notification de changement, `changeCount` est l'API.
   Le Finder dépose aussi l'icône de chaque fichier à côté de son URL, en PNG et
   en TIFF : les fichiers sont donc lus avant les images, sinon l'historique
   garde une icône générique.
+  Une entrée de fichiers est recopiée comme des fichiers, et non comme ses
+  chemins en texte : la coller dans le Finder copie les fichiers. L'exemple
+  `echo` (`files:a,b`) a vérifié qu'ils reviennent comme des fichiers et sont
+  reconnus comme notre propre écriture. Windows et Linux passent par le même
+  appel `arboard`, sans avoir été exécutés.
 - Wayland : **compilé, linté et testé sur un vrai runner** par le CI, à chaque
   push, et rien de plus. Il n'a jamais été exécuté : à valider sur la vraie
   plateforme avant d'en croire davantage.
