@@ -1113,7 +1113,14 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
                     Payload::Image { data, .. } => data.path().map(|p| vec![p.to_path_buf()]),
                     Payload::Files(paths) => Some(paths.clone()),
                     Payload::Text(_) => None,
-                });
+                })
+                // Only what still exists. A file moved or deleted since the
+                // copy cannot be dragged anywhere, and some dead paths are
+                // worse than useless: the `/.file/id=…` references stored
+                // before Finder URLs were resolved make `NSURL` return nil,
+                // and the `drag` crate panics on that, aborting the process.
+                .map(|paths| paths.into_iter().filter(|p| p.exists()).collect::<Vec<_>>())
+                .filter(|paths| !paths.is_empty());
             let (Some(paths), Some(id)) = (paths, state.window) else {
                 return Task::none();
             };

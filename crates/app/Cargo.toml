@@ -65,9 +65,12 @@ windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_
 # The Dock icon: winit ignores the window icon on macOS, so `icon::set_dock`
 # hands the mark to `NSApplication` itself. Already in the tree through the
 # platform crate.
-objc2 = "0.6"
-objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSResponder", "NSImage"] }
-objc2-foundation = { version = "0.3", features = ["NSData"] }
+# `exception`: an Objective-C exception thrown while a drag starts would
+# otherwise unwind through Rust frames and abort the process — see `drag.rs`.
+# `NSWorkspace` gives a dragged file its Finder icon.
+objc2 = { version = "0.6", features = ["exception"] }
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSResponder", "NSImage", "NSWorkspace"] }
+objc2-foundation = { version = "0.3", features = ["NSData", "NSString"] }
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # Dragging a row out of the window. Linux is missing on purpose: the crate

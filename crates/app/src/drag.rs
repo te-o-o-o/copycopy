@@ -62,6 +62,10 @@ pub fn start(window: &dyn Window, paths: Vec<PathBuf>) -> bool {
     dropped.load(Ordering::SeqCst)
 }
 
+/// AppKit reports problems by throwing Objective-C exceptions, and one thrown
+/// inside the `drag` crate unwinds through Rust frames that cannot unwind: the
+/// process aborted, with "panic in a function that cannot unwind" and no Rust
+/// panic message before it. Caught here, a failed drag is one log line.
 #[cfg(target_os = "macos")]
 pub fn start(window: &dyn Window, paths: Vec<PathBuf>) -> bool {
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -70,22 +74,31 @@ pub fn start(window: &dyn Window, paths: Vec<PathBuf>) -> bool {
     let icon = ghost(&paths);
     let dropped = Arc::new(AtomicBool::new(false));
     let flag = dropped.clone();
-    if let Err(e) = drag::start_drag(
-        &window,
-        drag::DragItem::Files(paths),
-        icon,
-        move |result, _cursor_position| {
-            flag.store(
-                matches!(result, drag::DragResult::Dropped),
-                Ordering::SeqCst,
-            );
-        },
-        drag::Options::default(),
-    ) {
-        eprintln!("glisser-déposer : {e}");
-        return false;
+    let started = objc2::exception::catch(std::panic::AssertUnwindSafe(|| {
+        drag::start_drag(
+            &window,
+            drag::DragItem::Files(paths),
+            icon,
+            move |result, _cursor_position| {
+                flag.store(
+                    matches!(result, drag::DragResult::Dropped),
+                    Ordering::SeqCst,
+                );
+            },
+            drag::Options::default(),
+        )
+    }));
+    match started {
+        Ok(Ok(())) => dropped.load(Ordering::SeqCst),
+        Ok(Err(e)) => {
+            eprintln!("glisser-déposer : {e}");
+            false
+        }
+        Err(exception) => {
+            eprintln!("glisser-déposer : exception AppKit {exception:?}");
+            false
+        }
     }
-    dropped.load(Ordering::SeqCst)
 }
 
 /// Whether a screen point still falls inside our own window — queried fresh
@@ -134,9 +147,27 @@ fn ghost(paths: &[PathBuf]) -> drag::Image {
             return thumb;
         }
     }
+    #[cfg(target_os = "macos")]
+    if let Some(icon) = finder_icon(&paths[0]) {
+        return icon;
+    }
     // `paths` is never empty: both callers build it from a `ClipItem` that
     // is already known to carry at least one path.
     drag::Image::File(paths[0].clone())
+}
+
+/// The file's icon as the Finder draws it. On macOS `drag::Image::File` asks
+/// AppKit to load the file itself *as an image*, which a text file, a PDF or a
+/// folder is not. TIFF because that is what `NSImage` hands out and what the
+/// crate's `Image::Raw` reads back.
+#[cfg(target_os = "macos")]
+fn finder_icon(path: &std::path::Path) -> Option<drag::Image> {
+    use objc2_app_kit::NSWorkspace;
+    use objc2_foundation::NSString;
+
+    let path = NSString::from_str(path.to_str()?);
+    let icon = NSWorkspace::sharedWorkspace().iconForFile(&path);
+    Some(drag::Image::Raw(icon.TIFFRepresentation()?.to_vec()))
 }
 
 #[cfg(any(target_os = "windows", target_os = "macos"))]
