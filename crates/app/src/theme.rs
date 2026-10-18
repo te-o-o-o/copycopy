@@ -10,11 +10,16 @@ const fn rgb(r: u8, g: u8, b: u8) -> Color {
 }
 
 /// Which palette is active. Lives in the configuration, so the choice survives
-/// a restart, and is switched from the header icon.
+/// a restart. Picked in the settings; the header icon switches between the
+/// dark and light halves of the same pair.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
+    /// Minuit.
     Dark,
+    /// Surligneur.
     Light,
+    CliniqueDark,
+    CliniqueLight,
 }
 
 impl Mode {
@@ -22,6 +27,8 @@ impl Mode {
         match self {
             Mode::Dark => Mode::Light,
             Mode::Light => Mode::Dark,
+            Mode::CliniqueDark => Mode::CliniqueLight,
+            Mode::CliniqueLight => Mode::CliniqueDark,
         }
     }
 
@@ -29,13 +36,19 @@ impl Mode {
         match self {
             Mode::Dark => DARK,
             Mode::Light => LIGHT,
+            Mode::CliniqueDark => CLINIQUE_DARK,
+            Mode::CliniqueLight => CLINIQUE_LIGHT,
         }
     }
 
+    /// Minuit and Surligneur keep the plain `dark` and `light`, so a
+    /// configuration written before they existed opens on the defaults.
     pub fn name(self) -> &'static str {
         match self {
             Mode::Dark => "dark",
             Mode::Light => "light",
+            Mode::CliniqueDark => "clinique-dark",
+            Mode::CliniqueLight => "clinique-light",
         }
     }
 
@@ -45,6 +58,8 @@ impl Mode {
         match value.trim().to_ascii_lowercase().as_str() {
             "dark" => Some(Mode::Dark),
             "light" => Some(Mode::Light),
+            "clinique-dark" => Some(Mode::CliniqueDark),
+            "clinique-light" => Some(Mode::CliniqueLight),
             _ => None,
         }
     }
@@ -97,9 +112,21 @@ pub struct Palette {
     pub frame: Color,
 }
 
-/// White at a given opacity: the dark theme's lines are drawn this way, so
-/// they stay the same weight over the card, a selection or the code frame.
+/// Lilac at a given opacity: the dark theme's lines are drawn this way, so
+/// they stay the same weight over the card, a selection or the code frame, and
+/// keep the indigo's cast instead of greying it.
 const fn veil(a: f32) -> Color {
+    Color {
+        r: 200.0 / 255.0,
+        g: 190.0 / 255.0,
+        b: 1.0,
+        a,
+    }
+}
+
+/// White at a given opacity, for Clinique's lines: the same idea as `veil`,
+/// on a ground that has no cast to keep.
+const fn white(a: f32) -> Color {
     Color {
         r: 1.0,
         g: 1.0,
@@ -108,13 +135,63 @@ const fn veil(a: f32) -> Color {
     }
 }
 
-/// "Clinique", dark: blue-grey graphite, one teal accent. Values are the
-/// redesign mockup's (variant G), unchanged.
+/// "Minuit", dark: deep indigo, a violet selection, one coral accent.
 pub const DARK: Palette = Palette {
     light: false,
+    card: rgb(0x16, 0x13, 0x31),
+    border: veil(0.10),
+    outline: veil(0.16),
+    selected: rgb(0x27, 0x21, 0x57),
+    hover: rgb(0x1D, 0x19, 0x42),
+    text: rgb(0xCF, 0xCA, 0xF0),
+    bright: rgb(0xF6, 0xF4, 0xFF),
+    faint: rgb(0x87, 0x80, 0xBE),
+    chrome: rgb(0x68, 0x61, 0x9E),
+    key: rgb(0xAC, 0xA6, 0xDC),
+    accent: rgb(0xFF, 0x7A, 0x66),
+    tint_text: rgb(0xFF, 0x7A, 0x66),
+    tint_url: rgb(0x6F, 0xD3, 0xFF),
+    tint_code: rgb(0xFF, 0xD1, 0x66),
+    tint_image: rgb(0xC9, 0xA2, 0xFF),
+    tint_files: rgb(0x7E, 0xE0, 0xC3),
+    pin: rgb(0xFF, 0xD1, 0x66),
+    copied: rgb(0x7E, 0xE0, 0xC3),
+    frame: rgb(0x1C, 0x18, 0x40),
+};
+
+/// "Surligneur", light: white paper, the selection swiped in highlighter
+/// yellow, and the logo's magenta as the accent. The yellow only works because
+/// the selected title is near-black: never pair it with a light text colour.
+pub const LIGHT: Palette = Palette {
+    light: true,
+    card: rgb(0xFD, 0xFD, 0xFE),
+    border: rgb(0xE9, 0xE6, 0xEF),
+    outline: rgb(0xDA, 0xD6, 0xE3),
+    selected: rgb(0xFF, 0xEE, 0x6E),
+    hover: rgb(0xFF, 0xF8, 0xC7),
+    text: rgb(0x2A, 0x27, 0x33),
+    bright: rgb(0x15, 0x13, 0x1A),
+    faint: rgb(0x73, 0x6E, 0x7D),
+    chrome: rgb(0x95, 0x8F, 0xA0),
+    key: rgb(0x52, 0x4E, 0x5C),
+    accent: rgb(0xD6, 0x00, 0x7A),
+    tint_text: rgb(0xD6, 0x00, 0x7A),
+    tint_url: rgb(0x00, 0x62, 0xCC),
+    tint_code: rgb(0xB4, 0x53, 0x09),
+    tint_image: rgb(0x7C, 0x3A, 0xED),
+    tint_files: rgb(0x04, 0x78, 0x57),
+    pin: rgb(0xD6, 0x00, 0x7A),
+    copied: rgb(0x0E, 0x9F, 0x6E),
+    frame: rgb(0xF6, 0xF5, 0xF9),
+};
+
+/// "Clinique", dark: blue-grey graphite, one teal accent. Values are the
+/// redesign mockup's (variant G), unchanged. Kept as a choice in the settings.
+pub const CLINIQUE_DARK: Palette = Palette {
+    light: false,
     card: rgb(0x0F, 0x11, 0x15),
-    border: veil(0.07),
-    outline: veil(0.10),
+    border: white(0.07),
+    outline: white(0.10),
     selected: rgb(0x1A, 0x1E, 0x28),
     // Not in the mockup: halfway between the card and the selection.
     hover: rgb(0x15, 0x18, 0x1F),
@@ -136,7 +213,7 @@ pub const DARK: Palette = Palette {
 
 /// "Clinique", light: the same layout on white, the teal darkened to hold
 /// contrast on it.
-pub const LIGHT: Palette = Palette {
+pub const CLINIQUE_LIGHT: Palette = Palette {
     light: true,
     card: rgb(0xFF, 0xFF, 0xFF),
     border: rgb(0xE6, 0xE9, 0xEE),

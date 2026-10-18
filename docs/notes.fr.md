@@ -359,8 +359,13 @@ L'interface suit une maquette — la variante G, « Clinique » — avec quelque
   langage n'est pas stocké avec l'entrée, et le détecter pour chaque rangée
   visible à chaque frame enfreindrait la règle : rien ne se calcule dans
   `view()`.
-- **Deux thèmes seulement.** Purpledream, Aalto et Matrix sont partis avec elle,
-  et la pluie Matrix aussi — le seul `stack` que l'application avait.
+- **Deux paires de thèmes.** Purpledream, Aalto et Matrix sont partis avec elle,
+  et la pluie Matrix aussi — le seul `stack` que l'application avait. Une
+  seconde paire est venue ensuite, palettes seules, disposition intacte :
+  « Minuit » (indigo, accent corail) et « Surligneur » (blanc, sélection jaune
+  fluo, le magenta du logo en accent) sont désormais les thèmes par défaut, et
+  la paire « Clinique » de la maquette reste dans les réglages. L'icône de
+  l'en-tête bascule à l'intérieur d'une paire.
 
 La loupe de la barre de recherche est dessinée au `canvas`, pas prise dans une
 police : nette à toutes les échelles et indépendante des glyphes disponibles.
