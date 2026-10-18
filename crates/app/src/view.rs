@@ -762,21 +762,38 @@ fn row_widget<'a>(
     .color(p.chrome)
     .wrapping(text::Wrapping::None);
 
-    // The icon of the application the entry was copied from, drawn only when
-    // the platform could learn one. No reserved slot: X11 and Wayland have
-    // none today, and an empty slot on every row would indent the whole list
-    // for nothing. Aligned with `align_y` because these are siblings inside a
-    // line, not a band — a band centres with `center_y`.
-    let meta_line: Element<'_, Message> = match icon {
-        Some(handle) => row![
+    // The icon of the application the entry was copied from when the platform
+    // could learn one, otherwise a square in a colour of its own, so the same
+    // application is recognised at a glance down the list. Nothing at all when
+    // the source is unknown. Aligned with `align_y` because these are siblings
+    // inside a line, not a band — a band centres with `center_y`.
+    let mark: Option<Element<'_, Message>> = match icon {
+        Some(handle) => Some(
             image(handle.clone())
                 .width(Length::Fixed(t::SOURCE_ICON))
-                .height(Length::Fixed(t::SOURCE_ICON)),
-            Space::new().width(Length::Fixed(5.0)),
-            words,
-        ]
-        .align_y(iced::Alignment::Center)
-        .into(),
+                .height(Length::Fixed(t::SOURCE_ICON))
+                .into(),
+        ),
+        None if !item.source.is_empty() => {
+            let colour = t::app_colour(&item.source);
+            Some(
+                container(Space::new())
+                    .width(Length::Fixed(t::SOURCE_SWATCH))
+                    .height(Length::Fixed(t::SOURCE_SWATCH))
+                    .style(move |_| container::Style {
+                        background: Some(Background::Color(colour)),
+                        border: Border::default().rounded(3),
+                        ..Default::default()
+                    })
+                    .into(),
+            )
+        }
+        None => None,
+    };
+    let meta_line: Element<'_, Message> = match mark {
+        Some(mark) => row![mark, Space::new().width(Length::Fixed(5.0)), words]
+            .align_y(iced::Alignment::Center)
+            .into(),
         None => words.into(),
     };
 

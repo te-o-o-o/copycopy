@@ -366,6 +366,10 @@ L'interface suit une maquette — la variante G, « Clinique » — avec quelque
   fluo, le magenta du logo en accent) sont désormais les thèmes par défaut, et
   la paire « Clinique » de la maquette reste dans les réglages. L'icône de
   l'en-tête bascule à l'intérieur d'une paire.
+- **Une couleur par application.** Quand le système ne fournit pas d'icône
+  pour la source, un petit carré la remplace, sa couleur tirée du nom
+  (`theme::app_colour`, FNV-1a pour qu'elle ne change pas d'une version à
+  l'autre).
 
 La loupe de la barre de recherche est dessinée au `canvas`, pas prise dans une
 police : nette à toutes les échelles et indépendante des glyphes disponibles.
