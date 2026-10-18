@@ -43,11 +43,16 @@ versioned.
   `README.md`, `docs/notes.fr.md` next to `docs/notes.md`; keep each pair in
   sync when either side changes.
 - **`README.md` stays short**: what the program is, how to install it, where it
-  runs. Everything that explains *why* — decisions, dead ends, what is verified
-  on which system — belongs in `docs/notes.md`.
+  runs.
+- **`docs/notes.md` is for people, and stays short too**: how it works, where it
+  runs, the choices worth knowing, the known limits. Keep its tables in step
+  with the code — it went stale once already.
+- **`.claude/notes.md` is the detailed working log**: measurements, dead ends,
+  pitfalls, verification history. Local, not versioned, English only. Read it
+  before chasing a bug; add to it when something costs real debugging time.
 - **Commit messages are one line.** A Conventional Commits subject and nothing
   else: no body, no trailer. The reasoning goes in the code comments or in
-  `docs/notes.md`, where it can be read later.
+  `.claude/notes.md`, where it can be read later.
 - **Conventional Commits**: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`,
   `chore`. Imperative subject, and a body that explains the *why*.
 - Comments explain decisions and traps, not syntax.
@@ -88,7 +93,7 @@ others, with no difference in the data.
 Ruled out, each by isolating it: `clip`, the resize frame, a `stack` overlay, an
 empty source, the payload type, and an image thumbnail in the badge slot.
 `view()` always produces the right string — verified by tracing — and the header
-and footer, outside the `scrollable`, always draw.
+(there was a footer then), outside the `scrollable`, always draw.
 
 **Next step is a minimal reproduction**, roughly twenty lines with a scrollable
 whose rows hold two stacked texts, to find out whether this is an iced bug worth
