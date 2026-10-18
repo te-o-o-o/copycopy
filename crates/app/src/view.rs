@@ -10,7 +10,7 @@ use iced::widget::{
     text_input, Space,
 };
 use iced::{
-    mouse, window, Background, Border, ContentFit, Element, Font, Length, Padding, Point,
+    mouse, window, Background, Border, Color, ContentFit, Element, Font, Length, Padding, Point,
     Rectangle, Size,
 };
 
@@ -899,10 +899,15 @@ fn row_widget<'a>(
     // four-way move arrows, which reads as a cross, not a hand. `Pointer`
     // maps to `IDC_HAND`, the actual pointing hand, and is what the rest of
     // the app already uses for anything clickable.
-    if matches!(
-        item.kind,
-        copycopy_core::Kind::Image | copycopy_core::Kind::Files
-    ) {
+    //
+    // Not when files are missing: the row says they are gone, and a drag
+    // carrying only part of them, or nothing, would contradict it.
+    if missing == 0
+        && matches!(
+            item.kind,
+            copycopy_core::Kind::Image | copycopy_core::Kind::Files
+        )
+    {
         area.on_move(move |pos| Message::RowDragMoved(index, pos))
             .on_release(Message::RowDragReleased)
             .interaction(mouse::Interaction::Pointer)
@@ -968,15 +973,7 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         } => format!("{w}×{h}"),
         Preview::Files(paths) => {
             let n = paths.len();
-            let gone = paths.iter().filter(|(_, exists)| !exists).count();
-            let mut detail = format!("{n} {}", plural(n, "fichier", "fichiers"));
-            if gone > 0 {
-                detail.push_str(&format!(
-                    "  ·  {gone} {}",
-                    plural(gone, "introuvable", "introuvables")
-                ));
-            }
-            detail
+            format!("{n} {}", plural(n, "fichier", "fichiers"))
         }
         _ => String::new(),
     };
@@ -985,11 +982,34 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         caption.push_str("  ·  ");
         caption.push_str(&detail);
     }
+    // Its own text, so it takes the colour the list gives the same word.
+    let gone = match &state.preview {
+        Preview::Files(paths) => {
+            let n = paths.len();
+            match paths.iter().filter(|(_, exists)| !exists).count() {
+                0 => None,
+                gone if gone == n => {
+                    Some(format!("  ·  {}", plural(n, "introuvable", "introuvables")))
+                }
+                gone => Some(format!(
+                    "  ·  {gone} {}",
+                    plural(gone, "introuvable", "introuvables")
+                )),
+            }
+        }
+        _ => None,
+    };
     let caption = container(
-        text(caption.to_uppercase())
+        row![text(caption.to_uppercase())
             .size(10.0)
             .color(p.chrome)
-            .wrapping(text::Wrapping::None),
+            .wrapping(text::Wrapping::None),]
+        .push(gone.map(|gone| {
+            text(gone.to_uppercase())
+                .size(10.0)
+                .color(p.tint_code)
+                .wrapping(text::Wrapping::None)
+        })),
     )
     .width(Length::Fill)
     .clip(true);
@@ -1041,7 +1061,7 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
                         .color(p.faint),
                 );
             }
-            framed(lines.into(), p)
+            framed(lines.into(), p.border, p)
         }
         // ScaleDown, never up: a small screenshot stays sharp at its real size
         // instead of being blown up into a blur.
@@ -1055,20 +1075,21 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         }
         Preview::Files(paths) => framed(
             iced::widget::Column::with_children(paths.iter().map(|(path, exists)| {
-                let path = text(path.as_str())
+                text(path.as_str())
                     .size(12.5)
                     .font(Font::MONOSPACE)
-                    .color(if *exists { p.text } else { p.faint });
-                if *exists {
-                    path.into()
-                } else {
-                    row![path, text("  introuvable").size(11.0).color(p.tint_code)]
-                        .align_y(iced::Alignment::Center)
-                        .into()
-                }
+                    .color(if *exists { p.text } else { p.faint })
+                    .into()
             }))
             .spacing(6)
             .into(),
+            // The rim takes the row's warning colour; the caption says it in
+            // words, once, rather than every missing line repeating it.
+            if paths.iter().any(|(_, exists)| !exists) {
+                p.tint_code
+            } else {
+                p.border
+            },
             p,
         ),
         Preview::Unavailable(why) => container(text(why.as_str()).size(12.0).color(p.faint))
@@ -1467,7 +1488,7 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
 /// The frame around a text or file preview: flat, one step off the card, and
 /// as tall as the panel allows — the shortcut chips stay pinned under it
 /// whatever the length of the entry. Long content scrolls inside.
-fn framed<'a>(inner: Element<'a, Message>, p: Palette) -> Element<'a, Message> {
+fn framed<'a>(inner: Element<'a, Message>, rim: Color, p: Palette) -> Element<'a, Message> {
     let body = scrollable(container(inner).padding(Padding {
         top: 0.0,
         right: 12.0,
@@ -1491,7 +1512,7 @@ fn framed<'a>(inner: Element<'a, Message>, p: Palette) -> Element<'a, Message> {
         .style(move |_| container::Style {
             background: Some(Background::Color(p.frame)),
             border: Border {
-                color: p.border,
+                color: rim,
                 width: 1.0,
                 radius: 6.0.into(),
             },

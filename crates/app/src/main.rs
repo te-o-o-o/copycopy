@@ -309,8 +309,9 @@ impl Preview {
             // One picture copied from a file manager — the everyday way to copy
             // an image on macOS — is shown as the picture, not as its path.
             Payload::Files(paths) => match paths.as_slice() {
+                // Listed like any missing file, so it gets the same rim.
                 [path] if !path.exists() => {
-                    Preview::Unavailable(format!("fichier introuvable : {}", path.display()))
+                    Preview::Files(vec![(path.display().to_string(), false)])
                 }
                 [path] if is_picture(path) => Preview::Image {
                     handle: iced::widget::image::Handle::from_path(path),
