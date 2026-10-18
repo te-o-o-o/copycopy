@@ -144,7 +144,7 @@ proof that a target platform works.
   Output goes to the parent terminal when there is one, otherwise to
   `copycopy.log` beside the database (`console.rs`) — look there first when
   something fails on Windows.
-- **macOS**: run on Apple Silicon — text and image capture, Finder file copies,
+- **macOS**: in daily use on Apple Silicon — text and image capture, Finder file copies,
   the window, the `Cmd+Shift+V` shortcut, copying back, auto-paste. The concealed types and
   autostart are not checked yet. Finder copies `file:///.file/id=…` reference
   URLs, not paths: they go through `NSURL::filePathURL`. First run found a stale `/tmp/copycopy.sock`

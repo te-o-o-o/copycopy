@@ -18,10 +18,12 @@
 
 <table align="center">
   <tr>
-    <td align="center"><img src="docs/light.png" width="420" alt="copycopy, light theme: the history on the left, a pinned Rust snippet shown in colour on the right"><br><sub>Light</sub></td>
-    <td align="center"><img src="docs/dark.png" width="420" alt="copycopy, dark theme: the same history"><br><sub>Dark</sub></td>
+    <td align="center"><img src="docs/light.png" width="420" alt="copycopy, Surligneur light theme: the history on the left, a pinned Rust snippet shown in colour on the right"><br><sub>Surligneur, light</sub></td>
+    <td align="center"><img src="docs/dark.png" width="420" alt="copycopy, Minuit dark theme: the same history"><br><sub>Minuit, dark</sub></td>
   </tr>
 </table>
+
+<p align="center"><sub>More themes in the settings: Clinique, light and dark.</sub></p>
 
 Text, code, links, images, files: a small resident keeps everything you copy,
 and a shortcut brings it back. English, 日本語, emoji 🎉 and code all included.
@@ -29,17 +31,20 @@ and a shortcut brings it back. English, 日本語, emoji 🎉 and code all inclu
 ## Features
 
 - **Captures everything**: text, code, links, images and files — and, on
-  Windows and X11, which app they came from.
+  Windows, macOS and X11, which app they came from.
 - **Search by any fragment**, across the whole history, not just what is on
   screen.
 - **Filters** by type — text, code, URL, images, files — with `Ctrl+1`…`6`.
 - **Full preview**: code in colour, its language recognised from the snippet
   alone; pictures, including image files copied in Finder or Explorer.
+- **Files go back as files**: paste them into a file manager, a chat or a
+  mail, or drag them straight out of the list (Windows, macOS). Files that
+  have since moved or gone are marked as such.
 - **Pin** what you reuse, delete what you don't.
 - **Auto-paste** (optional): the entry lands where your cursor was. Everywhere
   but Wayland.
 - **Starts with your session** (optional), silently in the background.
-- **Light and dark themes**.
+- **Two pairs of light and dark themes**: Minuit and Surligneur, or Clinique.
 - **Secrets are never stored**: whatever a password manager marks as
   confidential is dropped before it is written.
 - **Nothing leaves your machine**: no account, no cloud, no telemetry.
@@ -71,7 +76,7 @@ cargo build --release -p copycopy && ./target/release/copycopy
 
 ## Use
 
-| | |
+| Key | Action |
 |---|---|
 | **`Cmd+Shift+V`** (macOS), **`Ctrl+Alt+V`** (elsewhere) | open the window |
 | type | search |
@@ -81,10 +86,10 @@ cargo build --release -p copycopy && ./target/release/copycopy
 
 ## Where it runs
 
-| | |
+| System | Status |
 |---|---|
 | Windows | in daily use |
-| macOS | run on Apple Silicon |
+| macOS | in daily use, on Apple Silicon |
 | Linux X11 | run and tested |
 | Linux Wayland | built by the CI, never run: bind a shortcut to `copycopy --show` in your compositor |
 
