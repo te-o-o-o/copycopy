@@ -606,6 +606,14 @@ impl State {
             icon: icon::window(),
             level: window::Level::AlwaysOnTop,
             exit_on_close_request: false,
+            // The name docks match against `copycopy.desktop` to find the icon:
+            // Wayland has no window icon at all, only this app id, and X11 docks
+            // read the same string as `WM_CLASS`. iced leaves it empty.
+            #[cfg(target_os = "linux")]
+            platform_specific: window::settings::PlatformSpecific {
+                application_id: "copycopy".to_string(),
+                ..Default::default()
+            },
             ..Default::default()
         });
         self.window = Some(id);
