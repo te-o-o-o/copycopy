@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 (2026-10-18)
+
+### Changed
+
+- A new logo: an indigo tile with a coral "c" and a lilac "c", each over a
+  faded copy of itself. It is the same in the window, the Dock, the taskbar and
+  the installers.
+- The light theme is now **Lavande**, a lilac-tinged white with a coral accent,
+  built from the logo's colours. It replaces Surligneur.
+
 ## 0.2.0 (2026-10-18)
 
 ### Added

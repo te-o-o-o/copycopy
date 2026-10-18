@@ -1,5 +1,16 @@
 # Journal des modifications
 
+## 0.3.0 (2026-10-18)
+
+### Modifications
+
+- Un nouveau logo : une tuile indigo avec un « c » corail et un « c » lilas,
+  chacun posé sur une copie estompée de lui-même. Il est identique dans la
+  fenêtre, le Dock, la barre des tâches et les installeurs.
+- Le thème clair est désormais **Lavande**, un blanc teinté de lilas avec un
+  accent corail, construit à partir des couleurs du logo. Il remplace
+  Surligneur.
+
 ## 0.2.0 (2026-10-18)
 
 ### Ajouts

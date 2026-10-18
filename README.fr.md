@@ -5,7 +5,7 @@
   sauf de vos mots de passe. Curieux, pas malveillant.
 </p>
 
-<p align="center"><sub>v0.2.0 · Rust · Windows, Linux, macOS · MIT</sub></p>
+<p align="center"><sub>v0.3.0 · Rust · Windows, Linux, macOS · MIT</sub></p>
 
 <p align="center">
   <a href="#fonctionnalités">Fonctionnalités</a> ·
