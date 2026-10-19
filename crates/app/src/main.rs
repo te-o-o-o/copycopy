@@ -31,6 +31,7 @@ mod fonts;
 mod hotkey;
 mod icon;
 mod ipc;
+mod mark;
 mod theme;
 mod view;
 
