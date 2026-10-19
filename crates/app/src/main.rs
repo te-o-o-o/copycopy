@@ -630,19 +630,25 @@ impl State {
     }
 
     /// Puts the list back to its opening state: no query, no scroll, selection
-    /// on the first row. Done on the way **in**, never on the way out, so none
-    /// of it is ever drawn over a window that is still disappearing.
+    /// on the newest entry. Done on the way **in**, never on the way out, so
+    /// none of it is ever drawn over a window that is still disappearing.
     fn reset_for_open(&mut self) {
         // Files may have moved or gone while the window was hidden.
         self.missing.clear();
         self.query.clear();
         self.settings_open = false;
         self.kind_filter = None;
-        self.selected = 0;
-        self.selection = Animation::new(0.0).duration(SELECT_FADE);
         self.hovered = None;
         self.scroll_y = 0.0;
         self.refilter();
+        self.select_newest();
+    }
+
+    /// Lands the selection on the newest entry at once, without the fade.
+    fn select_newest(&mut self) {
+        self.selected = newest(&self.visible);
+        self.selection = Animation::new(self.selected as f32).duration(SELECT_FADE);
+        self.update_preview();
     }
 
     fn show(&mut self) -> Task<Message> {
@@ -660,6 +666,8 @@ impl State {
                 window::set_mode(id, window::Mode::Windowed),
                 window::gain_focus(id),
                 iced::widget::operation::focus(SEARCH_ID),
+                // Enough pins push the newest entry below the fold.
+                self.reveal_selected(),
             ]);
         }
         copycopy_platform::paste::remember_target();
@@ -861,6 +869,15 @@ impl State {
 /// keeps the in-memory path consistent with it.
 fn pinned_first(items: &mut [ClipItem]) {
     items.sort_by_key(|it| !it.pinned);
+}
+
+/// The row of the newest entry, which pins may have pushed down. The
+/// database keeps times to the second, so ties happen: they go to an unpinned
+/// entry first, then to the higher row, which is the recency order.
+fn newest(items: &[ClipItem]) -> usize {
+    (0..items.len())
+        .max_by_key(|&i| (items[i].at, !items[i].pinned, std::cmp::Reverse(i)))
+        .unwrap_or(0)
 }
 
 fn subsequence(haystack: &str, needle: &str) -> bool {
@@ -1132,6 +1149,8 @@ fn boot() -> (State, Task<Message>) {
         _hotkeys: hotkeys,
     };
     state.refilter();
+    // `--open` goes straight to `open_window`, past `reset_for_open`.
+    state.select_newest();
 
     // Not set here: iced boots the program before the event loop runs, so
     // before AppKit has finished launching, and finishing launching puts the
@@ -1884,5 +1903,25 @@ mod tests {
             ["c", "a", "d", "b"],
             "pinned first, recency kept inside each group"
         );
+    }
+
+    #[test]
+    fn the_newest_entry_is_found_below_the_pins() {
+        let mut history = History::new(10);
+        for name in ["a", "b", "c"] {
+            history.push(ClipEvent::Text(name.into()), "test".into());
+        }
+        history.toggle_pin(2); // "a", the oldest
+        let mut items: Vec<ClipItem> = history.items().iter().cloned().collect();
+        pinned_first(&mut items);
+        assert_eq!(items[newest(&items)].preview, "c");
+
+        // Same second for all, as read back from the database: the pin on
+        // top must not win the tie.
+        let at = items[0].at;
+        for it in &mut items {
+            it.at = at;
+        }
+        assert_eq!(items[newest(&items)].preview, "c");
     }
 }
