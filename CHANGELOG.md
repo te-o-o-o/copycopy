@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- The search highlights what it matched in each row.
+
+### Changed
+
+- Escape clears the search first, if there is one, before closing the window.
+
+### Fixed
+
+- macOS: the disk image holds a link to Applications, so the app can be dragged
+  into place instead of being run from the read-only image, where removing the
+  quarantine failed.
+
 ## 0.4.0 (2026-10-19)
 
 ### Added

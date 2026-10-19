@@ -1,5 +1,21 @@
 # Journal des modifications
 
+## Non publié
+
+### Ajouts
+
+- La recherche surligne ce qu'elle a trouvé dans chaque ligne.
+
+### Modifications
+
+- Échap efface d'abord la recherche, s'il y en a une, avant de fermer la fenêtre.
+
+### Corrections
+
+- macOS : l'image disque contient un lien vers Applications, pour y glisser
+  l'app au lieu de la lancer depuis l'image en lecture seule, où retirer la
+  quarantaine échouait.
+
 ## 0.4.0 (2026-10-19)
 
 ### Ajouts
