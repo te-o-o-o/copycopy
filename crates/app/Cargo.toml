@@ -35,6 +35,12 @@ auto-launch = "0.6.0"
 # plain `cargo build`.
 image = { version = "0.25", default-features = false, features = ["png", "ico"] }
 
+# `build.rs` renders the mark into an `.ico` and embeds it in the Windows
+# `.exe`; on every other target it returns at once.
+[build-dependencies]
+image = { version = "0.25", default-features = false, features = ["png", "ico"] }
+embed-resource = "3"
+
 # Everything below is read by `cargo deb`, which builds the Debian package in
 # the release workflow. Paths are relative to this file.
 [package.metadata.deb]

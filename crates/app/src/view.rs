@@ -171,7 +171,7 @@ impl canvas::Program<Message> for Pin {
     }
 }
 
-/// The application's mark, from the geometry and colours `icon` rasterises
+/// The application's mark, from the geometry and colours `mark` rasterises
 /// for the taskbar and the installers, so the two cannot drift apart.
 ///
 /// Drawn rather than typeset, like every other glyph here: a bold monospace
@@ -195,7 +195,7 @@ impl canvas::Program<Message> for LogoMark {
         bounds: Rectangle,
         _cursor: iced::mouse::Cursor,
     ) -> Vec<canvas::Geometry> {
-        use crate::icon;
+        use crate::mark;
 
         let mut frame = canvas::Frame::new(renderer, bounds.size());
         let side = bounds.width.min(bounds.height);
@@ -204,9 +204,9 @@ impl canvas::Program<Message> for LogoMark {
         let tile = canvas::Path::rounded_rectangle(
             Point::ORIGIN,
             Size::new(side, side),
-            (side * icon::CORNER).into(),
+            (side * mark::CORNER).into(),
         );
-        frame.fill(&tile, rgb(icon::TILE, 1.0));
+        frame.fill(&tile, rgb(mark::TILE, 1.0));
         frame.stroke(
             &tile,
             canvas::Stroke::default()
@@ -217,18 +217,18 @@ impl canvas::Program<Message> for LogoMark {
         // Each arc open on the right: it runs clockwise from 45° below the
         // horizontal, round the left, to 45° above it. Back to front, faded
         // copies first.
-        for ((cx, cy), ink, opacity) in icon::ARCS {
+        for ((cx, cy), ink, opacity) in mark::ARCS {
             let c = canvas::Path::new(|b| {
                 b.arc(canvas::path::Arc {
                     center: Point::new(side * cx, side * cy),
-                    radius: side * icon::RING,
+                    radius: side * mark::RING,
                     start_angle: iced::Radians(std::f32::consts::FRAC_PI_4),
                     end_angle: iced::Radians(7.0 * std::f32::consts::FRAC_PI_4),
                 });
             });
             let stroke = canvas::Stroke::default()
                 .with_color(rgb(ink, opacity))
-                .with_width(side * 2.0 * icon::HALF_STROKE)
+                .with_width(side * 2.0 * mark::HALF_STROKE)
                 .with_line_cap(canvas::LineCap::Round);
             frame.stroke(&c, stroke);
         }
