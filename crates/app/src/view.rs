@@ -751,30 +751,53 @@ fn row_widget<'a>(
         Space::new().width(Length::Fixed(t::SLOT)).into()
     };
 
-    let preview = container(
+    // Faded when the files are gone: still listed, but no longer something to
+    // reach for.
+    let ink = if missing > 0 {
+        p.faint
+    } else if lit {
+        p.bright
+    } else {
+        p.text
+    };
+    let title_font = Font {
+        weight: iced::font::Weight::Semibold,
+        ..Font::DEFAULT
+    };
+    let hits = state.hits.get(index).map_or(&[][..], Vec::as_slice);
+    let title: Element<'_, Message> = if hits.is_empty() {
         text(item.preview.as_str())
             .size(14.0)
-            .font(Font {
-                weight: iced::font::Weight::Semibold,
-                ..Font::DEFAULT
-            })
-            // Faded when the files are gone: still listed, but no longer
-            // something to reach for.
-            .color(if missing > 0 {
-                p.faint
-            } else if lit {
-                p.bright
-            } else {
-                p.text
-            })
-            .wrapping(text::Wrapping::None),
-    )
-    .width(Length::Fill)
-    // Clipped at its own width, not the row's. `Wrapping::None` gives a text
-    // widget the intrinsic width of its whole string, so without this the
-    // preview draws straight over the gutter — the row's own clip only stops it
-    // at the far edge.
-    .clip(true);
+            .font(title_font)
+            .color(ink)
+            .wrapping(text::Wrapping::None)
+            .into()
+    } else {
+        // What the search matched, in the accent: it tells why a row came up,
+        // which a subsequence match does not make obvious.
+        let title = item.preview.as_str();
+        let mut spans: Vec<iced::advanced::text::Span<'_, (), Font>> = Vec::new();
+        let mut at = 0;
+        for hit in hits {
+            spans.push(span(&title[at..hit.start]));
+            spans.push(span(&title[hit.clone()]).color(p.accent));
+            at = hit.end;
+        }
+        spans.push(span(&title[at..]));
+        rich_text(spans)
+            .size(14.0)
+            .font(title_font)
+            .color(ink)
+            .wrapping(text::Wrapping::None)
+            .into()
+    };
+    let preview = container(title)
+        .width(Length::Fill)
+        // Clipped at its own width, not the row's. `Wrapping::None` gives a text
+        // widget the intrinsic width of its whole string, so without this the
+        // preview draws straight over the gutter — the row's own clip only stops it
+        // at the far edge.
+        .clip(true);
 
     let words = text(match item.overflow_hint() {
         Some(hint) => format!("{}  ·  {}  ·  {}", source, item.age(), hint),

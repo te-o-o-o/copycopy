@@ -111,6 +111,9 @@ pub struct State {
     pub kind_filter: Option<Kind>,
     /// Per-type counts for the filter pills, worked out in `refilter`.
     pub counts: FilterCounts,
+    /// What the search matched in each listed title, as byte ranges, parallel
+    /// to `visible`; empty without a query. Worked out in `refilter`.
+    pub hits: Vec<Vec<std::ops::Range<usize>>>,
     /// What each cleanup in the settings would remove: the unpinned entries
     /// of the whole history, whatever the search. Worked out in `refilter`.
     pub purgeable: FilterCounts,
@@ -440,6 +443,12 @@ impl State {
         }
 
         pinned_first(&mut self.visible);
+        self.hits = match query {
+            "" => Vec::new(),
+            _ => (self.visible.iter())
+                .map(|it| hits(&it.preview, query))
+                .collect(),
+        };
         // The history too, not only what is listed: the settings count the
         // vanished files of the whole history.
         for item in self.visible.iter().chain(self.history.items()) {
@@ -885,6 +894,44 @@ fn subsequence(haystack: &str, needle: &str) -> bool {
     needle.chars().all(|c| it.any(|h| h == c))
 }
 
+/// Where `query` sits in `title`, as byte ranges for the row to paint: the
+/// fragment when it appears whole, which is what the trigram index matches,
+/// otherwise the letters of the subsequence the in-memory filter accepted.
+/// Empty when neither fits, and the row is then drawn plain.
+fn hits(title: &str, query: &str) -> Vec<std::ops::Range<usize>> {
+    let same = |a: char, b: char| a == b || a.to_lowercase().eq(b.to_lowercase());
+    let chars: Vec<(usize, char)> = title.char_indices().collect();
+    let needle: Vec<char> = query.chars().collect();
+    let end = |i: usize| chars.get(i).map_or(title.len(), |&(at, _)| at);
+    if needle.is_empty() {
+        return Vec::new();
+    }
+    if let Some(start) = chars
+        .windows(needle.len())
+        .position(|w| w.iter().zip(&needle).all(|(&(_, h), &n)| same(h, n)))
+    {
+        let whole = chars[start].0..end(start + needle.len());
+        return vec![whole];
+    }
+
+    let mut ranges: Vec<std::ops::Range<usize>> = Vec::new();
+    let mut wanted = needle.iter().peekable();
+    for (i, &(at, h)) in chars.iter().enumerate() {
+        let Some(&&n) = wanted.peek() else { break };
+        if same(h, n) {
+            wanted.next();
+            match ranges.last_mut() {
+                Some(last) if last.end == at => last.end = end(i + 1),
+                _ => ranges.push(at..end(i + 1)),
+            }
+        }
+    }
+    if wanted.peek().is_some() {
+        return Vec::new();
+    }
+    ranges
+}
+
 // --------------------------------------------------------------- lifecycle
 
 struct Args {
@@ -1120,6 +1167,7 @@ fn boot() -> (State, Task<Message>) {
         settings_open: args.settings,
         kind_filter: args.filter,
         counts: FilterCounts::default(),
+        hits: Vec::new(),
         purgeable: FilterCounts::default(),
         gone: 0,
         purge_armed: None,
@@ -1903,6 +1951,21 @@ mod tests {
             ["c", "a", "d", "b"],
             "pinned first, recency kept inside each group"
         );
+    }
+
+    #[test]
+    fn search_hits_cover_the_fragment_or_the_subsequence() {
+        let paint = |title: &str, query: &str| -> Vec<String> {
+            hits(title, query)
+                .into_iter()
+                .map(|r| title[r].to_string())
+                .collect()
+        };
+        // Whole and case-blind, past a multi-byte character.
+        assert_eq!(paint("Hé SSH deploy", "ssh"), ["SSH"]);
+        // Scattered letters, neighbours merged into one stretch.
+        assert_eq!(paint("cargo build", "cab"), ["ca", "b"]);
+        assert!(paint("cargo", "xyz").is_empty());
     }
 
     #[test]
