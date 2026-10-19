@@ -27,6 +27,7 @@ Les images sont enregistrées en fichiers à côté. **Mode portable** : posez u
 | Raccourci global | `Ctrl+Alt+V` | `Cmd+Shift+V` | `Ctrl+Alt+V` | aucun : liez `copycopy --show` dans votre compositeur |
 | Collage automatique | oui | oui, après l'autorisation Accessibilité | oui | non |
 | Glisser hors de la liste | oui | oui | non | non |
+| Paquet de release installé à la main | pas noté | image disque 0.5.0, glissée sur son lien Applications | pas noté | pas noté |
 
 « Lancé » veut dire que quelqu'un l'a utilisé sur ce système. « Compilé par le
 CI » veut seulement dire que ça compile.

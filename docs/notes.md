@@ -26,6 +26,7 @@ folder.
 | Global shortcut | `Ctrl+Alt+V` | `Cmd+Shift+V` | `Ctrl+Alt+V` | none: bind `copycopy --show` in your compositor |
 | Auto-paste | yes | yes, after granting Accessibility | yes | no |
 | Drag out of the list | yes | yes | no | no |
+| Release package installed by hand | not recorded | 0.5.0 disk image, dragged onto its Applications link | not recorded | not recorded |
 
 "Run" means someone used it on that system. "Built by the CI" only means it
 compiles.
