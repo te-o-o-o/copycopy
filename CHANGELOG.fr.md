@@ -1,5 +1,25 @@
 # Journal des modifications
 
+## 0.4.0 (2026-10-19)
+
+### Ajouts
+
+- Le nettoyage de l'historique, depuis les réglages : tout, un seul type, ou
+  les entrées fichiers dont tous les fichiers ont disparu. Les entrées
+  épinglées sont toujours gardées, et chaque nettoyage demande un second clic
+  avant de supprimer quoi que ce soit.
+- Les lignes épinglées sont teintées, pour les distinguer des dernières copies.
+
+### Modifications
+
+- La fenêtre s'ouvre sur l'entrée la plus récente plutôt que sur la première
+  ligne, que les épinglés peuvent occuper.
+
+### Corrections
+
+- Windows : l'exécutable porte le logo, l'Explorateur, le menu Démarrer et les
+  raccourcis n'affichent plus l'icône générique.
+
 ## 0.3.0 (2026-10-18)
 
 ### Modifications

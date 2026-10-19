@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.0 (2026-10-19)
+
+### Added
+
+- Cleaning up the history, from the settings: everything, one type, or the
+  file entries whose files are all gone. Pinned entries are always kept, and
+  each cleanup asks for a second click before deleting anything.
+- Pinned rows are tinted, so they stand apart from the latest copies.
+
+### Changed
+
+- The window opens on the newest entry rather than the top row, which pins
+  may have taken.
+
+### Fixed
+
+- Windows: the executable carries the logo, so Explorer, the Start menu and
+  shortcuts no longer show the generic icon.
+
 ## 0.3.0 (2026-10-18)
 
 ### Changed
