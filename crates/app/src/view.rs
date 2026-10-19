@@ -852,6 +852,10 @@ fn row_widget<'a>(
         Some(Background::Color(t::alpha(p.selected, selected)))
     } else if hovered {
         Some(Background::Color(p.hover))
+    } else if item.pinned {
+        // Pinned entries float above the latest capture; a faint wash of the
+        // pin colour tells them apart, so the newest copy is found at a glance.
+        Some(Background::Color(t::alpha(p.pin, 0.08)))
     } else {
         None
     };
