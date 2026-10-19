@@ -639,8 +639,8 @@ impl State {
     }
 
     /// Puts the list back to its opening state: no query, no scroll, selection
-    /// on the newest entry. Done on the way **in**, never on the way out, so
-    /// none of it is ever drawn over a window that is still disappearing.
+    /// at `home`. Done on the way **in**, never on the way out, so none of it
+    /// is ever drawn over a window that is still disappearing.
     fn reset_for_open(&mut self) {
         // Files may have moved or gone while the window was hidden.
         self.missing.clear();
@@ -650,12 +650,21 @@ impl State {
         self.hovered = None;
         self.scroll_y = 0.0;
         self.refilter();
-        self.select_newest();
+        self.select_home();
     }
 
-    /// Lands the selection on the newest entry at once, without the fade.
-    fn select_newest(&mut self) {
-        self.selected = newest(&self.visible);
+    /// Where the selection rests when nothing has moved it: a search puts its
+    /// best match on top, and no search at all lands on the newest entry.
+    fn home(&self) -> usize {
+        match self.query.trim() {
+            "" => newest(&self.visible),
+            _ => 0,
+        }
+    }
+
+    /// Lands the selection on `home` at once, without the fade.
+    fn select_home(&mut self) {
+        self.selected = self.home();
         self.selection = Animation::new(self.selected as f32).duration(SELECT_FADE);
         self.update_preview();
     }
@@ -1198,7 +1207,7 @@ fn boot() -> (State, Task<Message>) {
     };
     state.refilter();
     // `--open` goes straight to `open_window`, past `reset_for_open`.
-    state.select_newest();
+    state.select_home();
 
     // Not set here: iced boots the program before the event loop runs, so
     // before AppKit has finished launching, and finishing launching puts the
@@ -1236,8 +1245,8 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
     match message {
         Message::Query(q) => {
             state.query = q;
-            state.select(0);
             state.refilter();
+            state.select(state.home());
             state.reveal_selected()
         }
         Message::Select(i) => {
@@ -1552,6 +1561,13 @@ fn handle_key(state: &mut State, event: keyboard::Event) -> Task<Message> {
             state.settings_open = false;
             Task::none()
         }
+        // A search is cleared before the window closes, as in any launcher.
+        // The field has just dropped its focus on that same Escape: give it
+        // back, or the next keystroke would go nowhere.
+        Key::Named(Named::Escape) if !state.query.is_empty() => Task::batch([
+            Task::done(Message::Query(String::new())),
+            iced::widget::operation::focus(SEARCH_ID),
+        ]),
         Key::Named(Named::Escape) => state.hide(),
         Key::Named(Named::Enter) => state.activate(),
         Key::Named(Named::ArrowDown) => state.move_selection(1),
