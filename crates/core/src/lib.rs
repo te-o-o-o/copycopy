@@ -271,6 +271,10 @@ impl History {
     pub fn remove(&mut self, index: usize) {
         self.items.remove(index);
     }
+
+    pub fn retain(&mut self, keep: impl FnMut(&ClipItem) -> bool) {
+        self.items.retain(keep);
+    }
 }
 
 /// 64-bit FNV-1a: stable across runs, unlike `DefaultHasher`, so it can be
