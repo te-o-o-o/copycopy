@@ -1419,6 +1419,34 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
     .width(Length::Fill)
     .wrapping(text::Wrapping::WordOrGlyph);
 
+    // The filters' names and order, so a cleanup reads as the tab it empties.
+    // Armed, a pill turns accent and asks; the second press deletes.
+    let purge_pill = move |name: &'static str, count: usize, purge: crate::Purge| {
+        let armed = state.purge_armed == Some(purge);
+        choice_pill(
+            if armed { "Confirmer ?" } else { name },
+            Some(count),
+            Message::Purge(purge),
+            armed,
+            p,
+        )
+    };
+    let mut cleanup = row![].spacing(8);
+    for (name, kind) in crate::FILTERS {
+        let count = kind.map_or(state.purgeable.all, |k| state.purgeable.of(k));
+        cleanup = cleanup.push(purge_pill(name, count, crate::Purge::Kind(kind)));
+    }
+    let cleanup = column![
+        cleanup
+            .push(purge_pill("Introuvables", state.gone, crate::Purge::Gone))
+            .wrap()
+            .vertical_spacing(8),
+        text("Les entrées épinglées sont toujours gardées")
+            .size(11.5)
+            .color(p.faint),
+    ]
+    .spacing(6);
+
     let quit = mouse_area(
         container(text("Quitter copycopy").size(12.5).color(p.text))
             .padding(Padding::from([6, 14]))
@@ -1450,6 +1478,9 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
             Space::new().height(Length::Fixed(8.0)),
             label("DONNÉES"),
             data,
+            Space::new().height(Length::Fixed(8.0)),
+            label("NETTOYAGE"),
+            cleanup,
             Space::new().height(Length::Fixed(14.0)),
             row![
                 text(concat!("copycopy v", env!("CARGO_PKG_VERSION"), " · MIT"))

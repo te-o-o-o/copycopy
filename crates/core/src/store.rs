@@ -320,6 +320,24 @@ impl Store {
         Ok(dropped)
     }
 
+    /// Drops every unpinned entry, or only those of `kind`, and says how many.
+    /// One statement rather than a `delete` per entry: a thousand separate
+    /// commits is a pause you can feel.
+    pub fn purge(&self, kind: Option<Kind>) -> Result<usize, String> {
+        const DOOMED: &str = "pinned = 0 AND (?1 IS NULL OR kind = ?1)";
+        let kind = kind.map(kind_name);
+        let images = self.image_paths(
+            &format!("SELECT image FROM clips WHERE {DOOMED} AND image IS NOT NULL"),
+            params![kind],
+        )?;
+        let dropped = self
+            .conn
+            .execute(&format!("DELETE FROM clips WHERE {DOOMED}"), params![kind])
+            .map_err(|e| e.to_string())?;
+        self.forget_images(&images);
+        Ok(dropped)
+    }
+
     /// Removes image files no row points at any more, and says how many.
     ///
     /// Two sources feed that pile: a crash between writing the file and
@@ -481,6 +499,23 @@ mod tests {
         let left = store.recent(10).expect("recent");
         assert_eq!(left.len(), 2, "one unpinned kept, plus the pinned one");
         assert!(left.iter().any(|i| i.pinned), "pruning never drops a pin");
+    }
+
+    #[test]
+    fn purging_by_kind_then_all_spares_the_pins() {
+        let dir = Temp::new("purge");
+        let store = Store::open(&dir.0).expect("open");
+        let items = entries(&["https://example.com", "plain words", "more words"]);
+        for item in &items {
+            store.insert(item).expect("insert");
+        }
+        store.set_pinned(items[0].hash, true).expect("pin");
+
+        assert_eq!(store.purge(Some(Kind::Url)).expect("purge"), 1);
+        assert_eq!(store.purge(None).expect("purge"), 1);
+        let left = store.recent(10).expect("recent");
+        assert_eq!(left.len(), 1);
+        assert!(left[0].pinned, "purging never drops a pin");
     }
 
     #[test]

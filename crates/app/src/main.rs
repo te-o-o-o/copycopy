@@ -110,6 +110,14 @@ pub struct State {
     pub kind_filter: Option<Kind>,
     /// Per-type counts for the filter pills, worked out in `refilter`.
     pub counts: FilterCounts,
+    /// What each cleanup in the settings would remove: the unpinned entries
+    /// of the whole history, whatever the search. Worked out in `refilter`.
+    pub purgeable: FilterCounts,
+    /// Unpinned file entries none of whose files exist any more.
+    pub gone: usize,
+    /// The cleanup pressed once, waiting for the second press that confirms
+    /// it. Nothing is undone here, so nothing is deleted on a single click.
+    pub purge_armed: Option<Purge>,
     /// Where configuration, database, images and log live. Found once at boot:
     /// finding it checks the disk for a portable configuration, which has no
     /// place in a frame.
@@ -172,6 +180,15 @@ pub const FILTERS: [(&str, Option<Kind>); 6] = [
     ("Fichiers", Some(Kind::Files)),
 ];
 
+/// A cleanup offered in the settings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Purge {
+    /// Every unpinned entry, or those of one type.
+    Kind(Option<Kind>),
+    /// File entries whose files are all gone.
+    Gone,
+}
+
 /// How many entries each type filter would show for the current search.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct FilterCounts {
@@ -184,12 +201,10 @@ pub struct FilterCounts {
 }
 
 impl FilterCounts {
-    fn of_items(items: &[ClipItem]) -> Self {
-        let mut counts = Self {
-            all: items.len(),
-            ..Self::default()
-        };
+    fn of_items<'a>(items: impl IntoIterator<Item = &'a ClipItem>) -> Self {
+        let mut counts = Self::default();
         for item in items {
+            counts.all += 1;
             match item.kind {
                 Kind::Text => counts.text += 1,
                 Kind::Url => counts.url += 1,
@@ -345,6 +360,8 @@ pub enum Message {
     Select(usize),
     /// Delete the entry at that row, from the cross.
     Delete(usize),
+    /// A cleanup pill in the settings.
+    Purge(Purge),
     /// Copy the entry at that row, from its copy button.
     CopyRow(usize),
     /// Switch between the light and dark palettes, from the header icon.
@@ -422,15 +439,58 @@ impl State {
         }
 
         pinned_first(&mut self.visible);
-        for item in &self.visible {
+        // The history too, not only what is listed: the settings count the
+        // vanished files of the whole history.
+        for item in self.visible.iter().chain(self.history.items()) {
             if let Payload::Files(paths) = &item.payload {
                 self.missing
                     .entry(item.hash)
                     .or_insert_with(|| paths.iter().filter(|p| !p.exists()).count());
             }
         }
+        let unpinned = || self.history.items().iter().filter(|it| !it.pinned);
+        self.purgeable = FilterCounts::of_items(unpinned());
+        self.gone = unpinned().filter(|it| self.is_gone(it)).count();
+
         self.selected = self.selected.min(self.visible.len().saturating_sub(1));
         self.update_preview();
+    }
+
+    /// A file entry none of whose files exist, as last checked by `refilter`.
+    fn is_gone(&self, item: &ClipItem) -> bool {
+        matches!(&item.payload, Payload::Files(paths)
+            if self.missing.get(&item.hash) == Some(&paths.len()))
+    }
+
+    /// Runs a cleanup on its second press; the first only arms it.
+    fn purge(&mut self, purge: Purge) -> Task<Message> {
+        if self.purge_armed.replace(purge) != Some(purge) {
+            return Task::none();
+        }
+        self.purge_armed = None;
+        match purge {
+            Purge::Kind(kind) => {
+                if let Some(store) = &self.store {
+                    if let Err(e) = store.purge(kind) {
+                        eprintln!("could not purge the history: {e}");
+                    }
+                }
+                self.history
+                    .retain(|it| it.pinned || kind.is_some_and(|k| it.kind != k));
+            }
+            // Few entries, each needing a look at the disk: one by one.
+            Purge::Gone => {
+                let doomed: Vec<u64> = (self.history.items().iter())
+                    .filter(|it| !it.pinned && self.is_gone(it))
+                    .map(|it| it.hash)
+                    .collect();
+                for hash in doomed {
+                    self.forget(hash);
+                }
+            }
+        }
+        self.refilter();
+        Task::none()
     }
 
     /// Pins or unpins an entry in the database and in the loaded window, so
@@ -1042,6 +1102,9 @@ fn boot() -> (State, Task<Message>) {
         settings_open: args.settings,
         kind_filter: args.filter,
         counts: FilterCounts::default(),
+        purgeable: FilterCounts::default(),
+        gone: 0,
+        purge_armed: None,
         data_dir: dir.clone(),
         icons: load_icons(dir.as_deref()),
         missing: std::collections::HashMap::new(),
@@ -1172,6 +1235,7 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
                 Task::none()
             }
         }
+        Message::Purge(purge) => state.purge(purge),
         Message::Delete(index) => {
             state.select(index);
             state.delete_selected()
@@ -1206,6 +1270,7 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::ToggleSettings => {
             state.settings_open = !state.settings_open;
+            state.purge_armed = None;
             Task::none()
         }
         Message::SetTheme(mode) => {
