@@ -38,6 +38,9 @@ pub struct Config {
     /// against and paints the corners black; `corners = square` is the way out
     /// there, and the only reason this is a setting rather than a constant.
     pub rounded: bool,
+    /// Interface language. Unset follows the system, so a fresh install
+    /// speaks the user's language before anyone opens the settings.
+    pub language: Option<crate::locale::Locale>,
 }
 
 impl Default for Config {
@@ -50,6 +53,7 @@ impl Default for Config {
             auto_paste: false,
             autostart: false,
             rounded: true,
+            language: None,
         }
     }
 }
@@ -111,6 +115,7 @@ impl Config {
                 // Anything but "square" keeps the rounded default: a typo must
                 // not silently square the window.
                 "corners" => config.rounded = !value.eq_ignore_ascii_case("square"),
+                "language" => config.language = crate::locale::Locale::parse(value),
                 _ => {}
             }
         }
@@ -137,34 +142,38 @@ impl Config {
             return;
         }
         let mut body = String::from(
-            "# Configuration copycopy\n\
-             # Raccourci global d'ouverture.\n\
-             # Modificateurs : Ctrl, Alt, Shift, Super (ou Cmd).\n",
+            "# copycopy configuration\n\
+             # Global shortcut that opens the window.\n\
+             # Modifiers: Ctrl, Alt, Shift, Super (or Cmd).\n",
         );
         body.push_str(&format!("hotkey = \"{}\"\n", self.hotkey));
         if let Some((w, h)) = self.size {
-            body.push_str("# Taille retenue : largeur,hauteur\n");
+            body.push_str("# Remembered size: width,height\n");
             body.push_str(&format!("size = {w:.0},{h:.0}\n"));
         }
         if let Some((x, y)) = self.position {
-            body.push_str("# Position retenue : x,y\n");
+            body.push_str("# Remembered position: x,y\n");
             body.push_str(&format!("position = {x:.0},{y:.0}\n"));
         }
-        body.push_str("# Thème : dark ou light\n");
+        body.push_str("# Theme: dark, light, clinique-dark or clinique-light\n");
         body.push_str(&format!("theme = {}\n", self.theme.name()));
-        body.push_str("# Coller automatiquement après une copie : true ou false\n");
+        body.push_str("# Paste into the previous application after a copy: true or false\n");
         body.push_str(&format!("auto_paste = {}\n", self.auto_paste));
-        body.push_str("# Lancer copycopy à l'ouverture de session : true ou false\n");
+        body.push_str("# Start copycopy with the session: true or false\n");
         body.push_str(&format!("autostart = {}\n", self.autostart));
         body.push_str(
-            "# Coins de la fenêtre : round ou square.\n\
-             # « square » si votre session X11 tourne sans compositeur : les\n\
-             # coins arrondis y apparaîtraient noirs faute de quoi se fondre.\n",
+            "# Window corners: round or square.\n\
+             # \"square\" if your X11 session runs without a compositor: rounded\n\
+             # corners would show black there, with nothing to blend into.\n",
         );
         body.push_str(&format!(
             "corners = {}\n",
             if self.rounded { "round" } else { "square" }
         ));
+        if let Some(language) = self.language {
+            body.push_str("# Interface language: fr or en. Unset follows the system.\n");
+            body.push_str(&format!("language = {}\n", language.code()));
+        }
         let _ = std::fs::write(&path, body);
     }
 }

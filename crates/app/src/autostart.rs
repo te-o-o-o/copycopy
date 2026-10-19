@@ -15,15 +15,57 @@
 
 use auto_launch::{AutoLaunch, AutoLaunchBuilder};
 
+use crate::locale::Locale;
+
 const APP_NAME: &str = "copycopy";
 
 /// The resident starts without a window: the shortcut is what opens it.
 /// Without this, every session would begin with the palette in the face.
 const ARGS: [&str; 1] = ["--hidden"];
 
+/// Why no entry can be written, worded by `say` in the interface's language.
+#[derive(Debug)]
+enum Blocked {
+    NoExecutable(String),
+    UnreadablePath,
+    /// Only reachable on Windows, where a session starts before WSL does.
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    NetworkPath(String),
+}
+
+impl Blocked {
+    fn say(&self, l: Locale) -> String {
+        match self {
+            Self::NoExecutable(e) => {
+                format!(
+                    "{}{e}",
+                    l.tr("exécutable introuvable : ", "executable not found: ")
+                )
+            }
+            Self::UnreadablePath => l
+                .tr(
+                    "chemin de l'exécutable illisible",
+                    "unreadable executable path",
+                )
+                .to_string(),
+            Self::NetworkPath(path) => format!(
+                "{} ({path}) — {}",
+                l.tr(
+                    "l'exécutable est sur un chemin réseau",
+                    "the executable is on a network path"
+                ),
+                l.tr(
+                    "copiez-le dans un dossier Windows",
+                    "copy it into a Windows folder"
+                ),
+            ),
+        }
+    }
+}
+
 /// Whether the switch can be offered at all, and why not when it cannot.
-pub fn availability() -> Result<(), String> {
-    app_path().map(|_| ())
+pub fn availability(l: Locale) -> Result<(), String> {
+    app_path().map(|_| ()).map_err(|why| why.say(l))
 }
 
 pub fn set(on: bool) -> Result<(), String> {
@@ -63,8 +105,10 @@ pub fn reconcile(wanted: bool) -> bool {
     }
 }
 
+/// Errors go to the log and to a flash after the localised prefix, so they
+/// stay in English, like the rest of what is not the interface's own text.
 fn entry() -> Result<AutoLaunch, String> {
-    let path = app_path()?;
+    let path = app_path().map_err(|why| why.say(Locale::En))?;
     let mut builder = AutoLaunchBuilder::new();
     builder
         .set_app_name(APP_NAME)
@@ -78,20 +122,16 @@ fn entry() -> Result<AutoLaunch, String> {
 }
 
 /// The executable path as the entry must spell it.
-fn app_path() -> Result<String, String> {
-    let exe = std::env::current_exe().map_err(|e| format!("exécutable introuvable : {e}"))?;
-    let path = exe
-        .to_str()
-        .ok_or_else(|| "chemin de l'exécutable illisible".to_string())?;
+fn app_path() -> Result<String, Blocked> {
+    let exe = std::env::current_exe().map_err(|e| Blocked::NoExecutable(e.to_string()))?;
+    let path = exe.to_str().ok_or(Blocked::UnreadablePath)?;
 
     #[cfg(target_os = "windows")]
     {
         // A session starts before WSL does, so an entry pointing inside it
         // fails silently at every login. Better to say so than to write one.
         if path.starts_with(r"\\") {
-            return Err(format!(
-                "l'exécutable est sur un chemin réseau ({path}) — copiez-le dans un dossier Windows"
-            ));
+            return Err(Blocked::NetworkPath(path.to_string()));
         }
         // The registry value is one string, path and arguments separated by a
         // space, and `auto-launch` does not quote it. Without these quotes any
