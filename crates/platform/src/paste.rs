@@ -13,6 +13,17 @@
 
 pub use imp::{availability, remember_target, restore_target, send_paste};
 
+/// Why auto-paste cannot work here. A reason, not a sentence: the interface
+/// words it in its own language.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Unavailable {
+    /// XTEST would only reach Xwayland windows.
+    Wayland,
+    NoXServer,
+    /// No implementation for this system yet.
+    Unsupported,
+}
+
 #[cfg(target_os = "windows")]
 mod imp {
     use std::sync::atomic::{AtomicIsize, Ordering};
@@ -26,7 +37,7 @@ mod imp {
     /// fits an atomic.
     static TARGET: AtomicIsize = AtomicIsize::new(0);
 
-    pub fn availability() -> Result<(), &'static str> {
+    pub fn availability() -> Result<(), super::Unavailable> {
         Ok(())
     }
 
@@ -92,12 +103,12 @@ mod imp {
 
     /// XTEST reaches X11 applications only. In a Wayland session it would land
     /// on Xwayland windows alone, so it is refused rather than half working.
-    pub fn availability() -> Result<(), &'static str> {
+    pub fn availability() -> Result<(), super::Unavailable> {
         if std::env::var_os("WAYLAND_DISPLAY").is_some() {
-            return Err("indisponible sous Wayland");
+            return Err(super::Unavailable::Wayland);
         }
         if std::env::var_os("DISPLAY").is_none() {
-            return Err("aucun serveur X");
+            return Err(super::Unavailable::NoXServer);
         }
         Ok(())
     }
@@ -109,7 +120,7 @@ mod imp {
     pub fn restore_target() {}
 
     pub fn send_paste() -> Result<(), String> {
-        availability().map_err(str::to_string)?;
+        availability().map_err(|why| format!("auto-paste unavailable: {why:?}"))?;
         let (conn, screen) = x11rb::connect(None).map_err(|e| e.to_string())?;
         conn.xtest_get_version(2, 2)
             .map_err(|e| e.to_string())?
@@ -168,7 +179,7 @@ mod imp {
     /// The application that had the focus when copycopy opened.
     static TARGET: AtomicI32 = AtomicI32::new(0);
 
-    pub fn availability() -> Result<(), &'static str> {
+    pub fn availability() -> Result<(), super::Unavailable> {
         Ok(())
     }
 
@@ -227,8 +238,8 @@ mod imp {
 
 #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
 mod imp {
-    pub fn availability() -> Result<(), &'static str> {
-        Err("pas encore disponible sur ce système")
+    pub fn availability() -> Result<(), super::Unavailable> {
+        Err(super::Unavailable::Unsupported)
     }
 
     pub fn remember_target() {}

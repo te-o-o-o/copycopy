@@ -17,6 +17,7 @@ use iced::{
 use copycopy_core::highlight::Token;
 use copycopy_core::ClipItem;
 
+use crate::locale::Locale;
 use crate::theme::{self as t, Palette};
 use crate::{Message, Preview, State, PREVIEW_ID, SCROLL_ID, SEARCH_ID};
 
@@ -454,21 +455,25 @@ impl canvas::Program<Message> for Cross {
 }
 
 fn header(state: &State, p: Palette) -> Element<'_, Message> {
+    let l = state.locale();
     // No `on_submit`: Enter goes through the global keyboard listener, or it
     // would be handled twice.
-    let field = text_input("Rechercher dans le presse-papier…", &state.query)
-        .id(SEARCH_ID)
-        .on_input(Message::Query)
-        .size(13.5)
-        .padding(0)
-        .style(move |_theme, _status| text_input::Style {
-            background: Background::Color(iced::Color::TRANSPARENT),
-            border: Border::default(),
-            icon: p.faint,
-            placeholder: p.faint,
-            value: p.bright,
-            selection: t::alpha(p.accent, 0.35),
-        });
+    let field = text_input(
+        l.tr("Rechercher dans le presse-papier…", "Search the clipboard…"),
+        &state.query,
+    )
+    .id(SEARCH_ID)
+    .on_input(Message::Query)
+    .size(13.5)
+    .padding(0)
+    .style(move |_theme, _status| text_input::Style {
+        background: Background::Color(iced::Color::TRANSPARENT),
+        border: Border::default(),
+        icon: p.faint,
+        placeholder: p.faint,
+        value: p.bright,
+        selection: t::alpha(p.accent, 0.35),
+    });
 
     // The count, or for three seconds an error in its place — the one message
     // the window has to show, now that there is no footer to carry it.
@@ -480,7 +485,7 @@ fn header(state: &State, p: Palette) -> Element<'_, Message> {
                 format!(
                     "{} {}",
                     copycopy_core::grouped(n),
-                    plural(n, "ÉLÉMENT", "ÉLÉMENTS")
+                    plural(l, n, ("ÉLÉMENT", "ÉLÉMENTS"), ("ITEM", "ITEMS"))
                 ),
                 p.chrome,
             )
@@ -571,12 +576,16 @@ fn header(state: &State, p: Palette) -> Element<'_, Message> {
 fn list(state: &State, p: Palette) -> Element<'_, Message> {
     let total = state.visible.len();
     if total == 0 {
+        let l = state.locale();
         let msg = if state.history.is_empty() {
-            "Rien de capturé pour l'instant — copiez quelque chose"
+            l.tr(
+                "Rien de capturé pour l'instant — copiez quelque chose",
+                "Nothing captured yet — copy something",
+            )
         } else if state.kind_filter.is_some() && state.query.trim().is_empty() {
-            "Aucune entrée de ce type"
+            l.tr("Aucune entrée de ce type", "No entries of this type")
         } else {
-            "Aucun résultat"
+            l.tr("Aucun résultat", "No results")
         };
         return container(text(msg).size(14.0).color(p.faint))
             .width(Length::Fill)
@@ -799,9 +808,10 @@ fn row_widget<'a>(
         // at the far edge.
         .clip(true);
 
-    let words = text(match item.overflow_hint() {
-        Some(hint) => format!("{}  ·  {}  ·  {}", source, item.age(), hint),
-        None => format!("{}  ·  {}", source, item.age()),
+    let l = state.locale();
+    let words = text(match overflow(item, l) {
+        Some(hint) => format!("{}  ·  {}  ·  {}", source, age(item, l), hint),
+        None => format!("{}  ·  {}", source, age(item, l)),
     })
     .size(10.0)
     .color(p.chrome)
@@ -839,10 +849,15 @@ fn row_widget<'a>(
     let gone = (missing > 0).then(|| {
         let label = match item.payload {
             copycopy_core::Payload::Files(ref paths) if missing < paths.len() => format!(
-                "  ·  {missing} introuvable{}",
-                if missing > 1 { "s" } else { "" }
+                "  ·  {missing} {}",
+                plural(
+                    l,
+                    missing,
+                    ("introuvable", "introuvables"),
+                    ("missing", "missing")
+                )
             ),
-            _ => "  ·  introuvable".to_string(),
+            _ => format!("  ·  {}", l.tr("introuvable", "missing")),
         };
         text(label)
             .size(10.0)
@@ -980,6 +995,7 @@ fn body(state: &State, p: Palette) -> Element<'_, Message> {
 /// The selected entry in full. Everything here reads `state.preview`, built
 /// when the selection changed: nothing is loaded, counted or cut per frame.
 fn panel(state: &State, p: Palette) -> Element<'_, Message> {
+    let l = state.locale();
     if state.settings_open {
         return settings(state, p);
     }
@@ -997,10 +1013,11 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
             chars, lines, lang, ..
         } => {
             let counts = format!(
-                "{} car.  ·  {} {}",
+                "{} {}  ·  {} {}",
                 copycopy_core::grouped(*chars),
+                l.tr("car.", "chars"),
                 copycopy_core::grouped(*lines),
-                plural(*lines, "ligne", "lignes")
+                plural(l, *lines, ("ligne", "lignes"), ("line", "lines"))
             );
             match lang {
                 Some(lang) => format!("{}  ·  {counts}", lang.name()),
@@ -1012,11 +1029,19 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         } => format!("{w}×{h}"),
         Preview::Files(paths) => {
             let n = paths.len();
-            format!("{n} {}", plural(n, "fichier", "fichiers"))
+            format!(
+                "{n} {}",
+                plural(l, n, ("fichier", "fichiers"), ("file", "files"))
+            )
         }
         _ => String::new(),
     };
-    let mut caption = format!("{}  ·  {}  ·  {}", t::badge(item.kind), source, item.age());
+    let mut caption = format!(
+        "{}  ·  {}  ·  {}",
+        t::badge(item.kind),
+        source,
+        age(item, l)
+    );
     if !detail.is_empty() {
         caption.push_str("  ·  ");
         caption.push_str(&detail);
@@ -1027,12 +1052,23 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
             let n = paths.len();
             match paths.iter().filter(|(_, exists)| !exists).count() {
                 0 => None,
-                gone if gone == n => {
-                    Some(format!("  ·  {}", plural(n, "introuvable", "introuvables")))
-                }
+                gone if gone == n => Some(format!(
+                    "  ·  {}",
+                    plural(
+                        l,
+                        n,
+                        ("introuvable", "introuvables"),
+                        ("missing", "missing")
+                    )
+                )),
                 gone => Some(format!(
                     "  ·  {gone} {}",
-                    plural(gone, "introuvable", "introuvables")
+                    plural(
+                        l,
+                        gone,
+                        ("introuvable", "introuvables"),
+                        ("missing", "missing")
+                    )
                 )),
             }
         }
@@ -1095,7 +1131,7 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
             let mut lines = column![content].spacing(10);
             if *cut {
                 lines = lines.push(
-                    text("… la suite n'est pas affichée")
+                    text(l.tr("… la suite n'est pas affichée", "… the rest is not shown"))
                         .size(11.0)
                         .color(p.faint),
                 );
@@ -1137,7 +1173,7 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         Preview::Empty => Space::new().height(Length::Fill).into(),
     };
 
-    column![caption, content, shortcuts(p)]
+    column![caption, content, shortcuts(p, l)]
         .spacing(12)
         .padding(Padding::from([16, 18]))
         .width(Length::Fill)
@@ -1215,20 +1251,50 @@ fn ink(token: Token, p: Palette) -> iced::Color {
 }
 
 /// French agreement: singular for 0 and 1, as French counts them.
-fn plural(n: usize, one: &'static str, many: &'static str) -> &'static str {
-    if n > 1 {
-        many
-    } else {
-        one
+/// The word for `n` of something, in the interface's language: French takes
+/// the singular up to one, English only at exactly one — "0 items".
+fn plural<'a>(l: Locale, n: usize, fr: (&'a str, &'a str), en: (&'a str, &'a str)) -> &'a str {
+    match l {
+        Locale::Fr if n > 1 => fr.1,
+        Locale::Fr => fr.0,
+        Locale::En if n != 1 => en.1,
+        Locale::En => en.0,
     }
+}
+
+/// How long ago the entry was copied, for the small print.
+fn age(item: &ClipItem, l: Locale) -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(item.at)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    match secs {
+        0..=4 => l.tr("à l'instant", "just now").to_string(),
+        5..=59 => format!("{secs} s"),
+        60..=3599 => format!("{} min", secs / 60),
+        3600..=86399 => format!("{} h", secs / 3600),
+        _ => format!("{} {}", secs / 86400, l.tr("j", "d")),
+    }
+}
+
+/// What the row is not showing, worded from the count `core` gives.
+fn overflow(item: &ClipItem, l: Locale) -> Option<String> {
+    let n = item.overflow()?;
+    let unit = match item.payload {
+        copycopy_core::Payload::Files(_) => l.tr("fichiers", "files"),
+        _ => l.tr("caractères", "characters"),
+    };
+    Some(format!("… {} {unit}", copycopy_core::grouped(n)))
 }
 
 /// The type filters, as tabs on their own band under the search: capitals, the
 /// active one in the accent and underlined. Counts come from `refilter`, never
 /// from here.
 fn filters(state: &State, p: Palette) -> Element<'_, Message> {
+    let l = state.locale();
     let mut tabs = row![].spacing(20).align_y(iced::Alignment::End);
-    for (label, kind) in crate::FILTERS {
+    for (fr, en, kind) in crate::FILTERS {
+        let label = l.tr(fr, en);
         let count = kind.map_or(state.counts.all, |k| state.counts.of(k));
         let active = state.kind_filter == kind;
         let ink = if active {
@@ -1322,11 +1388,19 @@ fn choice_pill<'a>(
 /// a card — so opening them reads as the panel changing page, not as something
 /// laid over the window.
 fn settings(state: &State, p: Palette) -> Element<'_, Message> {
-    let label = |s: &'static str| text(s).size(11.0).color(p.faint);
+    let l = state.locale();
+    let label = |fr: &'static str, en: &'static str| text(l.tr(fr, en)).size(11.0).color(p.faint);
 
     let pill = move |name: &'static str, on_press: Message, active: bool| {
         choice_pill(name, None, on_press, active, p)
     };
+    // Each language named in itself: whoever cannot read the current one
+    // still finds their own.
+    let languages = row![
+        pill("Français", Message::SetLocale(Locale::Fr), l == Locale::Fr),
+        pill("English", Message::SetLocale(Locale::En), l == Locale::En),
+    ]
+    .spacing(8);
     let current = state.theme_mode();
     // Two rows, one per pair: four pills side by side overflow the panel.
     let theme_pill = move |name: &'static str, mode: crate::theme::Mode| {
@@ -1339,8 +1413,14 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
         ]
         .spacing(8),
         row![
-            theme_pill("Clinique sombre", crate::theme::Mode::CliniqueDark),
-            theme_pill("Clinique clair", crate::theme::Mode::CliniqueLight),
+            theme_pill(
+                l.tr("Clinique sombre", "Clinique dark"),
+                crate::theme::Mode::CliniqueDark,
+            ),
+            theme_pill(
+                l.tr("Clinique clair", "Clinique light"),
+                crate::theme::Mode::CliniqueLight,
+            ),
         ]
         .spacing(8),
     ]
@@ -1363,7 +1443,7 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
             ..Default::default()
         }),
         Space::new().width(Length::Fixed(10.0)),
-        text("modifiable dans copycopy.conf")
+        text(l.tr("modifiable dans copycopy.conf", "set in copycopy.conf"))
             .size(11.5)
             .color(p.faint),
     ]
@@ -1374,47 +1454,73 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
     let paste: Element<'_, Message> = match copycopy_platform::paste::availability() {
         Ok(()) => column![
             row![
-                pill("Activé", Message::SetAutoPaste(true), state.auto_paste()),
                 pill(
-                    "Désactivé",
+                    l.tr("Activé", "On"),
+                    Message::SetAutoPaste(true),
+                    state.auto_paste()
+                ),
+                pill(
+                    l.tr("Désactivé", "Off"),
                     Message::SetAutoPaste(false),
                     !state.auto_paste()
                 ),
             ]
             .spacing(8),
-            text("colle l'entrée copiée dans l'application où vous étiez")
-                .size(11.5)
-                .color(p.faint),
+            text(l.tr(
+                "colle l'entrée copiée dans l'application où vous étiez",
+                "pastes the copied entry into the application you came from",
+            ))
+            .size(11.5)
+            .color(p.faint),
         ]
         .spacing(6)
         .into(),
         // `WordOrGlyph` + `Fill`: this reason routinely carries a path (a
         // network location, here), which needs the same fallback to glyph
         // wrapping as `data` below, and for the same reason — see there.
-        Err(reason) => text(reason)
+        Err(why) => {
+            use copycopy_platform::paste::Unavailable;
+            text(match why {
+                Unavailable::Wayland => {
+                    l.tr("indisponible sous Wayland", "not available under Wayland")
+                }
+                Unavailable::NoXServer => l.tr("aucun serveur X", "no X server"),
+                Unavailable::Unsupported => l.tr(
+                    "pas encore disponible sur ce système",
+                    "not available on this system yet",
+                ),
+            })
             .size(11.5)
             .color(p.faint)
             .width(Length::Fill)
             .wrapping(text::Wrapping::WordOrGlyph)
-            .into(),
+            .into()
+        }
     };
 
     // Same treatment: where the entry cannot be written — an executable living
     // on a network path, typically — the reason replaces the switch.
-    let startup: Element<'_, Message> = match crate::autostart::availability() {
+    let startup: Element<'_, Message> = match crate::autostart::availability(l) {
         Ok(()) => column![
             row![
-                pill("Activé", Message::SetAutostart(true), state.autostart()),
                 pill(
-                    "Désactivé",
+                    l.tr("Activé", "On"),
+                    Message::SetAutostart(true),
+                    state.autostart()
+                ),
+                pill(
+                    l.tr("Désactivé", "Off"),
                     Message::SetAutostart(false),
                     !state.autostart()
                 ),
             ]
             .spacing(8),
-            text("copycopy attend en fond dès l'ouverture de session")
-                .size(11.5)
-                .color(p.faint),
+            text(l.tr(
+                "copycopy attend en fond dès l'ouverture de session",
+                "copycopy waits in the background from login",
+            ))
+            .size(11.5)
+            .color(p.faint),
         ]
         .spacing(6)
         .into(),
@@ -1430,12 +1536,10 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
     // routinely outgrows the panel width — without a fallback to glyph
     // breaking it just runs past the card's edge instead of onto a second
     // line.
-    let data = text(
-        state
-            .data_dir
-            .as_ref()
-            .map_or_else(|| "introuvable".to_string(), |d| d.display().to_string()),
-    )
+    let data = text(state.data_dir.as_ref().map_or_else(
+        || l.tr("introuvable", "not found").to_string(),
+        |d| d.display().to_string(),
+    ))
     .size(11.5)
     .font(Font::MONOSPACE)
     .color(p.text)
@@ -1447,7 +1551,11 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
     let purge_pill = move |name: &'static str, count: usize, purge: crate::Purge| {
         let armed = state.purge_armed == Some(purge);
         choice_pill(
-            if armed { "Confirmer ?" } else { name },
+            if armed {
+                l.tr("Confirmer ?", "Confirm?")
+            } else {
+                name
+            },
             Some(count),
             Message::Purge(purge),
             armed,
@@ -1455,54 +1563,69 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
         )
     };
     let mut cleanup = row![].spacing(8);
-    for (name, kind) in crate::FILTERS {
+    for (fr, en, kind) in crate::FILTERS {
+        let name = l.tr(fr, en);
         let count = kind.map_or(state.purgeable.all, |k| state.purgeable.of(k));
         cleanup = cleanup.push(purge_pill(name, count, crate::Purge::Kind(kind)));
     }
     let cleanup = column![
         cleanup
-            .push(purge_pill("Introuvables", state.gone, crate::Purge::Gone))
+            .push(purge_pill(
+                l.tr("Introuvables", "Missing"),
+                state.gone,
+                crate::Purge::Gone,
+            ))
             .wrap()
             .vertical_spacing(8),
-        text("Les entrées épinglées sont toujours gardées")
-            .size(11.5)
-            .color(p.faint),
+        text(l.tr(
+            "Les entrées épinglées sont toujours gardées",
+            "Pinned entries are always kept",
+        ))
+        .size(11.5)
+        .color(p.faint),
     ]
     .spacing(6);
 
     let quit = mouse_area(
-        container(text("Quitter copycopy").size(12.5).color(p.text))
-            .padding(Padding::from([6, 14]))
-            .style(move |_| container::Style {
-                border: Border {
-                    color: t::alpha(p.text, 0.35),
-                    width: 1.0,
-                    radius: 8.0.into(),
-                },
-                ..Default::default()
-            }),
+        container(
+            text(l.tr("Quitter copycopy", "Quit copycopy"))
+                .size(12.5)
+                .color(p.text),
+        )
+        .padding(Padding::from([6, 14]))
+        .style(move |_| container::Style {
+            border: Border {
+                color: t::alpha(p.text, 0.35),
+                width: 1.0,
+                radius: 8.0.into(),
+            },
+            ..Default::default()
+        }),
     )
     .interaction(mouse::Interaction::Pointer)
     .on_press(Message::Quit);
 
     let card = container(
         column![
-            label("THÈME"),
+            label("LANGUE", "LANGUAGE"),
+            languages,
+            Space::new().height(Length::Fixed(8.0)),
+            label("THÈME", "THEME"),
             themes,
             Space::new().height(Length::Fixed(8.0)),
-            label("RACCOURCI"),
+            label("RACCOURCI", "SHORTCUT"),
             hotkey,
             Space::new().height(Length::Fixed(8.0)),
-            label("COLLAGE AUTOMATIQUE"),
+            label("COLLAGE AUTOMATIQUE", "AUTO-PASTE"),
             paste,
             Space::new().height(Length::Fixed(8.0)),
-            label("DÉMARRAGE"),
+            label("DÉMARRAGE", "STARTUP"),
             startup,
             Space::new().height(Length::Fixed(8.0)),
-            label("DONNÉES"),
+            label("DONNÉES", "DATA"),
             data,
             Space::new().height(Length::Fixed(8.0)),
-            label("NETTOYAGE"),
+            label("NETTOYAGE", "CLEANUP"),
             cleanup,
             Space::new().height(Length::Fixed(14.0)),
             row![
@@ -1529,7 +1652,7 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
     });
 
     column![
-        text("RÉGLAGES").size(11.0).color(p.faint),
+        text(l.tr("RÉGLAGES", "SETTINGS")).size(11.0).color(p.faint),
         // Scrolls rather than squeezes: once the filter band took its share of
         // the height, the card no longer fitted and its last row — the quit
         // button — was crushed to a line.
@@ -1595,7 +1718,7 @@ fn framed<'a>(inner: Element<'a, Message>, rim: Color, p: Palette) -> Element<'a
 /// one filled chip, and the one that can be clicked: it is the point of the
 /// application. The others are reminders — the header no longer carries a
 /// legend, and nothing else in the window says that Suppr deletes.
-fn shortcuts<'a>(p: Palette) -> Element<'a, Message> {
+fn shortcuts<'a>(p: Palette, l: Locale) -> Element<'a, Message> {
     let chip = |label: &'static str| {
         container(text(label).size(10.0).color(p.key))
             .padding(Padding::from([5, 10]))
@@ -1609,22 +1732,26 @@ fn shortcuts<'a>(p: Palette) -> Element<'a, Message> {
             })
     };
     let copy = mouse_area(
-        container(text("ENTER · COPIER").size(10.0).color(p.card))
-            .padding(Padding::from([6, 11]))
-            .style(move |_| container::Style {
-                background: Some(Background::Color(p.accent)),
-                border: Border::default().rounded(5),
-                ..Default::default()
-            }),
+        container(
+            text(l.tr("ENTER · COPIER", "ENTER · COPY"))
+                .size(10.0)
+                .color(p.card),
+        )
+        .padding(Padding::from([6, 11]))
+        .style(move |_| container::Style {
+            background: Some(Background::Color(p.accent)),
+            border: Border::default().rounded(5),
+            ..Default::default()
+        }),
     )
     .interaction(mouse::Interaction::Pointer)
     .on_press(Message::Activate);
 
     row![
         copy,
-        chip("CTRL-B · ÉPINGLER"),
-        chip("SUPPR · SUPPRIMER"),
-        chip("ESC · FERMER"),
+        chip(l.tr("CTRL-B · ÉPINGLER", "CTRL-B · PIN")),
+        chip(l.tr("SUPPR · SUPPRIMER", "DEL · DELETE")),
+        chip(l.tr("ESC · FERMER", "ESC · CLOSE")),
     ]
     .spacing(6)
     .align_y(iced::Alignment::Center)

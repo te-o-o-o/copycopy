@@ -81,7 +81,9 @@ impl ClipItem {
     ///
     /// Returned as `None` below the threshold: a count on a short entry would
     /// be noise, and claiming truncation that did not happen would be a lie.
-    pub fn overflow_hint(&self) -> Option<String> {
+    /// A number, not a sentence: the interface words it, in its language —
+    /// characters for a text, files for a list.
+    pub fn overflow(&self) -> Option<usize> {
         /// Roughly what a row shows at the default window width. Deliberately
         /// conservative: better to stay silent on a borderline entry than to
         /// announce more where there is none.
@@ -90,25 +92,11 @@ impl ClipItem {
         match &self.payload {
             Payload::Text(text) => {
                 let count = text.chars().count();
-                (count > VISIBLE).then(|| format!("… {} caractères", grouped(count)))
+                (count > VISIBLE).then_some(count)
             }
-            Payload::Files(paths) if paths.len() > 1 => Some(format!("… {} fichiers", paths.len())),
+            Payload::Files(paths) if paths.len() > 1 => Some(paths.len()),
             // An image already states its dimensions and weight in the preview.
             _ => None,
-        }
-    }
-
-    pub fn age(&self) -> String {
-        let secs = SystemTime::now()
-            .duration_since(self.at)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-        match secs {
-            0..=4 => "à l'instant".to_string(),
-            5..=59 => format!("{secs} s"),
-            60..=3599 => format!("{} min", secs / 60),
-            3600..=86399 => format!("{} h", secs / 3600),
-            _ => format!("{} j", secs / 86400),
         }
     }
 }
@@ -437,11 +425,11 @@ mod tests {
     }
 
     #[test]
-    fn overflow_hint_counts_the_payload_not_the_preview() {
+    fn overflow_counts_the_payload_not_the_preview() {
         let mut h = History::new(10);
         h.push(ClipEvent::Text("court".into()), "t".into());
         assert_eq!(
-            h.get(0).unwrap().overflow_hint(),
+            h.get(0).unwrap().overflow(),
             None,
             "short entries stay silent"
         );
@@ -451,11 +439,10 @@ mod tests {
         let long = "ligne\n".repeat(400);
         let expected = long.chars().count();
         h.push(ClipEvent::Text(long), "t".into());
-        let hint = h.get(0).unwrap().overflow_hint().expect("hint");
-        assert!(hint.starts_with('…'));
-        assert!(
-            hint.contains(&grouped(expected)),
-            "counts the payload ({expected}), got {hint}"
+        assert_eq!(
+            h.get(0).unwrap().overflow(),
+            Some(expected),
+            "counts the payload, not the preview"
         );
     }
 

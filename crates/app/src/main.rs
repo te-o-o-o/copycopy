@@ -31,6 +31,7 @@ mod fonts;
 mod hotkey;
 mod icon;
 mod ipc;
+mod locale;
 mod mark;
 mod theme;
 mod view;
@@ -126,6 +127,9 @@ pub struct State {
     /// finding it checks the disk for a portable configuration, which has no
     /// place in a frame.
     pub data_dir: Option<std::path::PathBuf>,
+    /// The system's language, read once at boot: what the interface speaks
+    /// until the settings name one.
+    system_locale: locale::Locale,
     /// One icon per source application, never one per entry — at a hundred
     /// thousand entries coming from a dozen applications, the difference is
     /// the design. Keyed by the source name the entry carries, filled as
@@ -174,14 +178,15 @@ pub struct State {
     _hotkeys: hotkey::Hotkeys,
 }
 
-/// The type filters, in the order of their pills and of Ctrl+1 to Ctrl+6.
-pub const FILTERS: [(&str, Option<Kind>); 6] = [
-    ("Tout", None),
-    ("Texte", Some(Kind::Text)),
-    ("Code", Some(Kind::Code)),
-    ("URL", Some(Kind::Url)),
-    ("Images", Some(Kind::Image)),
-    ("Fichiers", Some(Kind::Files)),
+/// The type filters, in the order of their pills and of Ctrl+1 to Ctrl+6:
+/// French name, English name, type.
+pub const FILTERS: [(&str, &str, Option<Kind>); 6] = [
+    ("Tout", "All", None),
+    ("Texte", "Text", Some(Kind::Text)),
+    ("Code", "Code", Some(Kind::Code)),
+    ("URL", "URL", Some(Kind::Url)),
+    ("Images", "Images", Some(Kind::Image)),
+    ("Fichiers", "Files", Some(Kind::Files)),
 ];
 
 /// A cleanup offered in the settings.
@@ -291,7 +296,7 @@ pub enum Preview {
 }
 
 impl Preview {
-    fn of(item: &ClipItem) -> Self {
+    fn of(item: &ClipItem, l: locale::Locale) -> Self {
         match &item.payload {
             Payload::Text(text) => {
                 let chars = text.chars().count();
@@ -323,7 +328,10 @@ impl Preview {
                     handle: iced::widget::image::Handle::from_bytes(bytes),
                     size: *size,
                 },
-                Err(e) => Preview::Unavailable(format!("image illisible : {e}")),
+                Err(e) => Preview::Unavailable(format!(
+                    "{}{e}",
+                    l.tr("image illisible : ", "unreadable image: ")
+                )),
             },
             // One picture copied from a file manager — the everyday way to copy
             // an image on macOS — is shown as the picture, not as its path.
@@ -374,6 +382,7 @@ pub enum Message {
     ToggleSettings,
     /// Pick a theme from the settings.
     SetTheme(theme::Mode),
+    SetLocale(locale::Locale),
     /// Turn auto-paste on or off, from the settings.
     SetAutoPaste(bool),
     /// Start with the session, or stop doing so, from the settings.
@@ -568,7 +577,8 @@ impl State {
             return;
         }
         self.preview_key = key;
-        self.preview = item.map_or(Preview::Empty, Preview::of);
+        let l = self.locale();
+        self.preview = item.map_or(Preview::Empty, |it| Preview::of(it, l));
     }
 
     /// The colours of the active theme. Read from the configuration, so the
@@ -591,6 +601,10 @@ impl State {
 
     pub fn theme_mode(&self) -> theme::Mode {
         self.config.theme
+    }
+
+    pub fn locale(&self) -> locale::Locale {
+        self.config.language.unwrap_or(self.system_locale)
     }
 
     pub fn hotkey(&self) -> &str {
@@ -875,7 +889,8 @@ impl State {
                 // seconds and is easy to miss, and this is the failure that
                 // reads as "nothing happened".
                 eprintln!("copy failed: {e}");
-                self.flash(format!("échec de la copie : {e}"));
+                let what = self.locale().tr("échec de la copie : ", "copy failed: ");
+                self.flash(format!("{what}{e}"));
                 Task::none()
             }
         }
@@ -1181,6 +1196,7 @@ fn boot() -> (State, Task<Message>) {
         gone: 0,
         purge_armed: None,
         data_dir: dir.clone(),
+        system_locale: locale::Locale::system(),
         icons: load_icons(dir.as_deref()),
         missing: std::collections::HashMap::new(),
         selected: 0,
@@ -1340,7 +1356,11 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
                 Ok(()) => state.hide(),
                 Err(e) => {
                     eprintln!("could not open {link}: {e}");
-                    state.flash(format!("impossible d'ouvrir le lien : {e}"));
+                    let what = state.locale().tr(
+                        "impossible d'ouvrir le lien : ",
+                        "could not open the link: ",
+                    );
+                    state.flash(format!("{what}{e}"));
                     Task::none()
                 }
             }
@@ -1352,6 +1372,11 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::SetTheme(mode) => {
             state.config.theme = mode;
+            state.config.save();
+            Task::none()
+        }
+        Message::SetLocale(language) => {
+            state.config.language = Some(language);
             state.config.save();
             Task::none()
         }
@@ -1370,7 +1395,8 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
                 }
                 Err(e) => {
                     eprintln!("autostart: {e}");
-                    state.flash(format!("démarrage automatique : {e}"));
+                    let what = state.locale().tr("démarrage automatique : ", "autostart: ");
+                    state.flash(format!("{what}{e}"));
                 }
             }
             Task::none()
@@ -1603,7 +1629,7 @@ fn handle_key(state: &mut State, event: keyboard::Event) -> Task<Message> {
             // Ctrl+1 to Ctrl+6: the filter pills, left to right.
             digit @ ("1" | "2" | "3" | "4" | "5" | "6") => {
                 let index = digit.parse::<usize>().unwrap_or(1) - 1;
-                state.set_kind_filter(FILTERS[index].1)
+                state.set_kind_filter(FILTERS[index].2)
             }
             _ => Task::none(),
         },

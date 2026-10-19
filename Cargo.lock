@@ -616,6 +616,7 @@ dependencies = [
  "objc2-app-kit 0.3.2",
  "objc2-foundation 0.3.2",
  "open",
+ "sys-locale",
  "windows-sys 0.61.2",
 ]
 
