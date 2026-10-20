@@ -986,6 +986,9 @@ struct Args {
     /// Open with the settings showing. Only useful to check them in a
     /// screenshot: they are otherwise reached with a click.
     settings: bool,
+    /// Open with this row selected rather than the newest entry. Only useful to
+    /// stage a screenshot: the window's own keys cannot be driven from here.
+    select: Option<usize>,
     /// Open with a type filter applied (`text`, `code`, `url`, `image`, `files`).
     /// Only useful to check the filter band in a screenshot.
     filter: Option<Kind>,
@@ -1011,6 +1014,7 @@ fn parse_args() -> Args {
         seconds: val("--for").and_then(|v| v.parse().ok()).unwrap_or(1),
         scroll: val("--scroll").and_then(|v| v.parse().ok()),
         settings: a.iter().any(|x| x == "--settings"),
+        select: val("--select").and_then(|v| v.parse().ok()),
         filter: val("--filter").and_then(|v| match v.as_str() {
             "text" => Some(Kind::Text),
             "code" => Some(Kind::Code),
@@ -1239,6 +1243,11 @@ fn boot() -> (State, Task<Message>) {
     state.refilter();
     // `--open` goes straight to `open_window`, past `reset_for_open`.
     state.select_home();
+    if let Some(row) = args.select {
+        state.selected = row.min(state.visible.len().saturating_sub(1));
+        state.selection = Animation::new(state.selected as f32).duration(SELECT_FADE);
+        state.update_preview();
+    }
 
     // Not set here: iced boots the program before the event loop runs, so
     // before AppKit has finished launching, and finishing launching puts the
