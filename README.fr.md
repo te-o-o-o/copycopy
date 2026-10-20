@@ -108,13 +108,9 @@ Pourquoi c'est construit ainsi, et ce qui est vérifié où :
 ## Thèmes
 
 Trois paires, au choix dans les réglages ; l'icône lune/soleil passe du clair
-au sombre au sein d'une paire.
+au sombre au sein d'une paire. La paire par défaut est montrée en haut.
 
 <table align="center">
-  <tr>
-    <td align="center"><img src="docs/themes/light.png" width="420" alt="copycopy, thème clair"><br><sub>Clair</sub></td>
-    <td align="center"><img src="docs/themes/dark.png" width="420" alt="copycopy, thème sombre"><br><sub>Sombre</sub></td>
-  </tr>
   <tr>
     <td align="center"><img src="docs/themes/lavande.png" width="420" alt="copycopy, thème Lavande"><br><sub>Lavande</sub></td>
     <td align="center"><img src="docs/themes/minuit.png" width="420" alt="copycopy, thème Minuit"><br><sub>Minuit</sub></td>
