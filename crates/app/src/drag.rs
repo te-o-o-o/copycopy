@@ -66,38 +66,71 @@ pub fn start(window: &dyn Window, paths: Vec<PathBuf>) -> bool {
 /// inside the `drag` crate unwinds through Rust frames that cannot unwind: the
 /// process aborted, with "panic in a function that cannot unwind" and no Rust
 /// panic message before it. Caught here, a failed drag is one log line.
+///
+/// Always returns `false`: on macOS the drag session is asynchronous, so
+/// `start_drag` returns before anything is dropped. The outcome arrives later,
+/// in the callback, which wakes the application with `Wake::Dropped` — and only
+/// for a drop outside our own window, like on Windows.
 #[cfg(target_os = "macos")]
 pub fn start(window: &dyn Window, paths: Vec<PathBuf>) -> bool {
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::Arc;
-
     let icon = ghost(&paths);
-    let dropped = Arc::new(AtomicBool::new(false));
-    let flag = dropped.clone();
+    let view = appkit::view(window);
     let started = objc2::exception::catch(std::panic::AssertUnwindSafe(|| {
         drag::start_drag(
             &window,
             drag::DragItem::Files(paths),
             icon,
             move |result, _cursor_position| {
-                flag.store(
-                    matches!(result, drag::DragResult::Dropped),
-                    Ordering::SeqCst,
-                );
+                if matches!(result, drag::DragResult::Dropped)
+                    && !view.is_some_and(appkit::under_pointer)
+                {
+                    crate::wake(crate::Wake::Dropped);
+                }
             },
             drag::Options::default(),
         )
     }));
     match started {
-        Ok(Ok(())) => dropped.load(Ordering::SeqCst),
-        Ok(Err(e)) => {
-            eprintln!("glisser-déposer : {e}");
-            false
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => eprintln!("glisser-déposer : {e}"),
+        Err(exception) => eprintln!("glisser-déposer : exception AppKit {exception:?}"),
+    }
+    false
+}
+
+/// The macOS side of "was it dropped back into our own window". The pointer is
+/// read when the drag ends rather than taken from the crate's callback, whose
+/// position mixes points and pixels on a Retina screen; `mouseLocation` and the
+/// window frame are both in screen points.
+#[cfg(target_os = "macos")]
+mod appkit {
+    use objc2_app_kit::{NSEvent, NSView};
+
+    /// The raw `NSView`, as an address: the drop callback must be `Send`, and a
+    /// view reference is not.
+    pub fn view(window: &dyn super::Window) -> Option<usize> {
+        use iced::window::raw_window_handle::RawWindowHandle;
+        match window.window_handle().ok()?.as_raw() {
+            RawWindowHandle::AppKit(handle) => Some(handle.ns_view.as_ptr() as usize),
+            _ => None,
         }
-        Err(exception) => {
-            eprintln!("glisser-déposer : exception AppKit {exception:?}");
-            false
-        }
+    }
+
+    /// Whether the pointer is over the window holding `view`. Called from the
+    /// drag callback, which AppKit runs on the main thread; the view is still
+    /// alive then, since the window is created once and only ever hidden.
+    pub fn under_pointer(view: usize) -> bool {
+        // SAFETY: see above — a live view, on the main thread.
+        let view = unsafe { &*(view as *const NSView) };
+        let Some(window) = view.window() else {
+            return false;
+        };
+        let frame = window.frame();
+        let at = NSEvent::mouseLocation();
+        at.x >= frame.origin.x
+            && at.x < frame.origin.x + frame.size.width
+            && at.y >= frame.origin.y
+            && at.y < frame.origin.y + frame.size.height
     }
 }
 

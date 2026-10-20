@@ -87,6 +87,21 @@ static WAKE: Mutex<Option<std::sync::mpsc::Receiver<Wake>>> = Mutex::new(None);
 pub enum Wake {
     Hotkey,
     Command(String),
+    /// A row dragged out of the window was dropped somewhere else. Only macOS
+    /// sends it: its drag session ends after `drag::start` has returned.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    Dropped,
+}
+
+/// The sending end of `WAKE`, for wake-ups that start somewhere with no channel
+/// of their own — a callback AppKit runs after the drag has ended.
+static WAKER: std::sync::OnceLock<std::sync::mpsc::Sender<Wake>> = std::sync::OnceLock::new();
+
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub fn wake(wake: Wake) {
+    if let Some(tx) = WAKER.get() {
+        let _ = tx.send(wake);
+    }
 }
 
 // ------------------------------------------------------------------ state
@@ -1471,6 +1486,8 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             println!("raccourci déclenché");
             state.toggle()
         }
+        // The same as a drop reported at once, on Windows.
+        Message::Wake(Wake::Dropped) => state.hide(),
         Message::Wake(Wake::Command(cmd)) => match cmd.as_str() {
             ipc::SHOW => state.show(),
             ipc::QUIT => state.quit(),
@@ -1943,6 +1960,7 @@ fn main() -> iced::Result {
 
     let (wake_tx, wake_rx) = std::sync::mpsc::channel();
     *WAKE.lock().expect("wake") = Some(wake_rx);
+    let _ = WAKER.set(wake_tx.clone());
 
     if let Some(listener) = listener {
         let tx = wake_tx.clone();
