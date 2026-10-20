@@ -4,7 +4,8 @@
 
 ### Added
 
-- English as well as French, chosen in the settings.
+- English as well as French. English is the default, whatever the system
+  speaks; French is chosen in the settings.
 
 ### Changed
 

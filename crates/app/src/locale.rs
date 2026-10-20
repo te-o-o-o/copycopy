@@ -11,14 +11,6 @@ pub enum Locale {
 }
 
 impl Locale {
-    /// French on a French system, English everywhere else.
-    pub fn system() -> Self {
-        match sys_locale::get_locale() {
-            Some(tag) if tag.starts_with("fr") => Self::Fr,
-            _ => Self::En,
-        }
-    }
-
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "fr" => Some(Self::Fr),

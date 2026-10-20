@@ -48,8 +48,7 @@ and a shortcut brings it back. English, 日本語, emoji 🎉 and code all inclu
 - **Three pairs of light and dark themes**: plain greys with a muted
   blue-green accent by default, or
   Minuit and Lavande, or Clinique.
-- **English or French**, following your system until you pick one in the
-  settings.
+- **English or French**, English until you pick French in the settings.
 - **Secrets are never stored**: whatever a password manager marks as
   confidential is dropped before it is written.
 - **Nothing leaves your machine**: no account, no cloud, no telemetry.

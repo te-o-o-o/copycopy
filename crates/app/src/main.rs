@@ -144,7 +144,6 @@ pub struct State {
     pub data_dir: Option<std::path::PathBuf>,
     /// The system's language, read once at boot: what the interface speaks
     /// until the settings name one.
-    system_locale: locale::Locale,
     /// One icon per source application, never one per entry — at a hundred
     /// thousand entries coming from a dozen applications, the difference is
     /// the design. Keyed by the source name the entry carries, filled as
@@ -619,7 +618,7 @@ impl State {
     }
 
     pub fn locale(&self) -> locale::Locale {
-        self.config.language.unwrap_or(self.system_locale)
+        self.config.language.unwrap_or(locale::Locale::En)
     }
 
     pub fn hotkey(&self) -> &str {
@@ -1215,7 +1214,6 @@ fn boot() -> (State, Task<Message>) {
         gone: 0,
         purge_armed: None,
         data_dir: dir.clone(),
-        system_locale: locale::Locale::system(),
         icons: load_icons(dir.as_deref()),
         missing: std::collections::HashMap::new(),
         selected: 0,

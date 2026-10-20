@@ -4,7 +4,8 @@
 
 ### Ajouts
 
-- L'anglais en plus du français, au choix dans les réglages.
+- L'anglais en plus du français. L'anglais est la langue par défaut, quelle
+  que soit celle du système ; le français se choisit dans les réglages.
 
 ### Modifications
 
