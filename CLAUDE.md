@@ -142,7 +142,9 @@ proof that a target platform works.
 - **X11 capture**: run and tested.
 - **Windows**: run for real — text and image capture, copying back, the global
   shortcut in daily use, and the rounded corners compositing correctly over the
-  desktop (they come out black under WSLg, and only there). Built from WSL with
+  desktop (they come out black under WSLg, and only there). Checked on the
+  v0.3.0 release binary: the mark in the taskbar, file entries copied back as
+  files, and dragging a row out. Built from WSL with
   MinGW
   (`--target x86_64-pc-windows-gnu`); WSL launches the `.exe` directly as a
   native Windows process. The binary is a GUI-subsystem program: no console.
