@@ -44,7 +44,8 @@ and a shortcut brings it back. English, 日本語, emoji 🎉 and code all inclu
 - **Auto-paste** (optional): the entry lands where your cursor was. Everywhere
   but Wayland.
 - **Starts with your session** (optional), silently in the background.
-- **Three pairs of light and dark themes**: plain greys by default, or
+- **Three pairs of light and dark themes**: plain greys with a muted
+  blue-green accent by default, or
   Minuit and Lavande, or Clinique.
 - **English or French**, following your system until you pick one in the
   settings.
