@@ -12,18 +12,19 @@
   <a href="#installer">Installer</a> ·
   <a href="#utiliser">Utiliser</a> ·
   <a href="#où-ça-tourne">Où ça tourne</a> ·
+  <a href="#thèmes">Thèmes</a> ·
   <a href="docs/notes.fr.md">Notes</a> ·
   <a href="README.md">English</a>
 </p>
 
 <table align="center">
   <tr>
-    <td align="center"><img src="docs/light.png" width="420" alt="copycopy, thème clair Lavande : l'historique à gauche, un extrait Rust épinglé affiché en couleur à droite"><br><sub>Lavande, clair</sub></td>
-    <td align="center"><img src="docs/dark.png" width="420" alt="copycopy, thème sombre Minuit : le même historique"><br><sub>Minuit, sombre</sub></td>
+    <td align="center"><img src="docs/themes/light.png" width="420" alt="copycopy, thème clair : l'historique à gauche, un extrait Rust épinglé affiché en couleur à droite"><br><sub>Clair</sub></td>
+    <td align="center"><img src="docs/themes/dark.png" width="420" alt="copycopy, thème sombre : le même historique"><br><sub>Sombre</sub></td>
   </tr>
 </table>
 
-<p align="center"><sub>D'autres thèmes dans les réglages : Clinique, clair et sombre.</sub></p>
+<p align="center"><sub><a href="#thèmes">Autres thèmes</a></sub></p>
 
 Texte, code, liens, images, fichiers : un petit résident garde tout ce que vous
 copiez, et un raccourci le ramène. Anglais, 日本語, emoji 🎉 et code compris.
@@ -103,6 +104,26 @@ cargo build --release -p copycopy && ./target/release/copycopy
 
 Pourquoi c'est construit ainsi, et ce qui est vérifié où :
 **[docs/notes.fr.md](docs/notes.fr.md)**.
+
+## Thèmes
+
+Trois paires, au choix dans les réglages ; l'icône lune/soleil passe du clair
+au sombre au sein d'une paire.
+
+<table align="center">
+  <tr>
+    <td align="center"><img src="docs/themes/light.png" width="420" alt="copycopy, thème clair"><br><sub>Clair</sub></td>
+    <td align="center"><img src="docs/themes/dark.png" width="420" alt="copycopy, thème sombre"><br><sub>Sombre</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/themes/lavande.png" width="420" alt="copycopy, thème Lavande"><br><sub>Lavande</sub></td>
+    <td align="center"><img src="docs/themes/minuit.png" width="420" alt="copycopy, thème Minuit"><br><sub>Minuit</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/themes/clinique-light.png" width="420" alt="copycopy, thème Clinique clair"><br><sub>Clinique, clair</sub></td>
+    <td align="center"><img src="docs/themes/clinique-dark.png" width="420" alt="copycopy, thème Clinique sombre"><br><sub>Clinique, sombre</sub></td>
+  </tr>
+</table>
 
 ## Licence
 
