@@ -155,7 +155,7 @@ impl Config {
             body.push_str("# Remembered position: x,y\n");
             body.push_str(&format!("position = {x:.0},{y:.0}\n"));
         }
-        body.push_str("# Theme: dark, light, clinique-dark or clinique-light\n");
+        body.push_str("# Theme: dark, light, minuit, lavande, clinique-dark or clinique-light\n");
         body.push_str(&format!("theme = {}\n", self.theme.name()));
         body.push_str("# Paste into the previous application after a copy: true or false\n");
         body.push_str(&format!("auto_paste = {}\n", self.auto_paste));
