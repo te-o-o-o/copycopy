@@ -47,8 +47,8 @@ copiez, et un raccourci le ramène. Anglais, 日本語, emoji 🎉 et code compr
 - **Collage automatique** (optionnel) : l'entrée arrive là où était votre
   curseur. Partout sauf sous Wayland.
 - **Démarre avec la session** (optionnel), en silence, en arrière-plan.
-- **Deux paires de thèmes clair et sombre** : Minuit et Lavande, ou
-  Clinique.
+- **Trois paires de thèmes clair et sombre** : des gris sobres par
+  défaut, ou Minuit et Lavande, ou Clinique.
 - **En français ou en anglais**, selon la langue du système tant que vous n'en
   choisissez pas une dans les réglages.
 - **Les secrets ne sont jamais conservés** : ce qu'un gestionnaire de mots de

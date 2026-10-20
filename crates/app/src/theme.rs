@@ -14,10 +14,11 @@ const fn rgb(r: u8, g: u8, b: u8) -> Color {
 /// dark and light halves of the same pair.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
-    /// Minuit.
+    /// Standard, the default pair.
     Dark,
-    /// Lavande.
     Light,
+    Minuit,
+    Lavande,
     CliniqueDark,
     CliniqueLight,
 }
@@ -27,6 +28,8 @@ impl Mode {
         match self {
             Mode::Dark => Mode::Light,
             Mode::Light => Mode::Dark,
+            Mode::Minuit => Mode::Lavande,
+            Mode::Lavande => Mode::Minuit,
             Mode::CliniqueDark => Mode::CliniqueLight,
             Mode::CliniqueLight => Mode::CliniqueDark,
         }
@@ -36,17 +39,21 @@ impl Mode {
         match self {
             Mode::Dark => DARK,
             Mode::Light => LIGHT,
+            Mode::Minuit => MINUIT,
+            Mode::Lavande => LAVANDE,
             Mode::CliniqueDark => CLINIQUE_DARK,
             Mode::CliniqueLight => CLINIQUE_LIGHT,
         }
     }
 
-    /// Minuit and Lavande keep the plain `dark` and `light`, so a
-    /// configuration written before they existed opens on the defaults.
+    /// The default pair holds the plain `dark` and `light`, so a configuration
+    /// that never chose a named theme follows whatever the default is.
     pub fn name(self) -> &'static str {
         match self {
             Mode::Dark => "dark",
             Mode::Light => "light",
+            Mode::Minuit => "minuit",
+            Mode::Lavande => "lavande",
             Mode::CliniqueDark => "clinique-dark",
             Mode::CliniqueLight => "clinique-light",
         }
@@ -58,6 +65,8 @@ impl Mode {
         match value.trim().to_ascii_lowercase().as_str() {
             "dark" => Some(Mode::Dark),
             "light" => Some(Mode::Light),
+            "minuit" => Some(Mode::Minuit),
+            "lavande" => Some(Mode::Lavande),
             "clinique-dark" => Some(Mode::CliniqueDark),
             "clinique-light" => Some(Mode::CliniqueLight),
             _ => None,
@@ -124,8 +133,8 @@ const fn veil(a: f32) -> Color {
     }
 }
 
-/// White at a given opacity, for Clinique's lines: the same idea as `veil`,
-/// on a ground that has no cast to keep.
+/// White at a given opacity, for Standard's and Clinique's lines: the same
+/// idea as `veil`, on a ground that has no cast to keep.
 const fn white(a: f32) -> Color {
     Color {
         r: 1.0,
@@ -135,8 +144,59 @@ const fn white(a: f32) -> Color {
     }
 }
 
-/// "Minuit", dark: deep indigo, a violet selection, one coral accent.
+/// "Standard", dark: plain greys and no hue at all. The selection reads by
+/// contrast alone, its bar near-white; the syntax keeps only a trace of colour.
 pub const DARK: Palette = Palette {
+    light: false,
+    card: rgb(0x1A, 0x1A, 0x1A),
+    border: white(0.07),
+    outline: white(0.11),
+    selected: rgb(0x33, 0x33, 0x33),
+    hover: rgb(0x24, 0x24, 0x24),
+    text: rgb(0xCC, 0xCC, 0xCC),
+    bright: rgb(0xFF, 0xFF, 0xFF),
+    faint: rgb(0x85, 0x85, 0x85),
+    chrome: rgb(0x66, 0x66, 0x66),
+    key: rgb(0xA0, 0xA0, 0xA0),
+    accent: rgb(0xE0, 0xE0, 0xE0),
+    tint_text: rgb(0xE0, 0xE0, 0xE0),
+    tint_url: rgb(0x9F, 0xB4, 0xC8),
+    tint_code: rgb(0xC8, 0xB8, 0x9A),
+    tint_image: rgb(0xB5, 0xA8, 0xC8),
+    tint_files: rgb(0xA3, 0xBF, 0xA9),
+    // Mid-grey, not the accent: pinned rows are tinted with it, and a light
+    // pin would make them read as selected.
+    pin: rgb(0x9A, 0x9A, 0x9A),
+    copied: rgb(0xA3, 0xBF, 0xA9),
+    frame: rgb(0x20, 0x20, 0x20),
+};
+
+/// "Standard", light: the same on an off-white, the accent a near-black.
+pub const LIGHT: Palette = Palette {
+    light: true,
+    card: rgb(0xFA, 0xFA, 0xFA),
+    border: rgb(0xE3, 0xE3, 0xE3),
+    outline: rgb(0xD6, 0xD6, 0xD6),
+    selected: rgb(0xE2, 0xE2, 0xE2),
+    hover: rgb(0xF1, 0xF1, 0xF1),
+    text: rgb(0x2A, 0x2A, 0x2A),
+    bright: rgb(0x00, 0x00, 0x00),
+    faint: rgb(0x6B, 0x6B, 0x6B),
+    chrome: rgb(0x99, 0x99, 0x99),
+    key: rgb(0x4F, 0x4F, 0x4F),
+    accent: rgb(0x33, 0x33, 0x33),
+    tint_text: rgb(0x33, 0x33, 0x33),
+    tint_url: rgb(0x4A, 0x66, 0x80),
+    tint_code: rgb(0x7A, 0x64, 0x40),
+    tint_image: rgb(0x64, 0x5A, 0x80),
+    tint_files: rgb(0x4F, 0x6E, 0x57),
+    pin: rgb(0x55, 0x55, 0x55),
+    copied: rgb(0x4F, 0x6E, 0x57),
+    frame: rgb(0xF2, 0xF2, 0xF2),
+};
+
+/// "Minuit", dark: deep indigo, a violet selection, one coral accent.
+pub const MINUIT: Palette = Palette {
     light: false,
     card: rgb(0x16, 0x13, 0x31),
     border: veil(0.10),
@@ -162,7 +222,7 @@ pub const DARK: Palette = Palette {
 /// "Lavande", light: Minuit by day, built from the mark's own colours. A white
 /// with a trace of lilac, text in the mark's indigo, a pale lilac selection,
 /// and the coral darkened a step so it still reads on white.
-pub const LIGHT: Palette = Palette {
+pub const LAVANDE: Palette = Palette {
     light: true,
     card: rgb(0xFB, 0xFA, 0xFF),
     border: rgb(0xE7, 0xE3, 0xF5),

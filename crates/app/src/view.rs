@@ -1402,14 +1402,19 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
     ]
     .spacing(8);
     let current = state.theme_mode();
-    // Two rows, one per pair: four pills side by side overflow the panel.
+    // One row per pair: four pills side by side overflow the panel.
     let theme_pill = move |name: &'static str, mode: crate::theme::Mode| {
         pill(name, Message::SetTheme(mode), current == mode)
     };
     let themes = column![
         row![
-            theme_pill("Minuit", crate::theme::Mode::Dark),
-            theme_pill("Lavande", crate::theme::Mode::Light),
+            theme_pill(l.tr("Sombre", "Dark"), crate::theme::Mode::Dark),
+            theme_pill(l.tr("Clair", "Light"), crate::theme::Mode::Light),
+        ]
+        .spacing(8),
+        row![
+            theme_pill("Minuit", crate::theme::Mode::Minuit),
+            theme_pill("Lavande", crate::theme::Mode::Lavande),
         ]
         .spacing(8),
         row![
