@@ -145,8 +145,9 @@ const fn white(a: f32) -> Color {
     }
 }
 
-/// "Standard", dark: plain greys and no hue at all. The selection reads by
-/// contrast alone, its bar near-white; the syntax keeps only a trace of colour.
+/// "Standard", dark: plain greys and one muted blue-green accent, so what the
+/// search matched and the selection still stand out; the syntax keeps only a
+/// trace of colour.
 pub const DARK: Palette = Palette {
     light: false,
     card: rgb(0x1A, 0x1A, 0x1A),
@@ -159,8 +160,8 @@ pub const DARK: Palette = Palette {
     faint: rgb(0x85, 0x85, 0x85),
     chrome: rgb(0x66, 0x66, 0x66),
     key: rgb(0xA0, 0xA0, 0xA0),
-    accent: rgb(0xE0, 0xE0, 0xE0),
-    tint_text: rgb(0xE0, 0xE0, 0xE0),
+    accent: rgb(0x7D, 0xB3, 0xB8),
+    tint_text: rgb(0x7D, 0xB3, 0xB8),
     tint_url: rgb(0x9F, 0xB4, 0xC8),
     tint_code: rgb(0xC8, 0xB8, 0x9A),
     tint_image: rgb(0xB5, 0xA8, 0xC8),
@@ -172,7 +173,8 @@ pub const DARK: Palette = Palette {
     frame: rgb(0x20, 0x20, 0x20),
 };
 
-/// "Standard", light: the same on an off-white, the accent a near-black.
+/// "Standard", light: the same on an off-white, the accent darkened to hold
+/// contrast on it.
 pub const LIGHT: Palette = Palette {
     light: true,
     card: rgb(0xFA, 0xFA, 0xFA),
@@ -185,8 +187,8 @@ pub const LIGHT: Palette = Palette {
     faint: rgb(0x6B, 0x6B, 0x6B),
     chrome: rgb(0x99, 0x99, 0x99),
     key: rgb(0x4F, 0x4F, 0x4F),
-    accent: rgb(0x33, 0x33, 0x33),
-    tint_text: rgb(0x33, 0x33, 0x33),
+    accent: rgb(0x2F, 0x7A, 0x80),
+    tint_text: rgb(0x2F, 0x7A, 0x80),
     tint_url: rgb(0x4A, 0x66, 0x80),
     tint_code: rgb(0x7A, 0x64, 0x40),
     tint_image: rgb(0x64, 0x5A, 0x80),

@@ -53,8 +53,8 @@ compiles.
   missing and cannot be dragged.
 - **The logo is drawn by code.** The window icon, the Dock icon and every
   installer icon come from one function, so they cannot drift apart.
-- **Three pairs of themes.** Plain greys by default, with no hue but a trace
-  in the syntax; Minuit and Lavande, built from the logo's colours, and
+- **Three pairs of themes.** Plain greys by default, with one muted
+  blue-green accent; Minuit and Lavande, built from the logo's colours, and
   Clinique in the settings.
 
 ## Known limits

@@ -56,8 +56,8 @@ CI » veut seulement dire que ça compile.
 - **Le logo est dessiné par le code.** L'icône de la fenêtre, celle du Dock et
   celles des installeurs sortent toutes d'une même fonction : elles ne peuvent
   pas diverger.
-- **Trois paires de thèmes.** Des gris sobres par défaut, sans teinte sauf une
-  trace dans la syntaxe ; Minuit et Lavande, construits à partir des couleurs
+- **Trois paires de thèmes.** Des gris sobres par défaut, avec un seul accent
+  bleu-vert discret ; Minuit et Lavande, construits à partir des couleurs
   du logo, et Clinique dans les réglages.
 
 ## Limites connues
