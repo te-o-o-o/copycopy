@@ -50,8 +50,8 @@ copiez, et un raccourci le ramène. Anglais, 日本語, emoji 🎉 et code compr
 - **Démarre avec la session** (optionnel), en silence, en arrière-plan.
 - **Trois paires de thèmes clair et sombre** : des gris sobres avec
   un accent bleu-vert discret par défaut, ou Minuit et Lavande, ou Clinique.
-- **En français ou en anglais**, selon la langue du système tant que vous n'en
-  choisissez pas une dans les réglages.
+- **En anglais ou en français**, en anglais tant que vous ne choisissez pas
+  le français dans les réglages.
 - **Les secrets ne sont jamais conservés** : ce qu'un gestionnaire de mots de
   passe marque comme confidentiel est écarté avant d'être écrit.
 - **Rien ne sort de la machine** : pas de compte, pas de nuage, pas de

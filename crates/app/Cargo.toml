@@ -21,7 +21,6 @@ iced = { version = "0.14", features = ["advanced", "tokio", "canvas", "image-wit
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif"] }
 global-hotkey = "0.8"
 # Already pulled in by iced; picks the interface language on first run.
-sys-locale = "0.3"
 # `shellexecute-on-windows`: hands the link to ShellExecuteW directly. Without it
 # Windows goes through `cmd /c start`, where a `&` inside a copied URL can chain
 # a command.

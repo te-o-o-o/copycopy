@@ -38,8 +38,8 @@ pub struct Config {
     /// against and paints the corners black; `corners = square` is the way out
     /// there, and the only reason this is a setting rather than a constant.
     pub rounded: bool,
-    /// Interface language. Unset follows the system, so a fresh install
-    /// speaks the user's language before anyone opens the settings.
+    /// Interface language. Unset is English, whatever the system speaks:
+    /// French is a choice made in the settings.
     pub language: Option<crate::locale::Locale>,
 }
 
@@ -171,7 +171,7 @@ impl Config {
             if self.rounded { "round" } else { "square" }
         ));
         if let Some(language) = self.language {
-            body.push_str("# Interface language: fr or en. Unset follows the system.\n");
+            body.push_str("# Interface language: fr or en. Unset is English.\n");
             body.push_str(&format!("language = {}\n", language.code()));
         }
         let _ = std::fs::write(&path, body);
