@@ -683,17 +683,18 @@ fn row_widget<'a>(
     // Always present, transparent when the row is neither selected nor pinned,
     // so the content width does not shift from one row to the next. A pinned
     // row is marked here and nowhere else: a wash over the whole row was tried,
-    // and it made the list read as busy. The selection wins over the pin.
+    // and it made the list read as busy. The pin wins over the selection, whose
+    // background already says which row has the focus.
     let accent = container(Space::new())
         .width(Length::Fixed(2.0))
         .height(Length::Fixed(26.0))
         .style(move |_| container::Style {
             background: if copied {
                 Some(Background::Color(p.copied))
-            } else if selected > 0.0 {
-                Some(Background::Color(t::alpha(p.accent, selected)))
             } else if item.pinned {
                 Some(Background::Color(p.pin))
+            } else if selected > 0.0 {
+                Some(Background::Color(t::alpha(p.accent, selected)))
             } else {
                 None
             },
