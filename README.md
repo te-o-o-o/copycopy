@@ -103,13 +103,9 @@ Why it is built the way it is, and what is verified where:
 ## Themes
 
 Three pairs, picked in the settings; the moon/sun icon switches between the
-light and dark halves of a pair.
+light and dark halves of a pair. The default pair is shown at the top.
 
 <table align="center">
-  <tr>
-    <td align="center"><img src="docs/themes/light.png" width="420" alt="copycopy, light theme"><br><sub>Light</sub></td>
-    <td align="center"><img src="docs/themes/dark.png" width="420" alt="copycopy, dark theme"><br><sub>Dark</sub></td>
-  </tr>
   <tr>
     <td align="center"><img src="docs/themes/lavande.png" width="420" alt="copycopy, Lavande theme"><br><sub>Lavande</sub></td>
     <td align="center"><img src="docs/themes/minuit.png" width="420" alt="copycopy, Minuit theme"><br><sub>Minuit</sub></td>
