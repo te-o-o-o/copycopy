@@ -110,8 +110,9 @@ pub struct Palette {
     pub tint_code: Color,
     pub tint_image: Color,
     pub tint_files: Color,
-    /// The pin marker. Drawn rather than taken from a font: a colour emoji such
-    /// as 📌 carries its own palette and cannot be tinted.
+    /// The pin marker, and the bar on a pinned row's left edge. Drawn rather
+    /// than taken from a font: a colour emoji such as 📌 carries its own palette
+    /// and cannot be tinted.
     pub pin: Color,
     /// Flash shown on the row that was just copied. Green rather than the
     /// accent: the accent already marks the selection, and a confirmation has
@@ -164,9 +165,9 @@ pub const DARK: Palette = Palette {
     tint_code: rgb(0xC8, 0xB8, 0x9A),
     tint_image: rgb(0xB5, 0xA8, 0xC8),
     tint_files: rgb(0xA3, 0xBF, 0xA9),
-    // Mid-grey, not the accent: pinned rows are tinted with it, and a light
-    // pin would make them read as selected.
-    pin: rgb(0x9A, 0x9A, 0x9A),
+    // A muted amber, the theme's only warm tone: a pin is found at a glance
+    // without the list taking on colour.
+    pin: rgb(0xC9, 0xA8, 0x6A),
     copied: rgb(0xA3, 0xBF, 0xA9),
     frame: rgb(0x20, 0x20, 0x20),
 };
@@ -190,7 +191,7 @@ pub const LIGHT: Palette = Palette {
     tint_code: rgb(0x7A, 0x64, 0x40),
     tint_image: rgb(0x64, 0x5A, 0x80),
     tint_files: rgb(0x4F, 0x6E, 0x57),
-    pin: rgb(0x55, 0x55, 0x55),
+    pin: rgb(0xA0, 0x7A, 0x2C),
     copied: rgb(0x4F, 0x6E, 0x57),
     frame: rgb(0xF2, 0xF2, 0xF2),
 };
