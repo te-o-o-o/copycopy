@@ -12,18 +12,19 @@
   <a href="#install">Install</a> ·
   <a href="#use">Use</a> ·
   <a href="#where-it-runs">Where it runs</a> ·
+  <a href="#themes">Themes</a> ·
   <a href="docs/notes.md">Notes</a> ·
   <a href="README.fr.md">Français</a>
 </p>
 
 <table align="center">
   <tr>
-    <td align="center"><img src="docs/light.png" width="420" alt="copycopy, Lavande light theme: the history on the left, a pinned Rust snippet shown in colour on the right"><br><sub>Lavande, light</sub></td>
-    <td align="center"><img src="docs/dark.png" width="420" alt="copycopy, Minuit dark theme: the same history"><br><sub>Minuit, dark</sub></td>
+    <td align="center"><img src="docs/themes/light.png" width="420" alt="copycopy, light theme: the history on the left, a pinned Rust snippet shown in colour on the right"><br><sub>Light</sub></td>
+    <td align="center"><img src="docs/themes/dark.png" width="420" alt="copycopy, dark theme: the same history"><br><sub>Dark</sub></td>
   </tr>
 </table>
 
-<p align="center"><sub>More themes in the settings: Clinique, light and dark.</sub></p>
+<p align="center"><sub><a href="#themes">More themes</a></sub></p>
 
 Text, code, links, images, files: a small resident keeps everything you copy,
 and a shortcut brings it back. English, 日本語, emoji 🎉 and code all included.
@@ -99,6 +100,26 @@ cargo build --release -p copycopy && ./target/release/copycopy
 
 Why it is built the way it is, and what is verified where:
 **[docs/notes.md](docs/notes.md)**.
+
+## Themes
+
+Three pairs, picked in the settings; the moon/sun icon switches between the
+light and dark halves of a pair.
+
+<table align="center">
+  <tr>
+    <td align="center"><img src="docs/themes/light.png" width="420" alt="copycopy, light theme"><br><sub>Light</sub></td>
+    <td align="center"><img src="docs/themes/dark.png" width="420" alt="copycopy, dark theme"><br><sub>Dark</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/themes/lavande.png" width="420" alt="copycopy, Lavande theme"><br><sub>Lavande</sub></td>
+    <td align="center"><img src="docs/themes/minuit.png" width="420" alt="copycopy, Minuit theme"><br><sub>Minuit</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/themes/clinique-light.png" width="420" alt="copycopy, Clinique light theme"><br><sub>Clinique, light</sub></td>
+    <td align="center"><img src="docs/themes/clinique-dark.png" width="420" alt="copycopy, Clinique dark theme"><br><sub>Clinique, dark</sub></td>
+  </tr>
+</table>
 
 ## License
 
