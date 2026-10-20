@@ -75,9 +75,10 @@ windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_
 # platform crate.
 # `exception`: an Objective-C exception thrown while a drag starts would
 # otherwise unwind through Rust frames and abort the process — see `drag.rs`.
-# `NSWorkspace` gives a dragged file its Finder icon.
+# `NSWorkspace` gives a dragged file its Finder icon; `NSEvent`, `NSView` and
+# `NSWindow` tell a drop back into our own window from a real one.
 objc2 = { version = "0.6", features = ["exception"] }
-objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSResponder", "NSImage", "NSWorkspace"] }
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSResponder", "NSImage", "NSWorkspace", "NSEvent", "NSView", "NSWindow"] }
 objc2-foundation = { version = "0.3", features = ["NSData", "NSString"] }
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
