@@ -152,8 +152,8 @@ proof that a target platform works.
   `copycopy.log` beside the database (`console.rs`) — look there first when
   something fails on Windows.
 - **macOS**: in daily use on Apple Silicon — text and image capture, Finder file copies,
-  the window, the `Cmd+Shift+V` shortcut, copying back, auto-paste. The concealed types and
-  autostart are not checked yet. Finder copies `file:///.file/id=…` reference
+  the window, the `Cmd+Shift+V` shortcut, copying back, auto-paste. A copy flagged `org.nspasteboard.ConcealedType` is dropped, checked
+  against the 0.5.0 resident with an `osascript` probe. Autostart is not checked yet. Finder copies `file:///.file/id=…` reference
   URLs, not paths: they go through `NSURL::filePathURL`. First run found a stale `/tmp/copycopy.sock`
   that left every later launch without IPC; `ipc::claim` now overwrites a
   socket proven dead.
