@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- English as well as French, chosen in the settings.
+
+### Changed
+
+- New default themes, light and dark: plain greys with one muted blue-green
+  accent. Minuit, Lavande and Clinique stay available in the settings.
+- Pinned rows are marked with an amber bar on their left edge instead of a
+  tinted background, which made the list look busy.
+
 ## 0.5.0 (2026-10-19)
 
 ### Added

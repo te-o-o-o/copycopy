@@ -1,5 +1,19 @@
 # Journal des modifications
 
+## Non publié
+
+### Ajouts
+
+- L'anglais en plus du français, au choix dans les réglages.
+
+### Modifications
+
+- De nouveaux thèmes par défaut, clair et sombre : des gris sobres avec un seul
+  accent bleu-vert discret. Minuit, Lavande et Clinique restent disponibles
+  dans les réglages.
+- Les lignes épinglées sont marquées d'une barre ambre sur leur bord gauche
+  plutôt que d'un fond teinté, qui chargeait la liste.
+
 ## 0.5.0 (2026-10-19)
 
 ### Ajouts
