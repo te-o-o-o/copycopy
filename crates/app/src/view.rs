@@ -680,8 +680,10 @@ fn row_widget<'a>(
     let icon = state.icons.get(item.source.as_str());
     let missing = state.missing.get(&item.hash).copied().unwrap_or(0);
 
-    // Always present, transparent when the row is not selected, so the content
-    // width does not shift from one row to the next.
+    // Always present, transparent when the row is neither selected nor pinned,
+    // so the content width does not shift from one row to the next. A pinned
+    // row is marked here and nowhere else: a wash over the whole row was tried,
+    // and it made the list read as busy. The selection wins over the pin.
     let accent = container(Space::new())
         .width(Length::Fixed(2.0))
         .height(Length::Fixed(26.0))
@@ -690,6 +692,8 @@ fn row_widget<'a>(
                 Some(Background::Color(p.copied))
             } else if selected > 0.0 {
                 Some(Background::Color(t::alpha(p.accent, selected)))
+            } else if item.pinned {
+                Some(Background::Color(p.pin))
             } else {
                 None
             },
@@ -890,10 +894,6 @@ fn row_widget<'a>(
         Some(Background::Color(t::alpha(p.selected, selected)))
     } else if hovered {
         Some(Background::Color(p.hover))
-    } else if item.pinned {
-        // Pinned entries float above the latest capture; a faint wash of the
-        // pin colour tells them apart, so the newest copy is found at a glance.
-        Some(Background::Color(t::alpha(p.pin, 0.08)))
     } else {
         None
     };
