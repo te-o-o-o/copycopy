@@ -20,7 +20,7 @@ That split was tested for real: when the toolkit changed from egui to iced,
 cargo check --workspace                    # in a loop while writing
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt
-cargo test --workspace                     # 62 tests
+cargo test --workspace                     # 68 tests
 cargo build --release -p copycopy          # → target/release/copycopy
 ```
 
@@ -54,7 +54,12 @@ versioned.
   else: no body, no trailer. The reasoning goes in the code comments or in
   `.claude/notes.md`, where it can be read later.
 - **Conventional Commits**: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`,
-  `chore`. Imperative subject, and a body that explains the *why*.
+  `chore`, with a scope naming the part of the app it touches: `capture`,
+  `list`, `preview`, `search`, `lang` (detection and colouring), `theme`,
+  `window`, `drag`, `settings`, `i18n`, `ipc`, `install`. A change that only
+  matters on one system takes that system instead: `macos`, `windows`, `linux`.
+  No scope when nothing fits, and none on `chore: release X.Y.Z`. Lower-case
+  imperative subject: `feat(lang): recognise kotlin and swift`.
 - Comments explain decisions and traps, not syntax.
 
 ## Rules that must not be broken again
