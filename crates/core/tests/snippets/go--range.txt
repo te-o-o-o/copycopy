@@ -1,0 +1,4 @@
+x := make(map[string]int)
+for k, v := range m {
+	x[k] = v
+}

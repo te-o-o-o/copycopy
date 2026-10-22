@@ -316,7 +316,7 @@ impl Preview {
                 let chars = text.chars().count();
                 // Bounded to the opening of the text, so this costs the same on
                 // a line as on a megabyte of log.
-                let lang = copycopy_core::lang::detect(text);
+                let lang = copycopy_core::lang::detect_from(text, &item.source);
                 let body = match text.char_indices().nth(PREVIEW_CHARS) {
                     Some((end, _)) => text[..end].to_string(),
                     None => text.clone(),

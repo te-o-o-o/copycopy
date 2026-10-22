@@ -24,6 +24,17 @@ pub enum Lang {
     Html,
     Xml,
     Css,
+    C,
+    Cpp,
+    Java,
+    CSharp,
+    Kotlin,
+    Swift,
+    Ruby,
+    Lua,
+    Markdown,
+    Dockerfile,
+    Diff,
 }
 
 impl Lang {
@@ -44,6 +55,17 @@ impl Lang {
             Lang::Html => "html",
             Lang::Xml => "xml",
             Lang::Css => "css",
+            Lang::C => "c",
+            Lang::Cpp => "c++",
+            Lang::Java => "java",
+            Lang::CSharp => "c#",
+            Lang::Kotlin => "kotlin",
+            Lang::Swift => "swift",
+            Lang::Ruby => "ruby",
+            Lang::Lua => "lua",
+            Lang::Markdown => "markdown",
+            Lang::Dockerfile => "dockerfile",
+            Lang::Diff => "diff",
         }
     }
 
@@ -65,6 +87,17 @@ impl Lang {
             Lang::Html => "html",
             Lang::Xml => "xml",
             Lang::Css => "css",
+            Lang::C => "c",
+            Lang::Cpp => "cpp",
+            Lang::Java => "java",
+            Lang::CSharp => "cs",
+            Lang::Kotlin => "kt",
+            Lang::Swift => "swift",
+            Lang::Ruby => "rb",
+            Lang::Lua => "lua",
+            Lang::Markdown => "md",
+            Lang::Dockerfile => "dockerfile",
+            Lang::Diff => "diff",
         }
     }
 }
@@ -81,14 +114,115 @@ const MARGIN: u32 = 3;
 /// count stops here, so no language wins on one word alone.
 const CAP: usize = 4;
 
+/// The same, when the copy came from a tool that only ever holds code: the
+/// application has already said "this is code", so less evidence settles which.
+const TOOL_THRESHOLD: u32 = 3;
+const TOOL_MARGIN: u32 = 2;
+/// What the application suggests is worth this much, on top of a language that
+/// already scored. Never on its own: PhpStorm also holds a README.
+const HINTED: u32 = 3;
+
 pub fn detect(text: &str) -> Option<Lang> {
+    detect_from(text, "")
+}
+
+/// `source` is the application the copy came from, as the platform names it —
+/// "PhpStorm" on macOS, "phpstorm64" on Windows. Empty when unknown.
+pub fn detect_from(text: &str, source: &str) -> Option<Lang> {
     let sample = sample(text).trim();
     if sample.is_empty() {
         return None;
     }
     signature(sample)
         .or_else(|| structure(sample))
-        .or_else(|| scored(sample))
+        .or_else(|| scored(sample, Hint::of(source)))
+}
+
+// --------------------------------------------------------- the application
+
+/// What the application a copy came from says about it.
+#[derive(Default)]
+struct Hint {
+    /// The languages it is made for.
+    langs: &'static [Lang],
+    /// It only ever holds code: an editor, an IDE, a database client.
+    tool: bool,
+}
+
+use Lang::*;
+
+/// Matched against the lower-cased application name. First match wins, so the
+/// longer names come before the names they contain.
+const TOOLS: &[(&str, &[Lang], bool)] = &[
+    (
+        "phpstorm",
+        &[Php, JavaScript, TypeScript, Html, Css, Sql],
+        true,
+    ),
+    ("webstorm", &[JavaScript, TypeScript, Html, Css], true),
+    ("pycharm", &[Python], true),
+    ("rustrover", &[Rust, Toml], true),
+    ("goland", &[Go], true),
+    ("clion", &[C, Cpp], true),
+    ("rider", &[CSharp], true),
+    ("datagrip", &[Sql], true),
+    ("intellij", &[Java, Kotlin], true),
+    ("idea64", &[Java, Kotlin], true),
+    ("android studio", &[Kotlin, Java], true),
+    ("studio64", &[Kotlin, Java], true),
+    ("xcode", &[Swift], true),
+    ("visual studio code", &[], true),
+    ("vscode", &[], true),
+    ("visual studio", &[CSharp, Cpp], true),
+    ("devenv", &[CSharp, Cpp], true),
+    ("sublime", &[], true),
+    ("cursor", &[], true),
+    ("windsurf", &[], true),
+    ("neovim", &[], true),
+    ("nvim", &[], true),
+    ("emacs", &[], true),
+    ("bbedit", &[], true),
+    ("notepad++", &[], true),
+    ("tableplus", &[Sql], true),
+    ("dbeaver", &[Sql], true),
+    ("sequel", &[Sql], true),
+    ("pgadmin", &[Sql], true),
+    ("beekeeper", &[Sql], true),
+    ("heidisql", &[Sql], true),
+    ("workbench", &[Sql], true),
+    ("postman", &[Json], true),
+    ("insomnia", &[Json], true),
+    // Terminals hold commands, and their output too: a log, a listing, a
+    // stack trace. So a nudge towards the shell, never a lower bar.
+    ("terminal", &[Shell], false),
+    ("iterm", &[Shell], false),
+    ("ghostty", &[Shell], false),
+    ("wezterm", &[Shell], false),
+    ("kitty", &[Shell], false),
+    ("alacritty", &[Shell], false),
+    ("konsole", &[Shell], false),
+    ("tilix", &[Shell], false),
+];
+
+/// Names too short to search inside another: matched whole.
+const TOOLS_EXACT: &[(&str, &[Lang], bool)] = &[
+    ("code", &[], true),
+    ("zed", &[], true),
+    ("vim", &[], true),
+    ("warp", &[Shell], false),
+];
+
+impl Hint {
+    fn of(source: &str) -> Hint {
+        let name = source.trim().to_ascii_lowercase();
+        let name = name.strip_suffix(".exe").unwrap_or(&name);
+        TOOLS
+            .iter()
+            .find(|(needle, ..)| name.contains(needle))
+            .or_else(|| TOOLS_EXACT.iter().find(|(needle, ..)| name == *needle))
+            .map(|&(_, langs, tool)| Hint { langs, tool })
+            .unwrap_or_default()
+    }
 }
 
 fn sample(text: &str) -> &str {
@@ -148,6 +282,12 @@ fn signature(t: &str) -> Option<Lang> {
 
 /// Data formats, recognised by their shape rather than their vocabulary.
 fn structure(t: &str) -> Option<Lang> {
+    if diff(t) {
+        return Some(Lang::Diff);
+    }
+    if dockerfile(t) {
+        return Some(Lang::Dockerfile);
+    }
     if json(t) {
         return Some(Lang::Json);
     }
@@ -165,6 +305,62 @@ fn structure(t: &str) -> Option<Lang> {
         return Some(Lang::Yaml);
     }
     None
+}
+
+/// A patch: a `diff --git` header, or the `---`/`+++` pair with a hunk.
+fn diff(t: &str) -> bool {
+    if t.starts_with("diff --git ") {
+        return true;
+    }
+    let has = |prefix: &str| t.lines().any(|l| l.starts_with(prefix));
+    has("--- ") && has("+++ ") && has("@@ ")
+}
+
+const DOCKER: &[&str] = &[
+    "FROM",
+    "RUN",
+    "CMD",
+    "LABEL",
+    "EXPOSE",
+    "ENV",
+    "ADD",
+    "COPY",
+    "ENTRYPOINT",
+    "VOLUME",
+    "USER",
+    "WORKDIR",
+    "ARG",
+    "ONBUILD",
+    "STOPSIGNAL",
+    "HEALTHCHECK",
+    "SHELL",
+];
+
+/// Opens on `FROM` or `ARG`, and every line is an instruction, a comment or the
+/// continuation of the one above. SQL has a `FROM` too, never on every line.
+fn dockerfile(t: &str) -> bool {
+    let instruction = |l: &str| {
+        l.split_once(' ')
+            .is_some_and(|(word, _)| DOCKER.contains(&word))
+    };
+    let mut lines = content_lines(t).filter(|l| !l.starts_with('#'));
+    let Some(first) = lines.next() else {
+        return false;
+    };
+    if !(first.starts_with("FROM ") || first.starts_with("ARG ")) {
+        return false;
+    }
+    let mut instructions = 1;
+    let mut continued = first.ends_with('\\');
+    for line in lines {
+        if instruction(line) {
+            instructions += 1;
+        } else if !continued {
+            return false;
+        }
+        continued = line.ends_with('\\');
+    }
+    instructions >= 2
 }
 
 /// Judged on the opening only, so a document longer than the sample, cut off
@@ -269,7 +465,7 @@ fn yaml(t: &str) -> bool {
 
 /// Programming languages, recognised by vocabulary. Each clue is weighted by
 /// how specific it is — `$this->` names PHP, `let` names nothing much.
-fn scored(t: &str) -> Option<Lang> {
+fn scored(t: &str, hint: Hint) -> Option<Lang> {
     let js = javascript(t);
     let ts_only = typescript_only(t);
     let mut scores = [
@@ -288,11 +484,30 @@ fn scored(t: &str) -> Option<Lang> {
         (Lang::Go, go(t)),
         (Lang::Css, css(t)),
         (Lang::Html, 2 * known_tags(t) + count(t, "</")),
+        (Lang::C, c(t)),
+        (Lang::Cpp, cpp(t)),
+        (Lang::Java, java(t)),
+        (Lang::CSharp, csharp(t)),
+        (Lang::Kotlin, kotlin(t)),
+        (Lang::Swift, swift(t)),
+        (Lang::Ruby, ruby(t)),
+        (Lang::Lua, lua(t)),
+        (Lang::Markdown, markdown(t)),
     ];
+    for (lang, score) in &mut scores {
+        if *score > 0 && hint.langs.contains(lang) {
+            *score += HINTED;
+        }
+    }
     scores.sort_by_key(|(_, score)| std::cmp::Reverse(*score));
     let (best, top) = scores[0];
     let second = scores[1].1;
-    (top >= THRESHOLD && top >= second + MARGIN).then_some(best)
+    let (threshold, margin) = if hint.tool {
+        (TOOL_THRESHOLD, TOOL_MARGIN)
+    } else {
+        (THRESHOLD, MARGIN)
+    };
+    (top >= threshold && top >= second + margin).then_some(best)
 }
 
 fn rust(t: &str) -> u32 {
@@ -314,14 +529,45 @@ fn rust(t: &str) -> u32 {
         + 2 * count(t, "Some(")
         + 2 * starting(t, "match ")
         + 2 * count(t, "&mut ")
+        + 4 * starting(t, "if let ")
+        + 2 * count(t, ".iter()")
+        + 3 * count(t, ".collect()")
+        + 3 * count(t, "Vec<")
+        + 3 * count(t, "&self")
 }
 
 fn python(t: &str) -> u32 {
     let from_import = cap(content_lines(t)
         .filter(|l| l.starts_with("from ") && l.contains(" import "))
         .count());
-    4 * block_openers(t, "def ")
+    // `import os` alone on its line: no quotes, braces or semicolon, which is
+    // what JavaScript, Go and Java imports all carry.
+    let bare_import = cap(content_lines(t)
+        .filter(|l| {
+            l.strip_prefix("import ").is_some_and(|rest| {
+                rest.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || " _.,".contains(c))
+            })
+        })
+        .count());
+    let with_as = cap(content_lines(t)
+        .filter(|l| l.starts_with("with ") && l.contains(" as ") && l.ends_with(':'))
+        .count());
+    let comprehension = cap(t
+        .match_indices('[')
+        .filter(|(i, _)| {
+            let rest = &t[i + 1..];
+            let inner = &rest[..rest.find(']').unwrap_or(0)];
+            inner.contains(" for ") && inner.contains(" in ")
+        })
+        .count());
+    5 * block_openers(t, "def ")
         + 4 * block_openers(t, "class ")
+        + 4 * bare_import
+        + 5 * with_as
+        + 5 * comprehension
+        + 3 * count(t, "range(")
+        + count(t, "print(")
         + 3 * from_import
         + starting(t, "import ")
         + 2 * count(t, "self.")
@@ -337,9 +583,16 @@ fn python(t: &str) -> u32 {
 }
 
 fn javascript(t: &str) -> u32 {
+    // `const x = …;`: JavaScript closes its statements, Rust's `let` does too,
+    // Python and Kotlin never do.
+    let closed = cap(content_lines(t)
+        .filter(|l| (l.starts_with("const ") || l.starts_with("let ")) && l.ends_with(';'))
+        .count());
     2 * count(t, "function ")
+        + 3 * starting(t, "function ")
         + 2 * starting(t, "const ")
         + starting(t, "let ")
+        + closed
         + 2 * count(t, "=>")
         + 3 * count(t, "===")
         + 3 * count(t, "!==")
@@ -364,13 +617,16 @@ fn typescript_only(t: &str) -> u32 {
 }
 
 fn php(t: &str) -> u32 {
+    // `$user`, not `$HOME`: an all-capitals name is the shell's environment.
     let variables = cap(t
         .match_indices('$')
         .filter(|(i, _)| {
-            t[i + 1..]
+            let name: String = t[i + 1..]
                 .chars()
-                .next()
-                .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+                .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                .collect();
+            name.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+                && name.chars().any(|c| c.is_ascii_lowercase())
         })
         .count());
     let use_namespaced = cap(content_lines(t)
@@ -435,7 +691,21 @@ fn sql(t: &str) -> u32 {
     };
     let paired = (words(t, "SELECT") > 0 && words(t, "FROM") > 0)
         || (guarded && words(t, "select") > 0 && words(t, "from") > 0);
-    upper + lower + if paired { 2 } else { 0 }
+    let statement = |a: &str, b: &str| {
+        words(t, a) > 0 && words(t, b) > 0
+            || (guarded
+                && words(t, &a.to_ascii_lowercase()) > 0
+                && words(t, &b.to_ascii_lowercase()) > 0)
+    };
+    let statements = [
+        ("INSERT INTO", "VALUES"),
+        ("UPDATE", "SET"),
+        ("DELETE FROM", "WHERE"),
+    ]
+    .iter()
+    .filter(|(a, b)| statement(a, b))
+    .count() as u32;
+    upper + lower + if paired { 2 } else { 0 } + 3 * statements + 3 * words(t, "CREATE TABLE")
 }
 
 const SHELL_COMMANDS: &[&str] = &[
@@ -470,6 +740,25 @@ const SHELL_COMMANDS: &[&str] = &[
     "make",
     "systemctl",
     "source",
+    "sed",
+    "awk",
+    "rsync",
+    "gh",
+    "terraform",
+    "helm",
+    "bun",
+    "deno",
+    "node",
+    "python3",
+    "rustup",
+    "uv",
+    "ps",
+    "kill",
+    "tail",
+    "head",
+    "xargs",
+    "ln",
+    "go",
 ];
 
 fn shell(t: &str) -> u32 {
@@ -488,6 +777,24 @@ fn shell(t: &str) -> u32 {
         .filter(|l| l.ends_with("; then") || **l == "then")
         .count());
     let dos = cap(lines.iter().filter(|l| l.ends_with("; do")).count());
+    // One command on its own, with a flag, a pipe or a path: what gets copied
+    // from a README. Without one of those, `cat is asleep` would qualify.
+    let one_command = lines.len() == 1
+        && commands == 1
+        && [" -", " | ", "./", "/", "~"]
+            .iter()
+            .any(|m| lines[0].contains(m));
+    // `$HOME`, `$PATH`: upper-case variables are the environment's.
+    let env_vars = cap(t
+        .match_indices('$')
+        .filter(|(i, _)| {
+            let name: String = t[i + 1..]
+                .chars()
+                .take_while(|c| c.is_ascii_uppercase() || *c == '_')
+                .collect();
+            name.len() >= 2
+        })
+        .count());
     let exports = cap(lines
         .iter()
         .filter(|l| l.starts_with("export ") && l.contains('='))
@@ -503,6 +810,8 @@ fn shell(t: &str) -> u32 {
         + count(t, " | ")
         + count(t, " && ")
         + 2 * starting(t, "$ ")
+        + if one_command { 5 } else { 0 }
+        + env_vars
 }
 
 fn go(t: &str) -> u32 {
@@ -528,11 +837,135 @@ fn css(t: &str) -> u32 {
             matches!(digits, 3 | 6) && rest[digits..].starts_with(';')
         })
         .count());
+    let inline_rules = cap(content_lines(t).filter(|l| css_inline_rule(l)).count());
     2 * selectors
+        + 6 * inline_rules
         + declarations
         + 4 * count(t, "@media")
         + 2 * (count(t, "px;") + count(t, "rem;"))
         + 2 * hex_colours
+}
+
+fn c(t: &str) -> u32 {
+    let headers = cap(content_lines(t)
+        .filter(|l| l.starts_with("#include") && (l.ends_with(".h>") || l.ends_with(".h\"")))
+        .count());
+    5 * headers
+        + 3 * count(t, "printf(")
+        + 4 * count(t, "int main(")
+        + 3 * count(t, "malloc(")
+        + 2 * count(t, "sizeof(")
+        + 2 * words(t, "NULL")
+        + starting(t, "#define ")
+}
+
+fn cpp(t: &str) -> u32 {
+    // `<vector>`: the standard library's headers have no extension.
+    let headers = cap(content_lines(t)
+        .filter(|l| l.starts_with("#include <") && !l.ends_with(".h>"))
+        .count());
+    5 * headers
+        + 4 * count(t, "std::")
+        + 3 * words(t, "cout")
+        + 3 * words(t, "endl")
+        + 4 * count(t, "template<")
+        + 3 * words(t, "nullptr")
+        + 2 * count(t, "auto& ")
+        + 3 * starting(t, "using namespace ")
+}
+
+fn java(t: &str) -> u32 {
+    5 * count(t, "System.out.")
+        + 5 * count(t, "public static void main")
+        + 5 * starting(t, "import java")
+        + 3 * count(t, "String[]")
+        + 4 * count(t, "@Override")
+        + 3 * count(t, "private final ")
+        + 2 * count(t, "public class ")
+        + 3 * count(t, "new ArrayList<")
+        + 2 * count(t, "throws ")
+}
+
+fn csharp(t: &str) -> u32 {
+    5 * starting(t, "using System")
+        + 5 * count(t, "Console.Write")
+        + 5 * count(t, "static void Main")
+        + 5 * count(t, "{ get; set; }")
+        + 4 * count(t, "async Task")
+        + 3 * count(t, "string[] ")
+        + 2 * starting(t, "namespace ")
+        + 2 * starting(t, "var ")
+        + 2 * count(t, "foreach (")
+}
+
+fn kotlin(t: &str) -> u32 {
+    4 * starting(t, "fun ")
+        + 3 * count(t, " fun ")
+        + 3 * starting(t, "val ")
+        + 5 * starting(t, "data class ")
+        + 5 * count(t, "companion object")
+        + 4 * count(t, "?.let")
+        + 2 * count(t, "when (")
+        + 2 * count(t, "listOf(")
+        + 2 * count(t, "mutableListOf(")
+}
+
+fn swift(t: &str) -> u32 {
+    let funcs_returning = cap(content_lines(t)
+        .filter(|l| l.contains("func ") && l.contains(") -> "))
+        .count());
+    let frameworks = cap(content_lines(t)
+        .filter(|l| ["import UIKit", "import SwiftUI", "import Foundation"].contains(l))
+        .count());
+    starting(t, "func ")
+        + 3 * funcs_returning
+        + 5 * count(t, "guard let ")
+        + 5 * frameworks
+        + 5 * count(t, "some View")
+        + 4 * count(t, "@State")
+        + words(t, "nil")
+}
+
+fn ruby(t: &str) -> u32 {
+    // `def name` with no colon: Python's would end with one.
+    let defs = cap(content_lines(t)
+        .filter(|l| l.starts_with("def ") && !l.ends_with(':'))
+        .count());
+    let ends = cap(content_lines(t).filter(|l| *l == "end").count());
+    4 * defs
+        + 2 * ends
+        + 3 * starting(t, "puts ")
+        + 3 * count(t, "#{")
+        + 5 * count(t, " do |")
+        + 3 * starting(t, "require '")
+        + 5 * count(t, "attr_accessor")
+        + 2 * words(t, "elsif")
+}
+
+fn lua(t: &str) -> u32 {
+    let ends = cap(content_lines(t).filter(|l| *l == "end").count());
+    5 * starting(t, "local function ")
+        + 3 * starting(t, "local ")
+        + ends
+        + 4 * words(t, "elseif")
+        + 4 * count(t, "~=")
+        + 2 * count(t, " then")
+        + words(t, "nil")
+}
+
+/// Shell and Python comments open with `# ` too, so a heading alone is a weak
+/// clue; the fences, links and lists are what settle it.
+fn markdown(t: &str) -> u32 {
+    let headings = cap(content_lines(t)
+        .filter(|l| {
+            let hashes = l.chars().take_while(|c| *c == '#').count();
+            (1..=6).contains(&hashes) && l[hashes..].starts_with(' ')
+        })
+        .count());
+    let items = cap(content_lines(t)
+        .filter(|l| l.starts_with("- ") || l.starts_with("* "))
+        .count());
+    3 * count(t, "```") + 2 * headings + 2 * count(t, "](") + count(t, "**") + items
 }
 
 const HTML_TAGS: &[&str] = &[
@@ -555,6 +988,24 @@ fn css_declaration(line: &str) -> bool {
     !property.is_empty()
         && property.chars().all(|c| c.is_ascii_lowercase() || c == '-')
         && !value.trim().is_empty()
+}
+
+/// `a { color: red; }` on one line: a selector, then nothing but declarations.
+fn css_inline_rule(line: &str) -> bool {
+    let Some((head, rest)) = line.split_once('{') else {
+        return false;
+    };
+    let Some(body) = rest.trim().strip_suffix('}') else {
+        return false;
+    };
+    let decls: Vec<&str> = body
+        .split(';')
+        .map(str::trim)
+        .filter(|d| !d.is_empty())
+        .collect();
+    css_selector(&format!("{}{{", head.trim()))
+        && !decls.is_empty()
+        && decls.iter().all(|d| css_declaration(&format!("{d};")))
 }
 
 /// A line opening a rule. Not any line ending in `{`: `impl Foo {` or

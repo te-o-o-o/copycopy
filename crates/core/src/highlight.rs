@@ -39,6 +39,8 @@ pub enum Token {
 pub fn spans(text: &str, lang: Lang) -> Vec<(Range<usize>, Token)> {
     match lang {
         Lang::Html | Lang::Xml => markup(text),
+        Lang::Markdown => markdown(text),
+        Lang::Diff => diff(text),
         other => code(text, syntax(other)),
     }
 }
@@ -155,8 +157,53 @@ fn syntax(lang: Lang) -> Syntax {
             bare_keys: true,
             ..C_LIKE
         },
-        // Handled by `markup`, never reached.
-        Lang::Html | Lang::Xml => C_LIKE,
+        Lang::C => Syntax {
+            keywords: C,
+            bounded: b"'",
+            ..C_LIKE
+        },
+        Lang::Cpp => Syntax {
+            keywords: CPP,
+            bounded: b"'",
+            ..C_LIKE
+        },
+        Lang::Java => Syntax {
+            keywords: JAVA,
+            bounded: b"'",
+            ..C_LIKE
+        },
+        Lang::CSharp => Syntax {
+            keywords: CSHARP,
+            bounded: b"'",
+            ..C_LIKE
+        },
+        Lang::Kotlin => Syntax {
+            keywords: KOTLIN,
+            bounded: b"'",
+            ..C_LIKE
+        },
+        // Swift has no character literal: a `'` is never a quote.
+        Lang::Swift => Syntax {
+            quotes: b"\"",
+            keywords: SWIFT,
+            ..C_LIKE
+        },
+        Lang::Ruby => Syntax {
+            keywords: RUBY,
+            ..HASH
+        },
+        Lang::Lua => Syntax {
+            line: &["--"],
+            block: Some(("--[[", "]]")),
+            keywords: LUA,
+            ..C_LIKE
+        },
+        Lang::Dockerfile => Syntax {
+            keywords: DOCKER,
+            ..HASH
+        },
+        // Handled by `markup`, `markdown` and `diff`, never reached.
+        Lang::Html | Lang::Xml | Lang::Markdown | Lang::Diff => C_LIKE,
     }
 }
 
@@ -286,6 +333,93 @@ fn markup(text: &str) -> Vec<(Range<usize>, Token)> {
         }
     }
     out
+}
+
+// ------------------------------------------------------- the line languages
+
+/// Each line with where it starts, without its line break.
+fn lines_at(text: &str) -> impl Iterator<Item = (usize, &str)> {
+    let mut at = 0;
+    text.split_inclusive('\n').map(move |raw| {
+        let start = at;
+        at += raw.len();
+        (start, raw.trim_end_matches(['\n', '\r']))
+    })
+}
+
+/// Headings as keywords, code — fenced or between backticks — as strings, list
+/// markers as tags. Prose stays prose: that is most of a Markdown page.
+fn markdown(text: &str) -> Vec<(Range<usize>, Token)> {
+    let mut out = Vec::new();
+    let mut fenced = false;
+    for (start, line) in lines_at(text) {
+        let body = line.trim_start();
+        let indent = line.len() - body.len();
+        if body.starts_with("```") || fenced {
+            if body.starts_with("```") {
+                fenced = !fenced;
+            }
+            if !line.is_empty() {
+                out.push((start..start + line.len(), Token::Str));
+            }
+            continue;
+        }
+        let hashes = body.bytes().take_while(|&b| b == b'#').count();
+        if (1..=6).contains(&hashes) && body[hashes..].starts_with(' ') {
+            out.push((start..start + line.len(), Token::Keyword));
+            continue;
+        }
+        let mut i = indent;
+        let marker = ["- ", "* ", "+ "]
+            .iter()
+            .find(|m| body.starts_with(**m))
+            .map(|_| 1)
+            .or_else(|| {
+                let digits = body.bytes().take_while(u8::is_ascii_digit).count();
+                (digits > 0 && body[digits..].starts_with(". ")).then_some(digits + 1)
+            });
+        if let Some(len) = marker {
+            out.push((start + i..start + i + len, Token::Tag));
+            i += len;
+        }
+        let bytes = line.as_bytes();
+        while i < bytes.len() {
+            if bytes[i] == b'`' {
+                if let Some(close) = line[i + 1..].find('`') {
+                    let end = i + 1 + close + 1;
+                    out.push((start + i..start + end, Token::Str));
+                    i = end;
+                    continue;
+                }
+            }
+            i += 1;
+        }
+    }
+    out
+}
+
+/// Added lines one colour, removed lines another, hunk headers a third.
+fn diff(text: &str) -> Vec<(Range<usize>, Token)> {
+    lines_at(text)
+        .filter(|(_, line)| !line.is_empty())
+        .filter_map(|(start, line)| {
+            let token = if ["diff ", "index ", "--- ", "+++ "]
+                .iter()
+                .any(|p| line.starts_with(p))
+            {
+                Token::Comment
+            } else if line.starts_with("@@") {
+                Token::Number
+            } else if line.starts_with('+') {
+                Token::Key
+            } else if line.starts_with('-') {
+                Token::Tag
+            } else {
+                return None;
+            };
+            Some((start..start + line.len(), token))
+        })
+        .collect()
 }
 
 // ----------------------------------------------------------------- the tools
@@ -692,6 +826,310 @@ const SQL: &[&str] = &[
     "where",
 ];
 
+const C: &[&str] = &[
+    "auto", "bool", "break", "case", "char", "const", "continue", "default", "define", "do",
+    "double", "else", "enum", "extern", "false", "float", "for", "goto", "if", "include", "int",
+    "long", "NULL", "return", "short", "signed", "sizeof", "static", "struct", "switch", "true",
+    "typedef", "union", "unsigned", "void", "volatile", "while",
+];
+
+const CPP: &[&str] = &[
+    "auto",
+    "bool",
+    "break",
+    "case",
+    "catch",
+    "char",
+    "class",
+    "const",
+    "continue",
+    "default",
+    "delete",
+    "do",
+    "double",
+    "else",
+    "enum",
+    "false",
+    "float",
+    "for",
+    "if",
+    "include",
+    "int",
+    "long",
+    "namespace",
+    "new",
+    "nullptr",
+    "override",
+    "private",
+    "protected",
+    "public",
+    "return",
+    "static",
+    "struct",
+    "switch",
+    "template",
+    "this",
+    "throw",
+    "true",
+    "try",
+    "typename",
+    "using",
+    "virtual",
+    "void",
+    "while",
+];
+
+const JAVA: &[&str] = &[
+    "abstract",
+    "boolean",
+    "break",
+    "case",
+    "catch",
+    "char",
+    "class",
+    "continue",
+    "default",
+    "do",
+    "double",
+    "else",
+    "enum",
+    "extends",
+    "false",
+    "final",
+    "finally",
+    "float",
+    "for",
+    "if",
+    "implements",
+    "import",
+    "instanceof",
+    "int",
+    "interface",
+    "long",
+    "new",
+    "null",
+    "package",
+    "private",
+    "protected",
+    "public",
+    "record",
+    "return",
+    "static",
+    "super",
+    "switch",
+    "this",
+    "throw",
+    "throws",
+    "true",
+    "try",
+    "var",
+    "void",
+    "while",
+];
+
+const CSHARP: &[&str] = &[
+    "abstract",
+    "as",
+    "async",
+    "await",
+    "base",
+    "bool",
+    "break",
+    "case",
+    "catch",
+    "class",
+    "const",
+    "continue",
+    "default",
+    "do",
+    "double",
+    "else",
+    "enum",
+    "false",
+    "finally",
+    "float",
+    "for",
+    "foreach",
+    "get",
+    "if",
+    "in",
+    "int",
+    "interface",
+    "internal",
+    "is",
+    "long",
+    "namespace",
+    "new",
+    "null",
+    "out",
+    "override",
+    "private",
+    "protected",
+    "public",
+    "readonly",
+    "return",
+    "set",
+    "static",
+    "string",
+    "struct",
+    "switch",
+    "this",
+    "throw",
+    "true",
+    "try",
+    "using",
+    "var",
+    "virtual",
+    "void",
+    "while",
+];
+
+const KOTLIN: &[&str] = &[
+    "as",
+    "break",
+    "class",
+    "companion",
+    "continue",
+    "data",
+    "do",
+    "else",
+    "enum",
+    "false",
+    "for",
+    "fun",
+    "if",
+    "import",
+    "in",
+    "interface",
+    "is",
+    "lateinit",
+    "null",
+    "object",
+    "override",
+    "package",
+    "private",
+    "public",
+    "return",
+    "sealed",
+    "super",
+    "suspend",
+    "this",
+    "throw",
+    "true",
+    "try",
+    "val",
+    "var",
+    "when",
+    "while",
+];
+
+const SWIFT: &[&str] = &[
+    "as",
+    "async",
+    "await",
+    "break",
+    "case",
+    "catch",
+    "class",
+    "continue",
+    "default",
+    "defer",
+    "do",
+    "else",
+    "enum",
+    "extension",
+    "false",
+    "for",
+    "func",
+    "guard",
+    "if",
+    "import",
+    "in",
+    "init",
+    "let",
+    "nil",
+    "private",
+    "protocol",
+    "public",
+    "return",
+    "self",
+    "Self",
+    "some",
+    "static",
+    "struct",
+    "switch",
+    "throw",
+    "throws",
+    "true",
+    "try",
+    "var",
+    "where",
+    "while",
+];
+
+const RUBY: &[&str] = &[
+    "and",
+    "attr_accessor",
+    "begin",
+    "break",
+    "case",
+    "class",
+    "def",
+    "do",
+    "else",
+    "elsif",
+    "end",
+    "ensure",
+    "false",
+    "for",
+    "if",
+    "in",
+    "module",
+    "next",
+    "nil",
+    "not",
+    "or",
+    "puts",
+    "require",
+    "rescue",
+    "return",
+    "self",
+    "super",
+    "then",
+    "true",
+    "unless",
+    "until",
+    "when",
+    "while",
+    "yield",
+];
+
+const LUA: &[&str] = &[
+    "and", "break", "do", "else", "elseif", "end", "false", "for", "function", "goto", "if", "in",
+    "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while",
+];
+
+const DOCKER: &[&str] = &[
+    "FROM",
+    "RUN",
+    "CMD",
+    "LABEL",
+    "EXPOSE",
+    "ENV",
+    "ADD",
+    "COPY",
+    "ENTRYPOINT",
+    "VOLUME",
+    "USER",
+    "WORKDIR",
+    "ARG",
+    "ONBUILD",
+    "STOPSIGNAL",
+    "HEALTHCHECK",
+    "SHELL",
+    "AS",
+];
+
 const JSON: &[&str] = &["true", "false", "null"];
 const YAML: &[&str] = &["true", "false", "null", "yes", "no"];
 const BOOLEANS: &[&str] = &["true", "false"];
@@ -822,5 +1260,28 @@ mod tests {
     #[test]
     fn plain_prose_is_left_alone() {
         assert!(spans("bonjour, ceci n'est pas du code", Lang::Rust).is_empty());
+    }
+
+    #[test]
+    fn markdown_colours_headings_code_and_markers_only() {
+        let text = "# Titre é\n\n- un `code` ici\n\n```rust\nfn main() {}\n```\nfin";
+        let found = kinds(text, Lang::Markdown);
+        assert!(found.contains(&("# Titre é", Token::Keyword)));
+        assert!(found.contains(&("-", Token::Tag)));
+        assert!(found.contains(&("`code`", Token::Str)));
+        assert!(found.contains(&("fn main() {}", Token::Str)));
+        assert!(!found.iter().any(|(s, _)| *s == "fin"));
+        check_invariants(text, Lang::Markdown);
+    }
+
+    #[test]
+    fn a_diff_tells_added_from_removed() {
+        let text = "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-old é\n+new\r\n same";
+        let found = kinds(text, Lang::Diff);
+        assert!(found.contains(&("-old é", Token::Tag)));
+        assert!(found.contains(&("+new", Token::Key)));
+        assert!(found.contains(&("@@ -1 +1 @@", Token::Number)));
+        assert!(found.contains(&("+++ b/x", Token::Comment)));
+        check_invariants(text, Lang::Diff);
     }
 }

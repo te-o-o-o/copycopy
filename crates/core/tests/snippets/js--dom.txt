@@ -1,0 +1,3 @@
+document.querySelector('#app').addEventListener('click', () => {
+  console.log('hi');
+});
