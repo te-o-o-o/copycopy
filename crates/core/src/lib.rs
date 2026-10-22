@@ -148,7 +148,7 @@ impl History {
 
         let (kind, preview, payload) = match event {
             ClipEvent::Text(t) => {
-                let kind = classify(&t);
+                let kind = classify(&t, &source);
                 let preview = one_line(&t);
                 (kind, preview, Payload::Text(t))
             }
@@ -319,7 +319,7 @@ fn one_line(text: &str) -> String {
     out
 }
 
-fn classify(text: &str) -> Kind {
+fn classify(text: &str, source: &str) -> Kind {
     let t = text.trim();
     if t.is_empty() {
         return Kind::Text;
@@ -343,7 +343,9 @@ fn classify(text: &str) -> Kind {
     // detector does not know — C, Java and the like — and now need two of them:
     // one marker on a multi-line text used to be enough, which turned any note
     // with an arrow in it into code.
-    if lang::detect(t).is_some() {
+    // Markdown is the exception: a note with a heading and a list is still a
+    // note, and the badge should say so.
+    if lang::detect_from(t, source).is_some_and(|l| l != lang::Lang::Markdown) {
         return Kind::Code;
     }
     let code_markers = [
@@ -490,15 +492,15 @@ mod tests {
 
     #[test]
     fn classification() {
-        assert_eq!(classify("https://example.com/a"), Kind::Url);
-        assert_eq!(classify("fn main() {\n    let x = 1;\n}"), Kind::Code);
-        assert_eq!(classify("Bonjour tout le monde"), Kind::Text);
-        assert_eq!(classify("j'ai -> une flèche"), Kind::Text);
+        assert_eq!(classify("https://example.com/a", ""), Kind::Url);
+        assert_eq!(classify("fn main() {\n    let x = 1;\n}", ""), Kind::Code);
+        assert_eq!(classify("Bonjour tout le monde", ""), Kind::Text);
+        assert_eq!(classify("j'ai -> une flèche", ""), Kind::Text);
     }
 
     #[test]
     fn a_lone_arrow_in_a_note_is_not_code() {
-        assert_eq!(classify("étape 1 -> étape 2\nétape 3"), Kind::Text);
+        assert_eq!(classify("étape 1 -> étape 2\nétape 3", ""), Kind::Text);
     }
 
     #[test]

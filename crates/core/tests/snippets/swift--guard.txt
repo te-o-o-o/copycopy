@@ -1,0 +1,5 @@
+let name: String = "x"
+func greet() -> String {
+    guard let n = optional else { return "" }
+    return n
+}

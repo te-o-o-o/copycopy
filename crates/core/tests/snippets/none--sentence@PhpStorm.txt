@@ -1,0 +1,1 @@
+Fixes the login redirect when the session expires
