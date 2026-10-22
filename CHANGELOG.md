@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 (2026-10-22)
 
 ### Added
 
@@ -13,6 +13,11 @@
   accent. Minuit, Lavande and Clinique stay available in the settings.
 - Pinned rows are marked with an amber bar on their left edge instead of a
   tinted background, which made the list look busy.
+
+### Fixed
+
+- macOS: the window closes after a row is dragged out and dropped elsewhere,
+  as on Windows. Dropped back onto copycopy, it stays open.
 
 ## 0.5.0 (2026-10-19)
 
