@@ -5,7 +5,7 @@
   except your passwords. It's nosy, not evil.
 </p>
 
-<p align="center"><sub>v0.5.0 · Rust · Windows, Linux, macOS · MIT</sub></p>
+<p align="center"><sub>v0.6.0 · Rust · Windows, Linux, macOS · MIT</sub></p>
 
 <p align="center">
   <a href="#features">Features</a> ·

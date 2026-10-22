@@ -1,6 +1,6 @@
 # Journal des modifications
 
-## Non publié
+## 0.6.0 (2026-10-22)
 
 ### Ajouts
 
@@ -14,6 +14,11 @@
   dans les réglages.
 - Les lignes épinglées sont marquées d'une barre ambre sur leur bord gauche
   plutôt que d'un fond teinté, qui chargeait la liste.
+
+### Corrections
+
+- macOS : la fenêtre se ferme après avoir glissé une ligne et l'avoir déposée
+  ailleurs, comme sous Windows. Redéposée sur copycopy, elle reste ouverte.
 
 ## 0.5.0 (2026-10-19)
 
