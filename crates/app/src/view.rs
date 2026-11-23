@@ -751,7 +751,7 @@ fn row_widget<'a>(
     };
 
     // Under the pointer only. Suppr does the same from the keyboard, and the
-    // panel's shortcut chips say so.
+    // shortcut chips in the settings say so.
     let cross_slot: Element<'_, Message> = if hovered {
         mouse_area(
             canvas(Cross { color: p.bright })
@@ -1178,7 +1178,7 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         Preview::Empty => Space::new().height(Length::Fill).into(),
     };
 
-    column![caption, content, shortcuts(p, l)]
+    column![caption, content]
         .spacing(12)
         .padding(Padding::from([16, 18]))
         .width(Length::Fill)
@@ -1632,6 +1632,9 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
             label("DÉMARRAGE", "STARTUP"),
             startup,
             Space::new().height(Length::Fixed(8.0)),
+            label("TOUCHES", "KEYS"),
+            shortcuts(p, l),
+            Space::new().height(Length::Fixed(8.0)),
             label("DONNÉES", "DATA"),
             data,
             Space::new().height(Length::Fixed(8.0)),
@@ -1689,8 +1692,7 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
 }
 
 /// The frame around a text or file preview: flat, one step off the card, and
-/// as tall as the panel allows — the shortcut chips stay pinned under it
-/// whatever the length of the entry. Long content scrolls inside.
+/// as tall as the panel allows, whatever the length of the entry. Long content scrolls inside.
 fn framed<'a>(inner: Element<'a, Message>, rim: Color, p: Palette) -> Element<'a, Message> {
     let body = scrollable(container(inner).padding(Padding {
         top: 0.0,
@@ -1724,10 +1726,9 @@ fn framed<'a>(inner: Element<'a, Message>, rim: Color, p: Palette) -> Element<'a
         .into()
 }
 
-/// The keys that act on the selected entry, under its preview. Copying is the
-/// one filled chip, and the one that can be clicked: it is the point of the
-/// application. The others are reminders — the header no longer carries a
-/// legend, and nothing else in the window says that Suppr deletes.
+/// The keys that act on the selected entry, as a reminder in the settings:
+/// nothing else in the window says that Suppr deletes. Not clickable here —
+/// a copy button in the settings would copy an entry out of sight.
 fn shortcuts<'a>(p: Palette, l: Locale) -> Element<'a, Message> {
     let chip = |label: &'static str| {
         container(text(label).size(10.0).color(p.key))
@@ -1740,31 +1741,16 @@ fn shortcuts<'a>(p: Palette, l: Locale) -> Element<'a, Message> {
                 },
                 ..Default::default()
             })
+            .into()
     };
-    let copy = mouse_area(
-        container(
-            text(l.tr("ENTER · COPIER", "ENTER · COPY"))
-                .size(10.0)
-                .color(p.card),
-        )
-        .padding(Padding::from([6, 11]))
-        .style(move |_| container::Style {
-            background: Some(Background::Color(p.accent)),
-            border: Border::default().rounded(5),
-            ..Default::default()
-        }),
-    )
-    .interaction(mouse::Interaction::Pointer)
-    .on_press(Message::Activate);
-
-    row![
-        copy,
-        chip(l.tr("CTRL-B · ÉPINGLER", "CTRL-B · PIN")),
-        chip(l.tr("SUPPR · SUPPRIMER", "DEL · DELETE")),
-        chip(l.tr("ESC · FERMER", "ESC · CLOSE")),
+    row([
+        l.tr("ENTER · COPIER", "ENTER · COPY"),
+        l.tr("CTRL-B · ÉPINGLER", "CTRL-B · PIN"),
+        l.tr("SUPPR · SUPPRIMER", "DEL · DELETE"),
+        l.tr("ESC · FERMER", "ESC · CLOSE"),
     ]
+    .map(chip))
     .spacing(6)
-    .align_y(iced::Alignment::Center)
     .wrap()
     .into()
 }
