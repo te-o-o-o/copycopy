@@ -51,6 +51,8 @@ and a shortcut brings it back. English, 日本語, emoji 🎉 and code all inclu
 - **English or French**, English until you pick French in the settings.
 - **Secrets are never stored**: whatever a password manager marks as
   confidential is dropped before it is written.
+- **Emails and keys masked on copy**: what copycopy copies back carries
+  `[email]` and `[secret]` instead. Two boxes under the preview, "Hide … on paste".
 - **Nothing leaves your machine**: no account, no cloud, no telemetry.
 - **Portable**: put a `copycopy.conf` next to the executable, and everything
   lives in that folder.

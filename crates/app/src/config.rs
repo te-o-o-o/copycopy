@@ -32,6 +32,10 @@ pub struct Config {
     /// Start with the session. Off by default: a program that installs itself
     /// into someone's login is a program that asked first.
     pub autostart: bool,
+    /// Mask email addresses and secrets in what copycopy copies back. On by
+    /// default: a pasted key ends up in a chat or a ticket before anyone looks.
+    pub hide_emails: bool,
+    pub hide_secrets: bool,
     /// Rounded window corners. They need a transparent window, which every
     /// compositing desktop blends correctly — Windows DWM, Wayland, X11 with a
     /// compositor. An X11 session running without one has nothing to blend
@@ -52,6 +56,8 @@ impl Default for Config {
             theme: crate::theme::Mode::Dark,
             auto_paste: false,
             autostart: false,
+            hide_emails: true,
+            hide_secrets: true,
             rounded: true,
             language: None,
         }
@@ -112,6 +118,8 @@ impl Config {
                 "theme" => config.theme = crate::theme::Mode::parse(value).unwrap_or(config.theme),
                 "auto_paste" => config.auto_paste = truthy(value),
                 "autostart" => config.autostart = truthy(value),
+                "hide_emails" => config.hide_emails = truthy(value),
+                "hide_secrets" => config.hide_secrets = truthy(value),
                 // Anything but "square" keeps the rounded default: a typo must
                 // not silently square the window.
                 "corners" => config.rounded = !value.eq_ignore_ascii_case("square"),
@@ -161,6 +169,11 @@ impl Config {
         body.push_str(&format!("auto_paste = {}\n", self.auto_paste));
         body.push_str("# Start copycopy with the session: true or false\n");
         body.push_str(&format!("autostart = {}\n", self.autostart));
+        body.push_str(
+            "# Mask email addresses and secrets in what copycopy copies: true or false\n",
+        );
+        body.push_str(&format!("hide_emails = {}\n", self.hide_emails));
+        body.push_str(&format!("hide_secrets = {}\n", self.hide_secrets));
         body.push_str(
             "# Window corners: round or square.\n\
              # \"square\" if your X11 session runs without a compositor: rounded\n\

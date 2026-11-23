@@ -511,4 +511,5 @@ mod tests {
 pub mod highlight;
 pub mod lang;
 pub mod links;
+pub mod mask;
 pub mod store;

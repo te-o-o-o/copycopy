@@ -38,6 +38,11 @@ CI » veut seulement dire que ça compile.
   passe marque une copie comme confidentielle, chaque système a son propre
   marqueur pour ça, et copycopy écarte le contenu avant de l'enregistrer. C'est
   la règle autour de laquelle tout le reste s'organise.
+- **Le masquage repère des formes, pas l'entropie.** Un secret est reconnu à
+  son préfixe (`ghp_`, `sk-`, `AKIA`…), à sa forme (JWT, clé PEM, `Bearer`, le
+  mot de passe d'une URL) ou à la clé qui le précède (`password=`, `api_key:`).
+  Une chaîne aléatoire sans rien de tout ça passe. L'entrée est conservée et
+  affichée telle qu'elle a été copiée ; seule la recopie est masquée.
 - **iced, pas egui.** egui ne sait pas dessiner les emoji en couleur. iced, via
   cosmic-text, dessine les emoji, les tons de peau et les séquences de famille,
   et trouve seul les polices de secours.

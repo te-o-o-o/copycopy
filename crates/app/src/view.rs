@@ -6,7 +6,7 @@
 //! other but leaves the row stuck to the top of its container.
 
 use iced::widget::{
-    canvas, column, container, image, mouse_area, rich_text, row, scrollable, span, text,
+    canvas, checkbox, column, container, image, mouse_area, rich_text, row, scrollable, span, text,
     text_input, Space,
 };
 use iced::{
@@ -1178,7 +1178,30 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         Preview::Empty => Space::new().height(Length::Fill).into(),
     };
 
+    // Text only: an image or a file list has nothing to mask.
+    let masks = matches!(state.preview, Preview::Text { .. }).then(|| {
+        let (emails, secrets) = state.masks();
+        row![
+            mask_box(
+                l.tr("Masquer les e-mails au collage", "Hide emails on paste"),
+                emails,
+                Message::SetHideEmails,
+                p
+            ),
+            mask_box(
+                l.tr("Masquer les secrets au collage", "Hide secrets on paste"),
+                secrets,
+                Message::SetHideSecrets,
+                p
+            ),
+        ]
+        .spacing(16)
+        .wrap()
+        .vertical_spacing(6)
+    });
+
     column![caption, content]
+        .push(masks)
         .spacing(12)
         .padding(Padding::from([16, 18]))
         .width(Length::Fill)
@@ -1753,6 +1776,39 @@ fn shortcuts<'a>(p: Palette, l: Locale) -> Element<'a, Message> {
     .spacing(6)
     .wrap()
     .into()
+}
+
+fn mask_box<'a>(
+    label: &'a str,
+    checked: bool,
+    on_toggle: fn(bool) -> Message,
+    p: Palette,
+) -> Element<'a, Message> {
+    checkbox(checked)
+        .label(label)
+        .on_toggle(on_toggle)
+        .size(14)
+        .text_size(11.5)
+        .spacing(6)
+        .style(move |_, status| {
+            let on = matches!(
+                status,
+                checkbox::Status::Active { is_checked: true }
+                    | checkbox::Status::Hovered { is_checked: true }
+                    | checkbox::Status::Disabled { is_checked: true }
+            );
+            checkbox::Style {
+                background: Background::Color(if on { p.accent } else { Color::TRANSPARENT }),
+                icon_color: p.card,
+                border: Border {
+                    color: if on { p.accent } else { p.outline },
+                    width: 1.0,
+                    radius: 3.0.into(),
+                },
+                text_color: Some(p.faint),
+            }
+        })
+        .into()
 }
 
 /// The list's scrollbar, shared with the panel: thin, and only the scroller

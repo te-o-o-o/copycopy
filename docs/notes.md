@@ -37,6 +37,11 @@ compiles.
   confidential, each system has its own flag for it, and copycopy drops the
   content before it is stored. This is the rule the rest of the project bends
   around.
+- **Masking works on shapes, not entropy.** A secret is found by its prefix
+  (`ghp_`, `sk-`, `AKIA`…), its form (JWT, PEM key, `Bearer`, the password in a
+  URL) or the key before it (`password=`, `api_key:`). A random string with
+  none of these goes through. The entry is stored and previewed as copied;
+  only the copy back is masked.
 - **iced, not egui.** egui cannot draw colour emoji. iced, through cosmic-text,
   draws emoji, skin tones and family sequences, and finds fallback fonts on its
   own.

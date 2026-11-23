@@ -401,6 +401,10 @@ pub enum Message {
     SetAutoPaste(bool),
     /// Start with the session, or stop doing so, from the settings.
     SetAutostart(bool),
+    /// Mask email addresses, from the box under the preview.
+    SetHideEmails(bool),
+    /// Mask secrets, from the box under the preview.
+    SetHideSecrets(bool),
     /// List one type only, or everything with `None`, from the filter pills.
     SetKindFilter(Option<Kind>),
     /// Hide the window, from the header cross. Capture carries on.
@@ -631,6 +635,11 @@ impl State {
 
     pub fn autostart(&self) -> bool {
         self.config.autostart
+    }
+
+    /// Whether emails, then secrets, are masked.
+    pub fn masks(&self) -> (bool, bool) {
+        (self.config.hide_emails, self.config.hide_secrets)
     }
 
     fn flash(&mut self, msg: impl Into<String>) {
@@ -890,7 +899,15 @@ impl State {
             );
             return Task::none();
         };
-        let payload = item.payload.clone();
+        // Masked on the way out only, when a box is ticked: the preview shows
+        // the entry as it is, and the stored entry keeps the original.
+        let payload = match &item.payload {
+            Payload::Text(text) => {
+                let (emails, secrets) = self.masks();
+                Payload::Text(copycopy_core::mask::mask(text, emails, secrets))
+            }
+            other => other.clone(),
+        };
         let copied = Copied {
             id: item.id,
             hash: item.hash,
@@ -1406,6 +1423,16 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::SetLocale(language) => {
             state.config.language = Some(language);
+            state.config.save();
+            Task::none()
+        }
+        Message::SetHideEmails(on) => {
+            state.config.hide_emails = on;
+            state.config.save();
+            Task::none()
+        }
+        Message::SetHideSecrets(on) => {
+            state.config.hide_secrets = on;
             state.config.save();
             Task::none()
         }

@@ -54,6 +54,8 @@ copiez, et un raccourci le ramène. Anglais, 日本語, emoji 🎉 et code compr
   le français dans les réglages.
 - **Les secrets ne sont jamais conservés** : ce qu'un gestionnaire de mots de
   passe marque comme confidentiel est écarté avant d'être écrit.
+- **E-mails et clés masqués à la copie** : ce que copycopy recopie porte
+  `[email]` et `[secret]` à la place. Deux cases sous l'aperçu, « Masquer … au collage ».
 - **Rien ne sort de la machine** : pas de compte, pas de nuage, pas de
   télémétrie.
 - **Portable** : posez un `copycopy.conf` à côté de l'exécutable, et tout vit
