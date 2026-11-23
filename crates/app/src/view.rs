@@ -1151,10 +1151,14 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         }
         Preview::Files(paths) => framed(
             iced::widget::Column::with_children(paths.iter().map(|(path, exists)| {
+                // Same fallback as the text preview: a path has few spaces,
+                // and word wrapping alone cut its end — the extension — off.
                 text(path.as_str())
                     .size(12.5)
                     .font(Font::MONOSPACE)
                     .color(if *exists { p.text } else { p.faint })
+                    .width(Length::Fill)
+                    .wrapping(text::Wrapping::WordOrGlyph)
                     .into()
             }))
             .spacing(6)
