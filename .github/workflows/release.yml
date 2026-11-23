@@ -5,8 +5,10 @@
 # `cargo deb` names its package after Cargo.toml and the release would end up
 # carrying two different version numbers.
 #
-# Nothing here is signed. Windows shows a SmartScreen warning and macOS refuses
-# to open the app until the user clears it by hand; the release notes say how.
+# Nothing here is signed by a recognised authority. Windows shows a SmartScreen
+# warning and macOS refuses to open the app until the user clears it by hand;
+# the release notes say how. The macOS app carries a self-signed certificate,
+# for the updater and the Accessibility grant: see the bundle step.
 name: release
 
 on:
@@ -184,6 +186,9 @@ jobs:
           iconutil -c icns copycopy.iconset -o copycopy.icns
 
       - name: Bundle and disk image
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
         run: |
           # The disk image holds the app and a link to /Applications, so it can
           # be dragged into place. Without the link the app stayed on the
@@ -195,6 +200,26 @@ jobs:
           cp copycopy.icns "$app/Contents/Resources/copycopy.icns"
           sed "s/__VERSION__/${{ needs.version.outputs.version }}/g" \
             packaging/macos/Info.plist > "$app/Contents/Info.plist"
+          # Signed with the same self-signed certificate every time, never
+          # ad hoc: macOS ties the Accessibility grant to the certificate, so
+          # auto-paste survives an update, and the updater only installs a
+          # download that carries it (`update.rs`). An untrusted certificate
+          # signs fine. No secret means no release rather than an unsigned
+          # one that every installed copy would refuse.
+          if [ -z "$MACOS_CERT_P12" ]; then
+            echo "MACOS_CERT_P12 is not set" >&2
+            exit 1
+          fi
+          keychain="$RUNNER_TEMP/sign.keychain-db"
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p ci "$keychain"
+          security unlock-keychain -p ci "$keychain"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k ci "$keychain" > /dev/null
+          rm "$RUNNER_TEMP/cert.p12"
+          codesign --force --keychain "$keychain" -s "te-o-o-o" "$app"
+          codesign -dr - "$app"
+          security delete-keychain "$keychain"
           ln -s /Applications dmg/Applications
           hdiutil create -volname copycopy -srcfolder dmg -ov -format UDZO \
             dist/copycopy-macos-universal.dmg

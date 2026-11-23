@@ -34,6 +34,7 @@ mod ipc;
 mod locale;
 mod mark;
 mod theme;
+mod update;
 mod view;
 
 use std::sync::Mutex;
@@ -91,6 +92,9 @@ pub enum Wake {
     /// sends it: its drag session ends after `drag::start` has returned.
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     Dropped,
+    /// A new version replaced the bundle: restart once the window is closed.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    Updated,
 }
 
 /// The sending end of `WAKE`, for wake-ups that start somewhere with no channel
@@ -123,6 +127,8 @@ pub struct State {
     pub preview_key: Option<u64>,
     /// The right-hand panel shows the settings instead of the preview.
     pub settings_open: bool,
+    /// A new version is installed; `hide` restarts into it.
+    pub update_ready: bool,
     /// Only entries of this type are listed; `None` lists them all.
     pub kind_filter: Option<Kind>,
     /// Per-type counts for the filter pills, worked out in `refilter`.
@@ -401,6 +407,8 @@ pub enum Message {
     SetAutoPaste(bool),
     /// Start with the session, or stop doing so, from the settings.
     SetAutostart(bool),
+    /// Install new versions by itself, or not, from the settings.
+    SetAutoUpdate(bool),
     /// List one type only, or everything with `None`, from the filter pills.
     SetKindFilter(Option<Kind>),
     /// Hide the window, from the header cross. Capture carries on.
@@ -633,6 +641,22 @@ impl State {
         self.config.autostart
     }
 
+    pub fn auto_update(&self) -> bool {
+        self.config.auto_update
+    }
+
+    /// Into the version `update` just installed. Never with the window open:
+    /// it would vanish under the user's cursor.
+    fn restart(&mut self) -> Task<Message> {
+        match update::own_bundle() {
+            Some(bundle) => {
+                update::relaunch(&bundle);
+                self.quit()
+            }
+            None => Task::none(),
+        }
+    }
+
     fn flash(&mut self, msg: impl Into<String>) {
         self.flash = Some((msg.into(), Instant::now()));
     }
@@ -779,6 +803,9 @@ impl State {
         // pinned entry, when there is one. `show` starts the next open clean
         // instead. Only `copied` goes now, so its timer stops firing.
         self.copied = None;
+        if self.update_ready {
+            return self.restart();
+        }
         if !self.window_shown {
             return Task::none();
         }
@@ -1124,6 +1151,7 @@ fn boot() -> (State, Task<Message>) {
         config.autostart = autostart;
         config.save();
     }
+    update::ENABLED.store(config.auto_update, std::sync::atomic::Ordering::Relaxed);
     if let Some(path) = config.write_default_if_missing() {
         println!("configuration : {}", path.display());
     }
@@ -1214,6 +1242,7 @@ fn boot() -> (State, Task<Message>) {
         preview: Preview::Empty,
         preview_key: None,
         settings_open: args.settings,
+        update_ready: false,
         kind_filter: args.filter,
         counts: FilterCounts::default(),
         hits: Vec::new(),
@@ -1414,6 +1443,12 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             state.config.save();
             Task::none()
         }
+        Message::SetAutoUpdate(on) => {
+            state.config.auto_update = on;
+            update::ENABLED.store(on, std::sync::atomic::Ordering::Relaxed);
+            state.config.save();
+            Task::none()
+        }
         Message::SetAutostart(on) => {
             // The preference only changes if the system accepted it: a switch
             // that moves while nothing was written would be a lie.
@@ -1502,6 +1537,14 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
         }
         // The same as a drop reported at once, on Windows.
         Message::Wake(Wake::Dropped) => state.hide(),
+        Message::Wake(Wake::Updated) => {
+            state.update_ready = true;
+            if state.window_shown {
+                Task::none()
+            } else {
+                state.restart()
+            }
+        }
         Message::Wake(Wake::Command(cmd)) => match cmd.as_str() {
             ipc::SHOW => state.show(),
             ipc::QUIT => state.quit(),
@@ -1510,6 +1553,7 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
         Message::Launched => {
             #[cfg(target_os = "macos")]
             icon::set_dock();
+            update::spawn();
             Task::none()
         }
         Message::WindowOpened(id) => {
@@ -1940,6 +1984,23 @@ fn main() -> iced::Result {
                 );
             }
             Err(e) => eprintln!("démarrage automatique : {e}"),
+        }
+        return Ok(());
+    }
+
+    // Diagnostic: installs the app inside a local disk image over the running
+    // bundle, through the same checks as a real update, and exits.
+    if let Some(dmg) = argv
+        .iter()
+        .position(|a| a == "--update-from")
+        .and_then(|i| argv.get(i + 1))
+    {
+        match update::own_bundle() {
+            Some(bundle) => match update::install(std::path::Path::new(dmg), &bundle) {
+                Ok(()) => println!("update: {} replaced", bundle.display()),
+                Err(e) => eprintln!("update: {e}"),
+            },
+            None => eprintln!("update: not running from an app bundle"),
         }
         return Ok(());
     }

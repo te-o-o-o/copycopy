@@ -1538,6 +1538,33 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
             .into(),
     };
 
+    let updates: Element<'_, Message> =
+        if crate::update::available() {
+            column![
+            row![
+                pill(l.tr("Activé", "On"), Message::SetAutoUpdate(true), state.auto_update()),
+                pill(l.tr("Désactivé", "Off"), Message::SetAutoUpdate(false), !state.auto_update()),
+            ]
+            .spacing(8),
+            text(l.tr(
+                "demande à GitHub une fois par jour s'il y a une nouvelle version, et l'installe",
+                "asks GitHub once a day for a new version, and installs it",
+            ))
+            .size(11.5)
+            .color(p.faint),
+        ]
+            .spacing(6)
+            .into()
+        } else {
+            text(l.tr(
+                "pas encore disponible sur ce système",
+                "not available on this system yet",
+            ))
+            .size(11.5)
+            .color(p.faint)
+            .into()
+        };
+
     // `WordOrGlyph`: a path has no spaces to word-wrap at, and on Windows it
     // routinely outgrows the panel width — without a fallback to glyph
     // breaking it just runs past the card's edge instead of onto a second
@@ -1627,6 +1654,9 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
             Space::new().height(Length::Fixed(8.0)),
             label("DÉMARRAGE", "STARTUP"),
             startup,
+            Space::new().height(Length::Fixed(8.0)),
+            label("MISES À JOUR", "UPDATES"),
+            updates,
             Space::new().height(Length::Fixed(8.0)),
             label("DONNÉES", "DATA"),
             data,
