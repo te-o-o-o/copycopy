@@ -818,12 +818,7 @@ impl State {
     /// auto-paste on, the entry lands where the user was typing.
     fn finish_copy(&mut self) -> Task<Message> {
         let paste = self.config.auto_paste && copycopy_platform::paste::availability().is_ok();
-        if paste {
-            // Before hiding, while this window still holds the foreground:
-            // Windows only lets the foreground process give the focus away.
-            copycopy_platform::paste::restore_target();
-        }
-        let task = self.hide();
+        let task = self.dismiss();
         if paste {
             // A thread, not the UI: the delay must not freeze the interface.
             std::thread::spawn(|| {
@@ -834,6 +829,18 @@ impl State {
             });
         }
         task
+    }
+
+    /// Hides the window and hands the focus back to the application the user
+    /// came from, auto-paste or not. On macOS hiding alone leaves copycopy the
+    /// active application with no window: the keyboard went nowhere until the
+    /// user clicked. Only for closes copycopy initiates while focused — after a
+    /// focus loss or a drop the user is already elsewhere.
+    fn dismiss(&mut self) -> Task<Message> {
+        // Before hiding, while this window still holds the foreground:
+        // Windows and macOS only let the active process give the focus away.
+        copycopy_platform::paste::restore_target();
+        self.hide()
     }
 
     /// Narrows the list to one type, or lists everything again with `None`.
@@ -1424,7 +1431,7 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             Task::none()
         }
         Message::SetKindFilter(kind) => state.set_kind_filter(kind),
-        Message::Close => state.hide(),
+        Message::Close => state.dismiss(),
         Message::Quit => state.quit(),
         Message::Hover(index) => {
             state.hovered = Some(index);
@@ -1618,7 +1625,7 @@ fn handle_key(state: &mut State, event: keyboard::Event) -> Task<Message> {
             Task::done(Message::Query(String::new())),
             iced::widget::operation::focus(SEARCH_ID),
         ]),
-        Key::Named(Named::Escape) => state.hide(),
+        Key::Named(Named::Escape) => state.dismiss(),
         Key::Named(Named::Enter) => state.activate(),
         Key::Named(Named::ArrowDown) => state.move_selection(1),
         Key::Named(Named::ArrowUp) => state.move_selection(-1),
