@@ -2113,7 +2113,15 @@ mod tests {
     /// every such copy would land in the history a second time.
     #[test]
     fn the_editor_gives_back_the_text_it_was_given() {
-        for text in ["", "one line", "a\nb", "a\nb\n", "a\r\nb\r\n", "\n\n", "tab\tand émoji 🎉"] {
+        for text in [
+            "",
+            "one line",
+            "a\nb",
+            "a\nb\n",
+            "a\r\nb\r\n",
+            "\n\n",
+            "tab\tand émoji 🎉",
+        ] {
             let content = iced::widget::text_editor::Content::<iced::Renderer>::with_text(text);
             assert_eq!(content.text(), text, "{text:?}");
         }
