@@ -7,7 +7,7 @@
 
 use iced::widget::{
     canvas, checkbox, column, container, image, mouse_area, rich_text, row, scrollable, span, text,
-    text_input, Space,
+    text_editor, text_input, Space,
 };
 use iced::{
     mouse, window, Background, Border, Color, ContentFit, Element, Font, Length, Padding, Point,
@@ -1075,6 +1075,23 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
         }
         _ => None,
     };
+    // While editing, the caption gives way to the two keys that end it.
+    let caption = if state.editing.is_some() {
+        if cfg!(target_os = "macos") {
+            l.tr(
+                "⌘↩ · copier  ·  esc · annuler",
+                "⌘↩ · copy  ·  esc · cancel",
+            )
+        } else {
+            l.tr(
+                "ctrl-↩ · copier  ·  esc · annuler",
+                "ctrl-↩ · copy  ·  esc · cancel",
+            )
+        }
+        .to_string()
+    } else {
+        caption
+    };
     let caption = container(
         row![text(caption.to_uppercase())
             .size(10.0)
@@ -1089,93 +1106,117 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
     )
     .width(Length::Fill)
     .clip(true);
-
-    let content: Element<'_, Message> = match &state.preview {
-        Preview::Text {
-            body,
-            code,
-            cut,
-            links,
-            tokens,
-            ..
-        } => {
-            let (font, size, line) = if *code {
-                (Font::MONOSPACE, 12.5, 1.75)
-            } else {
-                (Font::DEFAULT, 13.0, 1.5)
-            };
-            let line = text::LineHeight::Relative(line);
-            // `WordOrGlyph`, not the default `Word`: a URL with no spaces is a
-            // single word, so plain word-wrapping never breaks it — it just
-            // keeps growing past the frame instead. Falling back to a glyph
-            // break is what actually keeps it inside the window.
-            let content: Element<'_, Message> = if links.is_empty() && tokens.is_empty() {
-                text(body.as_str())
-                    .size(size)
-                    .line_height(line)
-                    .font(font)
-                    .color(p.text)
-                    .width(Length::Fill)
-                    .wrapping(text::Wrapping::WordOrGlyph)
-                    .into()
-            } else {
-                rich_text(painted_spans(body, tokens, links, p))
-                    .size(size)
-                    .line_height(line)
-                    .font(font)
-                    .color(p.text)
-                    .width(Length::Fill)
-                    .wrapping(text::Wrapping::WordOrGlyph)
-                    .on_link_click(Message::OpenLink)
-                    .into()
-            };
-            let mut lines = column![content].spacing(10);
-            if *cut {
-                lines = lines.push(
-                    text(l.tr("… la suite n'est pas affichée", "… the rest is not shown"))
-                        .size(11.0)
-                        .color(p.faint),
-                );
-            }
-            framed(lines.into(), p.border, p)
-        }
-        // ScaleDown, never up: a small screenshot stays sharp at its real size
-        // instead of being blown up into a blur.
-        Preview::Image { handle, .. } => {
-            container(image(handle.clone()).content_fit(ContentFit::ScaleDown))
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .center_x(Length::Fill)
-                .center_y(Length::Fill)
-                .into()
-        }
-        Preview::Files(paths) => framed(
-            iced::widget::Column::with_children(paths.iter().map(|(path, exists)| {
-                // Same fallback as the text preview: a path has few spaces,
-                // and word wrapping alone cut its end — the extension — off.
-                text(path.as_str())
-                    .size(12.5)
-                    .font(Font::MONOSPACE)
-                    .color(if *exists { p.text } else { p.faint })
-                    .width(Length::Fill)
-                    .wrapping(text::Wrapping::WordOrGlyph)
-                    .into()
-            }))
-            .spacing(6)
-            .into(),
-            // The rim takes the row's warning colour; the caption says it in
-            // words, once, rather than every missing line repeating it.
-            if paths.iter().any(|(_, exists)| !exists) {
-                p.tint_code
-            } else {
-                p.border
-            },
+    let edit: Option<Element<'_, Message>> = match &state.preview {
+        Preview::Text { .. } if state.can_edit() => Some(choice_pill(
+            l.tr("Modifier", "Edit"),
+            None,
+            Message::ToggleEdit,
+            state.editing.is_some(),
             p,
+        )),
+        // Cut previews only: editing the opening would lose the rest.
+        Preview::Text { .. } => Some(
+            text(l.tr("trop long pour être modifié ici", "too long to edit here"))
+                .size(11.0)
+                .color(p.faint)
+                .into(),
         ),
-        Preview::Unavailable(why) => container(text(why.as_str()).size(12.0).color(p.faint))
-            .height(Length::Fill)
-            .into(),
-        Preview::Empty => Space::new().height(Length::Fill).into(),
+        _ => None,
+    };
+    let caption = row![caption]
+        .push(edit)
+        .spacing(8)
+        .align_y(iced::Alignment::Center);
+
+    let content: Element<'_, Message> = match (&state.editing, &state.preview) {
+        (Some(content), _) => editor(content, p),
+        (None, preview) => match preview {
+            Preview::Text {
+                body,
+                code,
+                cut,
+                links,
+                tokens,
+                ..
+            } => {
+                let (font, size, line) = if *code {
+                    (Font::MONOSPACE, 12.5, 1.75)
+                } else {
+                    (Font::DEFAULT, 13.0, 1.5)
+                };
+                let line = text::LineHeight::Relative(line);
+                // `WordOrGlyph`, not the default `Word`: a URL with no spaces is a
+                // single word, so plain word-wrapping never breaks it — it just
+                // keeps growing past the frame instead. Falling back to a glyph
+                // break is what actually keeps it inside the window.
+                let content: Element<'_, Message> = if links.is_empty() && tokens.is_empty() {
+                    text(body.as_str())
+                        .size(size)
+                        .line_height(line)
+                        .font(font)
+                        .color(p.text)
+                        .width(Length::Fill)
+                        .wrapping(text::Wrapping::WordOrGlyph)
+                        .into()
+                } else {
+                    rich_text(painted_spans(body, tokens, links, p))
+                        .size(size)
+                        .line_height(line)
+                        .font(font)
+                        .color(p.text)
+                        .width(Length::Fill)
+                        .wrapping(text::Wrapping::WordOrGlyph)
+                        .on_link_click(Message::OpenLink)
+                        .into()
+                };
+                let mut lines = column![content].spacing(10);
+                if *cut {
+                    lines = lines.push(
+                        text(l.tr("… la suite n'est pas affichée", "… the rest is not shown"))
+                            .size(11.0)
+                            .color(p.faint),
+                    );
+                }
+                framed(lines.into(), p.border, p)
+            }
+            // ScaleDown, never up: a small screenshot stays sharp at its real size
+            // instead of being blown up into a blur.
+            Preview::Image { handle, .. } => {
+                container(image(handle.clone()).content_fit(ContentFit::ScaleDown))
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .center_x(Length::Fill)
+                    .center_y(Length::Fill)
+                    .into()
+            }
+            Preview::Files(paths) => framed(
+                iced::widget::Column::with_children(paths.iter().map(|(path, exists)| {
+                    // Same fallback as the text preview: a path has few spaces,
+                    // and word wrapping alone cut its end — the extension — off.
+                    text(path.as_str())
+                        .size(12.5)
+                        .font(Font::MONOSPACE)
+                        .color(if *exists { p.text } else { p.faint })
+                        .width(Length::Fill)
+                        .wrapping(text::Wrapping::WordOrGlyph)
+                        .into()
+                }))
+                .spacing(6)
+                .into(),
+                // The rim takes the row's warning colour; the caption says it in
+                // words, once, rather than every missing line repeating it.
+                if paths.iter().any(|(_, exists)| !exists) {
+                    p.tint_code
+                } else {
+                    p.border
+                },
+                p,
+            ),
+            Preview::Unavailable(why) => container(text(why.as_str()).size(12.0).color(p.faint))
+                .height(Length::Fill)
+                .into(),
+            Preview::Empty => Space::new().height(Length::Fill).into(),
+        },
     };
 
     // Text only: an image or a file list has nothing to mask.
@@ -1769,6 +1810,11 @@ fn shortcuts<'a>(p: Palette, l: Locale) -> Element<'a, Message> {
     row([
         l.tr("ENTER · COPIER", "ENTER · COPY"),
         l.tr("CTRL-B · ÉPINGLER", "CTRL-B · PIN"),
+        if cfg!(target_os = "macos") {
+            l.tr("⌘E · MODIFIER", "⌘E · EDIT")
+        } else {
+            l.tr("CTRL-E · MODIFIER", "CTRL-E · EDIT")
+        },
         l.tr("SUPPR · SUPPRIMER", "DEL · DELETE"),
         l.tr("ESC · FERMER", "ESC · CLOSE"),
     ]
@@ -1776,6 +1822,45 @@ fn shortcuts<'a>(p: Palette, l: Locale) -> Element<'a, Message> {
     .spacing(6)
     .wrap()
     .into()
+}
+
+/// The selected text, editable. Monospace and uncoloured: our highlighter works
+/// on the whole text, iced's editor line by line, and no adapter exists yet.
+fn editor(content: &text_editor::Content, p: Palette) -> Element<'_, Message> {
+    use iced::keyboard::{key::Named, Key};
+    text_editor(content)
+        .id(crate::EDITOR_ID)
+        .on_action(Message::EditAction)
+        .font(Font::MONOSPACE)
+        .size(12.5)
+        .line_height(text::LineHeight::Relative(1.75))
+        .height(Length::Fill)
+        .padding(14)
+        .wrapping(text::Wrapping::WordOrGlyph)
+        // Plain Enter breaks the line, as in any editor; ⌘↩ / Ctrl+Enter copies.
+        .key_binding(|press| {
+            if press.key == Key::Named(Named::Enter) && press.modifiers.command() {
+                Some(text_editor::Binding::Custom(Message::Activate))
+            } else {
+                text_editor::Binding::from_key_press(press)
+            }
+        })
+        .style(move |_, status| text_editor::Style {
+            background: Background::Color(p.frame),
+            border: Border {
+                color: if matches!(status, text_editor::Status::Focused { .. }) {
+                    p.accent
+                } else {
+                    p.border
+                },
+                width: 1.0,
+                radius: 6.0.into(),
+            },
+            placeholder: p.faint,
+            value: p.text,
+            selection: t::alpha(p.accent, 0.3),
+        })
+        .into()
 }
 
 fn mask_box<'a>(

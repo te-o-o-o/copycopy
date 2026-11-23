@@ -51,6 +51,7 @@ const CAPACITY: usize = 1000;
 const SEARCH_ID: &str = "search";
 const SCROLL_ID: &str = "clips";
 const PREVIEW_ID: &str = "preview";
+pub(crate) const EDITOR_ID: &str = "editor";
 /// Wide enough for the list and the detail panel side by side.
 const WINDOW_SIZE: (f32, f32) = (980.0, 560.0);
 /// Below this, the panel squeezes the list under what a row needs. A width
@@ -185,6 +186,13 @@ pub struct State {
     drag_watch: Option<DragWatch>,
     opened_at: Option<Instant>,
     close_on_blur: bool,
+    /// The selected entry's text while it is being edited in the panel; `None`
+    /// when the panel only reads. Dropped on Esc, on another selection and on
+    /// the next open: the original entry is never changed.
+    pub editing: Option<iced::widget::text_editor::Content>,
+    /// An edited text that was copied, with its source, stored as a new entry
+    /// once the window is gone (`bump_copied`) so it lands above the original.
+    edited: Option<(String, String)>,
     shot_path: Option<std::path::PathBuf>,
     shot_after: Duration,
     shot_done: bool,
@@ -403,6 +411,10 @@ pub enum Message {
     SetAutostart(bool),
     /// Mask email addresses, from the box under the preview.
     SetHideEmails(bool),
+    /// Start or stop editing the selected text, from the Edit button or ⌘E.
+    ToggleEdit,
+    /// A keystroke, click or paste inside the editor.
+    EditAction(iced::widget::text_editor::Action),
     /// Mask secrets, from the box under the preview.
     SetHideSecrets(bool),
     /// List one type only, or everything with `None`, from the filter pills.
@@ -595,6 +607,7 @@ impl State {
             return;
         }
         self.preview_key = key;
+        self.editing = None;
         let l = self.locale();
         self.preview = item.map_or(Preview::Empty, |it| Preview::of(it, l));
     }
@@ -679,6 +692,7 @@ impl State {
     /// at `home`. Done on the way **in**, never on the way out, so none of it
     /// is ever drawn over a window that is still disappearing.
     fn reset_for_open(&mut self) {
+        self.editing = None;
         // Files may have moved or gone while the window was hidden.
         self.missing.clear();
         self.query.clear();
@@ -818,6 +832,55 @@ impl State {
             }
         }
         self.history.touch(id, at);
+        if let Some((text, source)) = self.edited.take() {
+            self.record(ClipEvent::Text(text), source);
+        }
+    }
+
+    /// Adds an entry at the top of the history and to the database, as a
+    /// capture does.
+    fn record(&mut self, event: ClipEvent, source: String) {
+        self.history.push(event, source);
+        let written = match (&self.store, self.history.get(0)) {
+            (Some(store), Some(item)) => {
+                match store.insert(item).and_then(|_| store.prune(CAPACITY)) {
+                    Ok(_) => matches!(item.payload, Payload::Image { .. })
+                        .then(|| store.image_path(item.hash)),
+                    Err(e) => {
+                        eprintln!("could not persist the entry: {e}");
+                        None
+                    }
+                }
+            }
+            _ => None,
+        };
+        // The picture is on disk now, so the entry can point at the file
+        // instead of carrying the bytes: `refilter` clones what it keeps,
+        // and it runs on every keystroke.
+        if let Some(path) = written {
+            self.history.offload_image(0, path);
+        }
+        self.refilter();
+    }
+
+    /// Whether the selected entry can be edited: text, shown whole.
+    pub fn can_edit(&self) -> bool {
+        matches!(self.preview, Preview::Text { cut: false, .. })
+    }
+
+    fn toggle_edit(&mut self) -> Task<Message> {
+        if self.editing.take().is_some() {
+            return iced::widget::operation::focus(SEARCH_ID);
+        }
+        if !self.can_edit() {
+            return Task::none();
+        }
+        let Some(Payload::Text(text)) = self.visible.get(self.selected).map(|it| &it.payload)
+        else {
+            return Task::none();
+        };
+        self.editing = Some(iced::widget::text_editor::Content::with_text(text));
+        iced::widget::operation::focus(EDITOR_ID)
     }
 
     /// Stops the resident for good: the configuration is written and the daemon
@@ -901,13 +964,20 @@ impl State {
         };
         // Masked on the way out only, when a box is ticked: the preview shows
         // the entry as it is, and the stored entry keeps the original.
-        let payload = match &item.payload {
-            Payload::Text(text) => {
+        let edited = match (&self.editing, &item.payload) {
+            (Some(content), Payload::Text(original)) => {
+                Some(content.text()).filter(|t| t != original)
+            }
+            _ => None,
+        };
+        let payload = match (&edited, &item.payload) {
+            (Some(text), _) | (None, Payload::Text(text)) => {
                 let (emails, secrets) = self.masks();
                 Payload::Text(copycopy_core::mask::mask(text, emails, secrets))
             }
-            other => other.clone(),
+            (None, other) => other.clone(),
         };
+        let source = item.source.clone();
         let copied = Copied {
             id: item.id,
             hash: item.hash,
@@ -920,6 +990,9 @@ impl State {
                 // entry goes back to the top in `hide`, once nobody is looking.
                 eprintln!("copy: row {} sent to the clipboard", self.selected);
                 self.copied = Some(copied);
+                // Unmasked: the history keeps what the user wrote, as it
+                // keeps every original.
+                self.edited = edited.map(|text| (text, source));
                 Task::none()
             }
             Err(e) => {
@@ -1257,6 +1330,8 @@ fn boot() -> (State, Task<Message>) {
         // In screenshot mode the window must not close on its own for lack of
         // focus.
         close_on_blur: args.screenshot.is_none(),
+        editing: None,
+        edited: None,
         shot_path: args.screenshot,
         shot_after: Duration::from_secs(args.seconds),
         shot_done: false,
@@ -1426,6 +1501,13 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
             state.config.save();
             Task::none()
         }
+        Message::ToggleEdit => state.toggle_edit(),
+        Message::EditAction(action) => {
+            if let Some(content) = &mut state.editing {
+                content.perform(action);
+            }
+            Task::none()
+        }
         Message::SetHideEmails(on) => {
             state.config.hide_emails = on;
             state.config.save();
@@ -1497,27 +1579,7 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
                 return Task::none();
             }
             remember_icon(state, &capture.source, capture.icon);
-            state.history.push(capture.event, capture.source);
-            let written = match (&state.store, state.history.get(0)) {
-                (Some(store), Some(item)) => {
-                    match store.insert(item).and_then(|_| store.prune(CAPACITY)) {
-                        Ok(_) => matches!(item.payload, Payload::Image { .. })
-                            .then(|| store.image_path(item.hash)),
-                        Err(e) => {
-                            eprintln!("could not persist the entry: {e}");
-                            None
-                        }
-                    }
-                }
-                _ => None,
-            };
-            // The picture is on disk now, so the entry can point at the file
-            // instead of carrying the bytes: `refilter` clones what it keeps,
-            // and it runs on every keystroke.
-            if let Some(path) = written {
-                state.history.offload_image(0, path);
-            }
-            state.refilter();
+            state.record(capture.event, capture.source);
             Task::none()
         }
         Message::Key(event) => handle_key(state, event),
@@ -1637,6 +1699,22 @@ fn handle_key(state: &mut State, event: keyboard::Event) -> Task<Message> {
         return Task::none();
     };
     let ctrl = modifiers.control();
+
+    if let Key::Character(c) = &key {
+        if modifiers.command() && c.as_str() == "e" {
+            return state.toggle_edit();
+        }
+    }
+    // Every key reaches this listener, the editor's included: while editing,
+    // Enter, Delete and the arrows belong to the text. ⌘↩ copies through the
+    // editor's own key binding.
+    if state.editing.is_some() {
+        return match key {
+            Key::Named(Named::Escape) => state.toggle_edit(),
+            Key::Character(c) if modifiers.command() && c.as_str() == "q" => state.quit(),
+            _ => Task::none(),
+        };
+    }
 
     match key {
         // Esc closes the window, not the resident.
@@ -2031,6 +2109,16 @@ fn main() -> iced::Result {
 
 #[cfg(test)]
 mod tests {
+    /// An entry copied from the editor untouched must not count as edited, or
+    /// every such copy would land in the history a second time.
+    #[test]
+    fn the_editor_gives_back_the_text_it_was_given() {
+        for text in ["", "one line", "a\nb", "a\nb\n", "a\r\nb\r\n", "\n\n", "tab\tand émoji 🎉"] {
+            let content = iced::widget::text_editor::Content::<iced::Renderer>::with_text(text);
+            assert_eq!(content.text(), text, "{text:?}");
+        }
+    }
+
     use super::*;
 
     #[test]
