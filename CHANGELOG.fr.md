@@ -1,5 +1,31 @@
 # Journal des modifications
 
+## 0.7.0 (2026-11-23)
+
+### Ajouts
+
+- Retoucher un texte avant de le copier : le bouton Modifier au-dessus de
+  l'aperçu, ou `⌘E` / `Ctrl+E`. `⌘↩` / `Ctrl+Entrée` copie le résultat, gardé
+  comme nouvelle entrée ; l'original ne change jamais. Jusqu'à 10 000
+  caractères.
+- Les adresses e-mail et les secrets (clés d'API, jetons, mots de passe, clés
+  privées) sont masqués dans ce que copycopy colle, en `[email]` et
+  `[secret]`. Deux cases sous l'aperçu, cochées par défaut ; l'aperçu montre
+  toujours l'entrée telle quelle.
+- Davantage de langages reconnus, y compris les courts extraits, et
+  l'application d'où vient la copie aide à les distinguer.
+
+### Modifications
+
+- Les raccourcis clavier passent de dessous l'aperçu aux réglages.
+
+### Corrections
+
+- macOS : après une copie, Échap ou la croix, le focus revient à l'application
+  d'où l'on venait, avec ou sans collage automatique.
+- Les noms de fichiers longs passent à la ligne dans l'aperçu au lieu d'être
+  coupés.
+
 ## 0.6.0 (2026-10-22)
 
 ### Ajouts

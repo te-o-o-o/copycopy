@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.7.0 (2026-11-23)
+
+### Added
+
+- Edit a text entry before copying it: the Edit button above the preview, or
+  `⌘E` / `Ctrl+E`. `⌘↩` / `Ctrl+Enter` copies the result, which is kept as a
+  new entry; the original never changes. Up to 10,000 characters.
+- Email addresses and secrets (API keys, tokens, passwords, private keys) are
+  masked in what copycopy pastes, as `[email]` and `[secret]`. Two boxes under
+  the preview, ticked by default; the preview still shows the entry as it is.
+- More languages recognised, short snippets included, and the application a
+  copy came from helps tell them apart.
+
+### Changed
+
+- The keyboard shortcuts moved from under the preview to the settings.
+
+### Fixed
+
+- macOS: after a copy, Escape or the close button, the focus goes back to the
+  application you came from, auto-paste or not.
+- Long file names wrap in the preview instead of being cut off.
+
 ## 0.6.0 (2026-10-22)
 
 ### Added
