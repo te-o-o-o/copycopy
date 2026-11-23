@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- macOS: copycopy updates itself. Once a day it checks GitHub for a new
+  version, installs it in the background and restarts into it once the
+  window is closed. It can be turned off in the settings. Install this
+  version by hand once: the ones before cannot update themselves.
+
+### Changed
+
+- macOS: the app is signed with a stable certificate, so auto-paste should
+  keep its Accessibility permission from one update to the next.
+
 ## 0.6.0 (2026-10-22)
 
 ### Added

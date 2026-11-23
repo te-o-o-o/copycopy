@@ -1,5 +1,21 @@
 # Journal des modifications
 
+## Non publié
+
+### Ajouts
+
+- macOS : copycopy se met à jour tout seul. Une fois par jour, il regarde sur
+  GitHub s'il y a une nouvelle version, l'installe en arrière-plan et
+  redémarre dessus une fois la fenêtre fermée. Se coupe dans les réglages.
+  Installez cette version à la main une fois : les précédentes ne savent pas
+  se mettre à jour.
+
+### Modifications
+
+- macOS : l'app est signée avec un certificat stable, donc le collage
+  automatique devrait garder son autorisation Accessibilité d'une mise à jour
+  à l'autre.
+
 ## 0.6.0 (2026-10-22)
 
 ### Ajouts

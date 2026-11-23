@@ -53,6 +53,14 @@ compiles.
   missing and cannot be dragged.
 - **The logo is drawn by code.** The window icon, the Dock icon and every
   installer icon come from one function, so they cannot drift apart.
+- **macOS updates come from GitHub, checked against our own signature.** A
+  minute after launch, then daily, copycopy follows `releases/latest`, and
+  when the version is newer it downloads the disk image with `curl` and
+  swaps the app in place. It installs nothing that is not signed with the
+  same certificate as the running app, and restarts only once the window
+  is closed. That self-signed certificate is also what keeps the
+  Accessibility grant across updates. A local, ad-hoc signed build never
+  updates itself.
 - **Three pairs of themes.** Plain greys by default, with one muted
   blue-green accent; Minuit and Lavande, built from the logo's colours, and
   Clinique in the settings.
@@ -61,8 +69,10 @@ compiles.
 
 - **GNOME on Wayland** lets no background application read the clipboard.
   KDE, Sway, Hyprland and COSMIC do. This is a platform limit, not a bug.
-- **macOS asks again for Accessibility** after every new unsigned build, for
-  auto-paste.
+- **macOS asks again for Accessibility** after every ad-hoc signed build, for
+  auto-paste. Releases share one certificate, so going from one release to
+  the next should keep the grant; not verified yet.
+- **Updates are macOS only.** Windows and Linux are updated by hand.
 - **The binaries are not signed.** Windows shows a SmartScreen warning and
   macOS needs `xattr -dr com.apple.quarantine` on first launch.
 - **Under WSL**, the global shortcut cannot be pressed from Windows

@@ -32,6 +32,10 @@ pub struct Config {
     /// Start with the session. Off by default: a program that installs itself
     /// into someone's login is a program that asked first.
     pub autostart: bool,
+    /// Install new releases by itself (macOS only for now). On by default,
+    /// unlike the two switches above: it only asks GitHub which version is the
+    /// latest, once a day, and keeping everyone up to date is the point.
+    pub auto_update: bool,
     /// Rounded window corners. They need a transparent window, which every
     /// compositing desktop blends correctly — Windows DWM, Wayland, X11 with a
     /// compositor. An X11 session running without one has nothing to blend
@@ -52,6 +56,7 @@ impl Default for Config {
             theme: crate::theme::Mode::Dark,
             auto_paste: false,
             autostart: false,
+            auto_update: true,
             rounded: true,
             language: None,
         }
@@ -112,6 +117,7 @@ impl Config {
                 "theme" => config.theme = crate::theme::Mode::parse(value).unwrap_or(config.theme),
                 "auto_paste" => config.auto_paste = truthy(value),
                 "autostart" => config.autostart = truthy(value),
+                "auto_update" => config.auto_update = truthy(value),
                 // Anything but "square" keeps the rounded default: a typo must
                 // not silently square the window.
                 "corners" => config.rounded = !value.eq_ignore_ascii_case("square"),
@@ -161,6 +167,8 @@ impl Config {
         body.push_str(&format!("auto_paste = {}\n", self.auto_paste));
         body.push_str("# Start copycopy with the session: true or false\n");
         body.push_str(&format!("autostart = {}\n", self.autostart));
+        body.push_str("# Install new versions from GitHub by itself (macOS): true or false\n");
+        body.push_str(&format!("auto_update = {}\n", self.auto_update));
         body.push_str(
             "# Window corners: round or square.\n\
              # \"square\" if your X11 session runs without a compositor: rounded\n\

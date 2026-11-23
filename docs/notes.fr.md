@@ -56,6 +56,14 @@ CI » veut seulement dire que ça compile.
 - **Le logo est dessiné par le code.** L'icône de la fenêtre, celle du Dock et
   celles des installeurs sortent toutes d'une même fonction : elles ne peuvent
   pas diverger.
+- **Les mises à jour macOS viennent de GitHub, vérifiées contre notre propre
+  signature.** Une minute après le lancement, puis chaque jour, copycopy suit
+  `releases/latest` ; si la version est plus récente, il télécharge l'image
+  disque avec `curl` et remplace l'app sur place. Il n'installe rien qui ne
+  soit pas signé avec le même certificat que l'app en cours, et ne redémarre
+  qu'une fois la fenêtre fermée. Ce certificat auto-signé est aussi ce qui
+  garde l'autorisation Accessibilité d'une mise à jour à l'autre. Un build
+  local, signé ad hoc, ne se met jamais à jour tout seul.
 - **Trois paires de thèmes.** Des gris sobres par défaut, avec un seul accent
   bleu-vert discret ; Minuit et Lavande, construits à partir des couleurs
   du logo, et Clinique dans les réglages.
@@ -65,8 +73,12 @@ CI » veut seulement dire que ça compile.
 - **GNOME sous Wayland** ne laisse aucune application en arrière-plan lire le
   presse-papier. KDE, Sway, Hyprland et COSMIC le permettent. C'est une limite
   de la plateforme, pas un bug.
-- **macOS redemande l'autorisation Accessibilité** après chaque nouveau build
-  non signé, pour le collage automatique.
+- **macOS redemande l'autorisation Accessibilité** après chaque build signé
+  ad hoc, pour le collage automatique. Les releases partagent un certificat,
+  donc passer de l'une à la suivante devrait garder l'autorisation ; pas
+  encore vérifié.
+- **Les mises à jour sont pour macOS seulement.** Windows et Linux se mettent
+  à jour à la main.
 - **Les binaires ne sont pas signés.** Windows affiche un avertissement
   SmartScreen, et macOS demande `xattr -dr com.apple.quarantine` au premier
   lancement.

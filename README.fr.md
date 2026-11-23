@@ -48,6 +48,9 @@ copiez, et un raccourci le ramène. Anglais, 日本語, emoji 🎉 et code compr
 - **Collage automatique** (optionnel) : l'entrée arrive là où était votre
   curseur. Partout sauf sous Wayland.
 - **Démarre avec la session** (optionnel), en silence, en arrière-plan.
+- **Se met à jour tout seul** sur macOS : les nouvelles versions s'installent
+  en arrière-plan et prennent le relais une fois la fenêtre fermée. Se coupe
+  dans les réglages.
 - **Trois paires de thèmes clair et sombre** : des gris sobres avec
   un accent bleu-vert discret par défaut, ou Minuit et Lavande, ou Clinique.
 - **En anglais ou en français**, en anglais tant que vous ne choisissez pas
@@ -55,7 +58,9 @@ copiez, et un raccourci le ramène. Anglais, 日本語, emoji 🎉 et code compr
 - **Les secrets ne sont jamais conservés** : ce qu'un gestionnaire de mots de
   passe marque comme confidentiel est écarté avant d'être écrit.
 - **Rien ne sort de la machine** : pas de compte, pas de nuage, pas de
-  télémétrie.
+  télémétrie. La seule requête de copycopy va à GitHub, une fois par jour,
+  pour voir si une nouvelle version est sortie (macOS, sauf mises à jour
+  coupées).
 - **Portable** : posez un `copycopy.conf` à côté de l'exécutable, et tout vit
   dans ce dossier.
 - **Rapide** : 100 000 entrées, toujours 59 fps.

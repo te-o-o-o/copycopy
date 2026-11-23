@@ -7,99 +7,197 @@
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='27' fill='%23161331'/%3E%3Cg fill='none' stroke-width='9.5' stroke-linecap='round'%3E%3Cpath d='M47.61 43.39A15 15 0 1 0 47.61 64.61' stroke='%23FF7A66' stroke-opacity='.4'/%3E%3Cpath d='M80.61 43.39A15 15 0 1 0 80.61 64.61' stroke='%23C9A2FF' stroke-opacity='.4'/%3E%3Cpath d='M41.61 37.39A15 15 0 1 0 41.61 58.61' stroke='%23FF7A66'/%3E%3Cpath d='M74.61 37.39A15 15 0 1 0 74.61 58.61' stroke='%23C9A2FF'/%3E%3C/g%3E%3C/svg%3E">
 <title>copycopy, a clipboard manager that forgets your passwords</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@600;800&family=Sora:wght@600;800&family=Funnel+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: a top bar (mark left, GitHub right), a centred hero (name, one line, the download panel), then the two main themes as screenshots.
-   Light follows the app's Lavande theme, dark its Minuit theme. */
+/* The page wears the app's default theme, Standard (theme.rs): plain greys, one muted blue-green accent, and the
+   syntax tints (sand, slate blue, sage, grey lilac, the pin's amber) for what colour there is. Light follows Standard
+   light, dark Standard dark; the demo window is always Standard dark, as the app opens out of the box at night.
+   Layout: top bar; a centred hero (name, one line, download), the working window below it; what it does as a 4 × 2
+   grid; the keys; the three theme pairs; footer. Type: IBM Plex Sans, JetBrains Mono wherever the app shows text. */
 :root {
-  --bg: #FBFAFF; --card: #FFFFFF; --line: #E7E3F5; --outline: #D9D3EE;
-  --text: #2A2550; --bright: #161331; --faint: #6F6A96;
-  --accent: #E2513C; --hover: #F5F2FF; --shadow: rgba(22, 19, 49, .18);
-  --c1: #E2513C; --c2: #7B4FD6; --sel: #EEE8FF;
-  --display: "Funnel Display", "Helvetica Neue", Arial, sans-serif;
-  --body: "Funnel Sans", "Helvetica Neue", Arial, sans-serif;
+  --bg: #FAFAFA; --card: #FFFFFF; --line: #E3E3E3; --outline: #D6D6D6; --hover: #F1F1F1; --sel: #E2E2E2;
+  --text: #2A2A2A; --bright: #0A0A0A; --faint: #6B6B6B;
+  --accent: #2F7A80; --url: #4A6680; --code: #7A6440; --image: #645A80; --files: #4F6E57; --pin: #A07A2C;
+  --shadow: rgba(0, 0, 0, .16);
+  --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --quick: 140ms;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #100D25; --card: #161331; --line: rgba(200, 190, 255, .10); --outline: rgba(200, 190, 255, .16);
-  --text: #CFCAF0; --bright: #F6F4FF; --faint: #8780BE;
-  --accent: #FF7A66; --hover: #1D1942; --c1: #FF7A66; --c2: #C9A2FF; --sel: #272157; --shadow: rgba(0, 0, 0, .55); color-scheme: dark } }
+  --bg: #111111; --card: #1A1A1A; --line: rgba(255, 255, 255, .07); --outline: rgba(255, 255, 255, .11); --hover: #242424; --sel: #333333;
+  --text: #CCCCCC; --bright: #FFFFFF; --faint: #858585;
+  --accent: #7DB3B8; --url: #9FB4C8; --code: #C8B89A; --image: #B5A8C8; --files: #A3BFA9; --pin: #C9A86A;
+  --shadow: rgba(0, 0, 0, .6); color-scheme: dark } }
 :root[data-theme="dark"] {
-  --bg: #100D25; --card: #161331; --line: rgba(200, 190, 255, .10); --outline: rgba(200, 190, 255, .16);
-  --text: #CFCAF0; --bright: #F6F4FF; --faint: #8780BE;
-  --accent: #FF7A66; --hover: #1D1942; --c1: #FF7A66; --c2: #C9A2FF; --sel: #272157; --shadow: rgba(0, 0, 0, .55); color-scheme: dark }
+  --bg: #111111; --card: #1A1A1A; --line: rgba(255, 255, 255, .07); --outline: rgba(255, 255, 255, .11); --hover: #242424; --sel: #333333;
+  --text: #CCCCCC; --bright: #FFFFFF; --faint: #858585;
+  --accent: #7DB3B8; --url: #9FB4C8; --code: #C8B89A; --image: #B5A8C8; --files: #A3BFA9; --pin: #C9A86A;
+  --shadow: rgba(0, 0, 0, .6); color-scheme: dark }
 
 * { box-sizing: border-box }
-body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.6 var(--body);
+html { scroll-behavior: smooth }
+body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.6 var(--body); -webkit-font-smoothing: antialiased;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
 a { color: inherit }
+button { font: inherit; color: inherit; cursor: pointer }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px }
-.wrap { max-width: 1180px; margin: 0 auto; position: relative; z-index: 1 }
-/* The name in the mark's two inks: the first "copy" coral like the first ring, the second lilac like the second. */
-.hero h1 .c1 { color: var(--c1) }
-.hero h1 .c2 { color: var(--c2) }
-.hero h1, .top .home { font-family: "Sora", "Helvetica Neue", Arial, sans-serif }
+.wrap { max-width: 1160px; margin: 0 auto }
+h2 { margin: 0 0 10px; color: var(--bright); font: 600 clamp(28px, 3.2vw, 38px)/1.15 var(--body); letter-spacing: -.025em }
+.sub { margin: 0 0 40px; max-width: 58ch; color: var(--faint) }
+section { padding-block: 120px 0; scroll-margin-top: 24px }
+kbd { display: inline-block; min-width: 1.9em; padding: 1px 7px; border: 1px solid var(--outline); border-bottom-width: 2px; border-radius: 6px;
+  background: var(--card); font: 500 12.5px/1.6 var(--mono); color: var(--bright); text-align: center }
 
-/* Twin dots: a lilac dot grid and a coral copy of it shifted a few pixels, very faint, behind the top of the page only. */
-.dots { position: absolute; inset: 0 0 auto; height: 900px; z-index: 0; pointer-events: none;
-  background-image: radial-gradient(color-mix(in srgb, var(--c2) 17%, transparent) 1.1px, transparent 1.6px),
-    radial-gradient(color-mix(in srgb, var(--c1) 11%, transparent) 1.1px, transparent 1.6px);
-  background-size: 24px 24px; background-position: 0 0, 4px 4px;
-  -webkit-mask-image: radial-gradient(70% 75% at 50% 30%, #000 20%, transparent 80%); mask-image: radial-gradient(70% 75% at 50% 30%, #000 20%, transparent 80%) }
-
-.top { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 22px }
-.top a { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--bright) }
-.top .home { font: 600 18px var(--display); letter-spacing: -.01em }
-.top .gh { min-height: 44px; padding-inline: 14px; border: 1px solid var(--outline); border-radius: 10px; font-size: 15px; font-weight: 500 }
+.top { display: flex; align-items: center; gap: 4px; padding-block: 18px }
+.top a { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding-inline: 12px; border-radius: 10px;
+  text-decoration: none; font-size: 15px; color: var(--faint); transition: color var(--quick), background var(--quick) }
+.top a:hover { color: var(--bright) }
+.top .home { margin-right: auto; padding-left: 0; font-weight: 600; font-size: 17px; color: var(--bright) }
+.top .gh { margin-left: 8px; border: 1px solid var(--outline); color: var(--bright); font-weight: 500 }
 .top .gh:hover { background: var(--hover) }
-/* The hero fills the first screen (less the top bar) so the screenshots start right at the fold; on a short screen it simply takes its own height. */
-.hero { min-height: calc(100svh - 88px); padding-block: 16px 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center }
-.hero h1 { margin: 0; color: var(--bright); font: 800 clamp(48px, 8vw, 96px)/1 var(--display); letter-spacing: -.05em }
-.lede { margin: 0; max-width: 58ch; font-size: clamp(18px, 2vw, 21px); color: var(--faint); text-wrap: balance }
+@media (max-width: 720px) { .top .sec { display: none } }
 
-.panel { margin-top: 14px; width: 100%; max-width: 640px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
-  background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; box-shadow: 0 24px 50px -32px var(--shadow) }
-.panel a { display: grid; justify-items: center; gap: 6px; padding: 24px 12px 20px; text-decoration: none; color: var(--bright) }
-.panel a + a { border-left: 1px solid var(--line) }
-.panel a:hover { background: var(--hover) }
-.panel svg { color: var(--bright) }
-.panel b { font: 600 18px var(--display) }
-.panel small { font-size: 13px; color: var(--faint) }
-.panel a:hover small { color: var(--accent) }
-.fine { margin: 2px 0 0; max-width: 60ch; font-size: 13.5px; color: var(--faint) }
-.cmd { position: relative; width: 100%; max-width: 640px; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 12px }
-.cmd pre { margin: 0; padding: 12px 90px 12px 18px; font: 13px/1.65 var(--mono); color: var(--bright); overflow-x: auto }
+/* Hero: centred, then the window, wide, as the one picture of the product. */
+.hero { position: relative; display: grid; justify-items: center; gap: 22px; padding-block: 72px 0; text-align: center }
+.hero h1 { margin: 0; color: var(--bright); font: 700 clamp(56px, 9vw, 112px)/.95 var(--body); letter-spacing: -.055em }
+/* The second "copy" in the accent: the copy of the copy. */
+.hero h1 span { color: var(--accent) }
+.lede { margin: 0; max-width: 36ch; font-size: clamp(20px, 2.3vw, 25px); line-height: 1.4; color: var(--text); text-wrap: balance }
+.cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 8px }
+.btn { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 20px; border-radius: 12px;
+  font-weight: 600; font-size: 16px; text-decoration: none; transition: transform var(--quick), background var(--quick), opacity var(--quick) }
+.btn.main { background: var(--bright); color: var(--bg) }
+.btn.main:hover { opacity: .88 }
+.btn.alt { border: 1px solid var(--outline); background: var(--card); color: var(--bright) }
+.btn.alt:hover { background: var(--hover) }
+.btn:active { transform: translateY(1px) }
+.btn svg { flex: none }
+.others { margin: 0; font-size: 14.5px; color: var(--faint) }
+.others a { color: var(--text); text-underline-offset: 3px; text-decoration-color: var(--outline) }
+.others a:hover { color: var(--bright) }
+details.unsigned { max-width: 560px; font-size: 14px; color: var(--faint); text-align: left }
+details.unsigned summary { display: flex; justify-content: center; align-items: center; gap: 6px; min-height: 32px; cursor: pointer; list-style: none }
+details.unsigned summary::-webkit-details-marker { display: none }
+details.unsigned summary::after { content: ""; width: 6px; height: 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); transition: transform var(--quick) }
+details.unsigned[open] summary::after { transform: translateY(1px) rotate(225deg) }
+details.unsigned p { margin: 8px 0 10px }
+.cmd { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 10px }
+.cmd pre { margin: 0; padding: 10px 84px 10px 14px; font: 12.5px/1.65 var(--mono); color: var(--bright); overflow-x: auto }
 .cmd .cm { color: var(--faint) }
-.cmd button { position: absolute; top: 10px; right: 10px; min-height: 34px; padding-inline: 12px; border: 1px solid var(--outline); border-radius: 8px;
-  background: var(--bg); font: 500 13px var(--body); color: var(--text); cursor: pointer }
+.cmd button { position: absolute; top: 8px; right: 8px; min-height: 32px; padding-inline: 12px; border: 1px solid var(--outline); border-radius: 8px;
+  background: var(--bg); font-size: 13px; font-weight: 500 }
 .cmd button:hover { color: var(--bright) }
-.fine a { color: var(--faint); text-underline-offset: 3px }
-@media (max-width: 520px) {
-  .panel { grid-template-columns: 1fr }
-  .panel a { grid-template-columns: auto 1fr auto; justify-items: start; align-items: center; gap: 14px; padding: 16px 18px }
-  .panel a + a { border-left: 0; border-top: 1px solid var(--line) }
+
+/* The working window, always Standard dark: its own tokens, so the page's theme never reaches inside. */
+.stage { position: relative; width: 100%; margin-top: 56px; display: grid; gap: 18px; justify-items: center }
+/* A faint wash of the accent and the sand tint behind the window: the only decoration on the page. */
+.stage::before { content: ""; position: absolute; inset: -60px -40px 30%; z-index: -1; pointer-events: none; filter: blur(60px);
+  background: radial-gradient(40% 50% at 30% 50%, color-mix(in srgb, #7DB3B8 22%, transparent), transparent),
+              radial-gradient(35% 45% at 72% 45%, color-mix(in srgb, #C8B89A 18%, transparent), transparent) }
+.win { --w-card: #1A1A1A; --w-frame: #202020; --w-line: rgba(255, 255, 255, .07); --w-outline: rgba(255, 255, 255, .11);
+  --w-sel: #333333; --w-hover: #242424; --w-text: #CCCCCC; --w-bright: #FFFFFF; --w-faint: #858585; --w-chrome: #666666; --w-key: #A0A0A0;
+  --w-accent: #7DB3B8; --w-url: #9FB4C8; --w-code: #C8B89A; --w-image: #B5A8C8; --w-files: #A3BFA9; --w-copied: #A3BFA9;
+  width: 100%; max-width: 980px; text-align: left; background: var(--w-card); color: var(--w-text); border: 1px solid var(--w-outline); border-radius: 16px;
+  overflow: hidden; font-family: var(--mono); color-scheme: dark;
+  box-shadow: 0 50px 100px -40px rgba(0, 0, 0, .55), 0 0 0 1px rgba(0, 0, 0, .04) }
+.bar { display: flex; align-items: center; gap: 12px; padding: 14px 18px }
+.bar svg { flex: none }
+.bar input { flex: 1; min-width: 0; min-height: 36px; border: 0; background: transparent; font: 14px var(--mono); color: var(--w-bright); caret-color: var(--w-accent) }
+.bar input::placeholder { color: var(--w-faint) }
+.bar input:focus-visible { outline: none }
+.bar .count { font-size: 11px; color: var(--w-chrome); white-space: nowrap; letter-spacing: .04em }
+.tabs { display: flex; gap: 4px; padding: 0 12px; border-bottom: 1px solid var(--w-line); overflow-x: auto }
+.tabs button { min-height: 38px; padding: 0 8px; border: 0; border-bottom: 2px solid transparent; background: none;
+  font: 500 11.5px var(--mono); letter-spacing: .04em; color: var(--w-faint); white-space: nowrap }
+.tabs button[aria-pressed="true"] { color: var(--w-accent); border-bottom-color: var(--w-accent) }
+.tabs button:hover { color: var(--w-bright) }
+.notice { margin: 0; display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-bottom: 1px solid var(--w-line);
+  background: color-mix(in srgb, var(--w-files) 12%, var(--w-card)); font-size: 12px; color: var(--w-bright) }
+.notice svg { color: var(--w-files); flex: none }
+.notice[hidden] { display: none }
+.body { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); height: 380px }
+.list { margin: 0; padding: 8px; list-style: none; overflow-y: auto; border-right: 1px solid var(--w-line); scrollbar-color: var(--w-sel) transparent }
+.list:focus-visible { outline: 2px solid var(--w-accent); outline-offset: -2px }
+.list li { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; height: 52px; padding-right: 10px;
+  border-radius: 8px; cursor: pointer; position: relative }
+.list li:hover { background: var(--w-hover) }
+.list li[aria-selected="true"] { background: var(--w-sel) }
+.list li[aria-selected="true"]::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 2px; border-radius: 2px; background: var(--w-accent) }
+.list .k { font-size: 9.5px; color: var(--w-chrome); text-align: center }
+.list li[data-kind="code"] .k { color: var(--w-accent) }
+.list .t { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; color: var(--w-text) }
+.list li[aria-selected="true"] .t { color: var(--w-bright) }
+.list .m { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--w-chrome) }
+.list .m i { width: 8px; height: 8px; border-radius: 2px; background: var(--dot) }
+.list li.new { animation: arrive 1s ease-out }
+@keyframes arrive { from { background: color-mix(in srgb, var(--w-copied) 30%, transparent) } }
+.list .empty { display: block; height: auto; padding: 24px 12px; color: var(--w-faint); font-size: 13px; cursor: default }
+.list .empty:hover { background: none }
+.view { display: grid; grid-template-rows: auto 1fr auto; gap: 12px; padding: 16px 18px; min-width: 0 }
+.view .meta { font-size: 10.5px; color: var(--w-chrome); letter-spacing: .04em }
+.view pre { margin: 0; padding: 14px; border-radius: 10px; background: var(--w-frame); overflow: auto;
+  font: 12.5px/1.75 var(--mono); color: var(--w-text); white-space: pre-wrap; word-break: break-word }
+/* The app draws "->" and "!=" as typed: no ligatures, and set after every `font` shorthand, which turns them back on. */
+body .win, body .win * { font-variant-ligatures: none }
+/* The app's own mapping (view.rs): keyword → accent, string → url tint, number → image tint, comment → faint. */
+.view .kw { color: var(--w-accent) } .view .st { color: var(--w-url) } .view .nu { color: var(--w-image) } .view .cm { color: var(--w-faint) }
+.view .acts { display: flex; flex-wrap: wrap; gap: 6px }
+.view .acts button { min-height: 30px; padding: 0 10px; border: 1px solid var(--w-outline); border-radius: 7px; background: none; font: 500 11px var(--mono); color: var(--w-key) }
+.view .acts .go { background: var(--w-accent); border-color: var(--w-accent); color: #0F1A1B }
+.view .acts button:hover { color: var(--w-bright) } .view .acts .go:hover { color: #0F1A1B; filter: brightness(1.08) }
+
+.try { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px 20px; font-size: 14.5px; color: var(--faint) }
+.try code { padding: 2px 7px; border-radius: 6px; background: var(--sel); font: 13px var(--mono); color: var(--bright) }
+.try .pw { display: inline-flex; align-items: center; border: 1px solid var(--outline); border-radius: 10px; overflow: hidden; background: var(--card) }
+.try .pw input { width: 140px; min-height: 38px; padding: 0 12px; border: 0; background: none; font: 13px var(--mono); color: var(--bright) }
+.try .pw button { min-height: 38px; padding: 0 14px; border: 0; border-left: 1px solid var(--outline); background: var(--hover); font-size: 14px; font-weight: 500; color: var(--bright) }
+.try .pw button:hover { background: var(--sel) }
+
+/* What it does: eight cards, each icon in one of the app's tints, so the grid has colour without a rainbow. */
+.feats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none }
+.feats li { padding: 22px 22px 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--card) }
+.feats svg { display: block; width: 40px; height: 40px; padding: 9px; margin-bottom: 18px; border-radius: 11px;
+  color: var(--tint); background: color-mix(in srgb, var(--tint) 14%, transparent) }
+.feats b { display: block; margin-bottom: 4px; color: var(--bright); font-weight: 600; font-size: 16.5px }
+.feats p { margin: 0; color: var(--faint); font-size: 15px; line-height: 1.55 }
+@media (max-width: 1000px) { .feats { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+@media (max-width: 560px) { .feats { grid-template-columns: 1fr } }
+
+.keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 0 56px; margin: 0 }
+.keys div { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 14px; border-bottom: 1px solid var(--line) }
+.keys dt { color: var(--text) } .keys dd { margin: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px; color: var(--faint); font-size: 13px }
+
+.themes .pick { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--card) }
+.themes .pick button { min-height: 40px; padding: 0 16px; border: 0; border-radius: 8px; background: none; font-size: 15px; font-weight: 500; color: var(--faint);
+  transition: background var(--quick), color var(--quick) }
+.themes .pick button:hover { color: var(--bright) }
+.themes .pick button[aria-pressed="true"] { background: var(--sel); color: var(--bright) }
+.themes figure { margin: 0 }
+.themes img { display: block; width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--line); box-shadow: 0 30px 60px -36px var(--shadow) }
+.themes figcaption { margin-top: 14px; font-size: 15px; color: var(--faint) }
+
+footer { margin-top: 120px; padding-block: 32px 40px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 12px 28px;
+  justify-content: space-between; font-size: 14px; color: var(--faint) }
+footer nav { display: flex; flex-wrap: wrap; gap: 12px 24px }
+footer a { color: var(--faint); text-decoration: none } footer a:hover { color: var(--bright) }
+
+@media (max-width: 700px) {
+  .hero { padding-top: 40px }
+  .body { grid-template-columns: 1fr; height: 312px }
+  .view { display: none }
+  .list { border-right: 0 }
+  .themes .pick { display: flex; overflow-x: auto }
+  section { padding-top: 88px }
 }
-
-.shots { padding-block: 32px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 28px }
-.shots figure { margin: 0; display: grid; gap: 12px; min-width: 0 }
-.shots img { display: block; width: 100%; max-width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 30px 60px -36px var(--shadow) }
-.shots figcaption { font-size: 15px; color: var(--faint); text-align: center }
-.shots figcaption b { color: var(--bright); font-weight: 600 }
-
-footer { padding-block: 96px 40px; display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: center; font-size: 14px; color: var(--faint) }
-footer a { color: var(--faint); text-decoration: none }
-footer a:hover { color: var(--bright) }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto } *, *::before, *::after { animation: none !important; transition: none !important } }
 </style>
 </head>
 <body>
-
-<div class="dots" aria-hidden="true"></div>
-
 <div class="wrap">
   <nav class="top" aria-label="Main">
     <a class="home" href="#">
       <!-- The app's mark, from icon.rs: an indigo tile, two open rings reading "cc", coral then lilac, each over a faded copy of itself shifted down and right. A logo does not follow the theme. -->
-      <svg width="36" height="36" viewBox="0 0 100 100" aria-hidden="true">
+      <svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true">
         <rect width="100" height="100" rx="27" fill="#161331"/>
         <g fill="none" stroke-width="9.5" stroke-linecap="round">
           <path d="M47.61 43.39A15 15 0 1 0 47.61 64.61" stroke="#FF7A66" stroke-opacity=".4"/>
@@ -110,6 +208,10 @@ footer a:hover { color: var(--bright) }
       </svg>
       copycopy
     </a>
+    <a class="sec" href="#what">Features</a>
+    <a class="sec" href="#keys">Keys</a>
+    <a class="sec" href="#themes">Themes</a>
+    <a href="https://github.com/te-o-o-o/copycopy/blob/main/README.fr.md" lang="fr">Français</a>
     <a class="gh" href="https://github.com/te-o-o-o/copycopy">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5z"/></svg>
       GitHub
@@ -117,62 +219,245 @@ footer a:hover { color: var(--bright) }
   </nav>
 
   <header class="hero">
-    <h1 aria-label="copycopy"><span class="c1" aria-hidden="true">copy</span><span class="c2" aria-hidden="true">copy</span></h1>
+    <h1 aria-label="copycopy">copy<span aria-hidden="true">copy</span></h1>
     <p class="lede">A clipboard manager that remembers everything you copy, except your passwords.</p>
 
-    <nav class="panel" aria-label="Download">
-      <a href="https://github.com/te-o-o-o/copycopy/releases/latest/download/copycopy-windows-x86_64.exe">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 4.3l8.2-1.1v7.9H2zM11.2 3l10.8-1.5v9.6H11.2zM2 12h8.2v7.9L2 18.8zM11.2 12H22v9.6l-10.8-1.5z"/></svg>
-        <b>Windows</b><small>Installer .exe</small>
+    <div class="cta">
+      <!-- Filled in for the visitor's system by the script; macOS until then. -->
+      <a class="btn main" id="dl" href="https://github.com/te-o-o-o/copycopy/releases/latest/download/copycopy-macos-universal.dmg">
+        <svg id="dl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 20h16"/></svg>
+        <span id="dl-label">Download for macOS</span>
       </a>
-      <a href="https://github.com/te-o-o-o/copycopy/releases/latest/download/copycopy-linux-x86_64.AppImage">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 9l3 3-3 3M12 15h6"/></svg>
-        <b>Linux</b><small>AppImage</small>
+      <a class="btn alt" href="https://github.com/te-o-o-o/copycopy">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+        Source on GitHub
       </a>
-      <a href="https://github.com/te-o-o-o/copycopy/releases/latest/download/copycopy-macos-universal.dmg">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.2 1-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.1-1.2 2.9-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.5-1-2.4-3.9zM14 5.5c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.6 2.8-1.4z"/></svg>
-        <b>macOS</b><small>Universal .dmg</small>
-      </a>
-    </nav>
-    <p class="fine">Version 0.6.0, free and open source. The builds are not signed yet. On Windows, choose More info, then Run anyway. On macOS and Linux, run this once:</p>
-    <div class="cmd">
-      <pre id="cmd"><span class="cm"># macOS</span>
+    </div>
+    <p class="others" id="others">Version 0.6.0, free and open source, for
+      <a href="https://github.com/te-o-o-o/copycopy/releases/latest/download/copycopy-windows-x86_64.exe" data-os="windows">Windows</a>,
+      <a href="https://github.com/te-o-o-o/copycopy/releases/latest/download/copycopy-macos-universal.dmg" data-os="macos">macOS</a> and
+      <a href="https://github.com/te-o-o-o/copycopy/releases/latest/download/copycopy-linux-x86_64.AppImage" data-os="linux">Linux</a>;
+      the zip and .deb are on the <a href="https://github.com/te-o-o-o/copycopy/releases">releases page</a>.</p>
+    <details class="unsigned">
+      <summary>The builds are not signed yet: how to open them</summary>
+      <p>On Windows, choose More info, then Run anyway. On macOS and Linux, run this once:</p>
+      <div class="cmd">
+        <pre id="cmd"><span class="cm"># macOS</span>
 xattr -dr com.apple.quarantine /Applications/copycopy.app
 <span class="cm"># Linux</span>
 chmod +x copycopy-linux-x86_64.AppImage</pre>
-      <button type="button" id="copy">Copy</button>
+        <button type="button" id="copy-cmd">Copy</button>
+      </div>
+    </details>
+
+    <div class="stage">
+      <div class="win" role="region" aria-label="A working copy of the copycopy window">
+        <div class="bar">
+          <svg width="24" height="24" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="27" fill="#161331"/><g fill="none" stroke-width="11" stroke-linecap="round"><path d="M41.61 37.39A15 15 0 1 0 41.61 58.61" stroke="#FF7A66"/><path d="M74.61 37.39A15 15 0 1 0 74.61 58.61" stroke="#C9A2FF"/></g></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#858585" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="q" type="search" placeholder="Search the clipboard…" aria-label="Search the clipboard" autocomplete="off" spellcheck="false">
+          <span class="count" id="count" aria-live="polite"></span>
+        </div>
+        <div class="tabs" id="tabs" aria-label="Filter by type"></div>
+        <p class="notice" id="notice" role="status" hidden></p>
+        <div class="body">
+          <ul class="list" id="list" role="listbox" tabindex="0" aria-label="History"></ul>
+          <div class="view">
+            <div class="meta" id="meta"></div>
+            <pre id="pre"></pre>
+            <div class="acts">
+              <button type="button" class="go" id="go">ENTER · COPY</button>
+              <button type="button" id="pin">CTRL-B · PIN</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="try">
+        <span>Copy anything on this page: it lands on top.</span>
+        <span class="pw">
+          <input id="pw" type="password" value="correct-horse-battery" readonly aria-label="A sample password">
+          <button type="button" id="copy-pw">Copy the password</button>
+        </span>
+      </div>
     </div>
-    <p class="fine">Other formats, such as the portable zip and the .deb, are on the <a href="https://github.com/te-o-o-o/copycopy/releases">releases page</a>.</p>
   </header>
 
-  <section class="shots" aria-label="Screenshots">
+  <section id="what" aria-labelledby="what-h">
+    <h2 id="what-h">What it does</h2>
+    <p class="sub">One shortcut opens it over whatever you are doing. Type a few letters, press Enter, and the entry is back in your clipboard.</p>
+    <ul class="feats">
+      <li style="--tint: var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+        <b>Captures everything</b><p>Text, code, links, images and files, with the app each one came from.</p></li>
+      <li style="--tint: var(--url)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <b>Finds any fragment</b><p>Search the whole history, not just what fits on screen, and filter by type.</p></li>
+      <li style="--tint: var(--code)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+        <b>Code in colour</b><p>The language is recognised from the snippet and from the app you copied it in.</p></li>
+      <li style="--tint: var(--files)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/><path d="M14 2v6h6"/></svg>
+        <b>Files go back as files</b><p>Paste them into a folder, a chat or a mail, or drag them out of the list.</p></li>
+      <li style="--tint: var(--pin)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <b>Secrets are never stored</b><p>Whatever a password manager marks as confidential is dropped before it is written.</p></li>
+      <li style="--tint: var(--image)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <b>Nothing leaves your machine</b><p>No account, no cloud, no telemetry. Portable mode keeps it all in one folder.</p></li>
+      <li style="--tint: var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5M9 10.8V4h6v6.8l3 3.2H6z"/></svg>
+        <b>Pin and auto-paste</b><p>Keep what you reuse at hand. The entry can land right where your cursor was.</p></li>
+      <li style="--tint: var(--url)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg>
+        <b>Fast</b><p>A hundred thousand entries, still 59 frames per second.</p></li>
+    </ul>
+  </section>
+
+  <section id="keys" aria-labelledby="keys-h">
+    <h2 id="keys-h">The keys</h2>
+    <p class="sub">The keyboard does it all; the mouse works too.</p>
+    <dl class="keys">
+      <div><dt>Open the window</dt><dd><kbd>⌘</kbd><kbd>⇧</kbd><kbd>V</kbd> on macOS, <kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>V</kbd> elsewhere</dd></div>
+      <div><dt>Search</dt><dd>just type</dd></div>
+      <div><dt>Copy back and close</dt><dd><kbd>Enter</kbd></dd></div>
+      <div><dt>Pin</dt><dd><kbd>Ctrl</kbd><kbd>B</kbd></dd></div>
+      <div><dt>Filter by type</dt><dd><kbd>Ctrl</kbd><kbd>1</kbd>…<kbd>6</kbd></dd></div>
+      <div><dt>Close</dt><dd><kbd>Esc</kbd></dd></div>
+    </dl>
+  </section>
+
+  <section id="themes" class="themes" aria-labelledby="themes-h">
+    <h2 id="themes-h">Three pairs of themes</h2>
+    <p class="sub">Each pair has a light and a dark side, following your system. This page shows the side your system is on.</p>
+    <div class="pick" id="pick" aria-label="Theme pair">
+      <button type="button" aria-pressed="true" data-pair="0">Standard</button>
+      <button type="button" aria-pressed="false" data-pair="1">Lavande &amp; Minuit</button>
+      <button type="button" aria-pressed="false" data-pair="2">Clinique</button>
+    </div>
     <figure>
-      <img src="light.png" width="1960" height="1120" alt="copycopy in the Lavande theme: the history on the left with the selected row in pale lilac, a snippet previewed in colour on the right">
-      <figcaption><b>Lavande</b>, the light theme</figcaption>
-    </figure>
-    <figure>
-      <img src="dark.png" width="1960" height="1120" alt="copycopy in the Minuit theme: the same history on deep indigo, with a coral accent">
-      <figcaption><b>Minuit</b>, the dark theme</figcaption>
+      <picture data-pair="0">
+        <source media="(prefers-color-scheme: dark)" srcset="themes/dark.png">
+        <img src="themes/light.png" width="980" height="560" loading="lazy" alt="copycopy in Standard, the default theme: plain greys with a muted blue-green accent">
+      </picture>
+      <picture data-pair="1" hidden>
+        <source media="(prefers-color-scheme: dark)" srcset="themes/minuit.png">
+        <img src="themes/lavande.png" width="980" height="560" loading="lazy" alt="copycopy in Lavande, pale lilac by day, and Minuit, deep indigo with a coral accent by night">
+      </picture>
+      <picture data-pair="2" hidden>
+        <source media="(prefers-color-scheme: dark)" srcset="themes/clinique-dark.png">
+        <img src="themes/clinique-light.png" width="980" height="560" loading="lazy" alt="copycopy in the Clinique theme: white, with a clinical green accent">
+      </picture>
+      <figcaption id="cap">Standard, the default: plain greys and one muted blue-green accent.</figcaption>
     </figure>
   </section>
 
   <footer>
-    <span>MIT licence</span>
-    <a href="https://github.com/te-o-o-o/copycopy">GitHub</a>
-    <a href="https://github.com/te-o-o-o/copycopy/blob/main/docs/notes.md">Notes</a>
-    <a href="https://github.com/te-o-o-o/copycopy/blob/main/README.fr.md">Français</a>
+    <span>copycopy · MIT licence</span>
+    <nav aria-label="Footer">
+      <a href="https://github.com/te-o-o-o/copycopy">GitHub</a>
+      <a href="https://github.com/te-o-o-o/copycopy/releases">Releases</a>
+      <a href="https://github.com/te-o-o-o/copycopy/blob/main/docs/notes.md">Notes</a>
+      <a href="https://github.com/te-o-o-o/copycopy/blob/main/README.fr.md" lang="fr">Français</a>
+    </nav>
   </footer>
 </div>
 
 <script>
-// Copies the commands only, without the comment lines.
-const copyBtn = document.getElementById("copy");
-copyBtn.addEventListener("click", async () => {
-  const text = document.getElementById("cmd").innerText.split("\n").filter((l) => !l.startsWith("#")).join("\n");
-  try { await navigator.clipboard.writeText(text); copyBtn.textContent = "Copied"; }
-  catch { getSelection().selectAllChildren(document.getElementById("cmd")); copyBtn.textContent = "Press Ctrl+C"; }
-  setTimeout(() => { copyBtn.textContent = "Copy"; }, 1800);
+const $ = (id) => document.getElementById(id);
+
+// The main button downloads for the visitor's system; the line below offers the other two.
+const OS = /Win/i.test(navigator.userAgent) ? "windows" : /Linux|X11/i.test(navigator.userAgent) && !/Android/i.test(navigator.userAgent) ? "linux" : "macos";
+const OS_NAME = { windows: "Windows", macos: "macOS", linux: "Linux" };
+const mine = document.querySelector(`#others a[data-os="${OS}"]`);
+$("dl").href = mine.href;
+$("dl-label").textContent = `Download for ${OS_NAME[OS]}`;
+
+// The demo window. Sample rows are the ones in the screenshots; `html` is the coloured preview, `text` what gets copied.
+const DOTS = { zed: "#8B6CF0", slack: "#7AC943", firefox: "#F5A623", terminal: "#E0457B", dbeaver: "#22B5D6", notes: "#F5A623", vscode: "#22B57A", "this page": "#7DB3B8" };
+const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+let clips = [
+  { kind: "code", src: "zed", age: "5 min", lang: "rust", text: "// https://doc.rust-lang.org/std\nfn ok<'a>(s: &'a str) -> bool {\n    let max = 42;\n    s.len() < max && s != \"copy\"\n}",
+    html: "<span class=cm>// https://doc.rust-lang.org/std</span>\n<span class=kw>fn</span> ok&lt;'a&gt;(s: &amp;'a str) -&gt; bool {\n    <span class=kw>let</span> max = <span class=nu>42</span>;\n    s.len() &lt; max &amp;&amp; s != <span class=st>\"copy\"</span>\n}" },
+  { kind: "text", src: "slack", age: "8 min", text: "Shipped! v0.2 is out, thanks everyone 🎉" },
+  { kind: "url", src: "firefox", age: "12 min", text: "https://github.com/te-o-o-o/copycopy" },
+  { kind: "text", src: "terminal", age: "20 min", text: "ssh deploy@staging.example.com -p 2222" },
+  { kind: "code", src: "dbeaver", age: "34 min", lang: "sql", text: "SELECT name, count(*) AS clips\nFROM history\nGROUP BY name\nORDER BY clips DESC;",
+    html: "<span class=kw>SELECT</span> name, count(*) <span class=kw>AS</span> clips\n<span class=kw>FROM</span> history\n<span class=kw>GROUP BY</span> name\n<span class=kw>ORDER BY</span> clips <span class=kw>DESC</span>;" },
+  { kind: "text", src: "notes", age: "1 h", text: "Hello · こんにちは · 안녕하세요 · Bonjour 👋" },
+  { kind: "code", src: "vscode", age: "2 h", lang: "python", text: "def greet(name: str) -> str:\n    return f\"Hello, {name}!\"",
+    html: "<span class=kw>def</span> greet(name: str) -&gt; str:\n    <span class=kw>return</span> <span class=st>f\"Hello, {name}!\"</span>" },
+];
+const KINDS = [["all", "ALL"], ["text", "TEXT"], ["code", "CODE"], ["url", "URL"]];
+const GLYPH = { text: "TXT", code: "{ }", url: "URL" };
+let filter = "all", sel = 0, shown = [];
+
+function render(fresh) {
+  const q = $("q").value.toLowerCase();
+  shown = clips.filter((c) => (filter === "all" || c.kind === filter) && c.text.toLowerCase().includes(q));
+  sel = Math.min(sel, Math.max(shown.length - 1, 0));
+  $("tabs").innerHTML = KINDS.map(([k, label]) =>
+    `<button type="button" data-k="${k}" aria-pressed="${k === filter}">${label} ${k === "all" ? clips.length : clips.filter((c) => c.kind === k).length}</button>`).join("");
+  $("count").textContent = `${clips.length} ITEMS`;
+  $("list").innerHTML = shown.length ? shown.map((c, i) =>
+    `<li role="option" id="o${i}" data-i="${i}" data-kind="${c.kind}" aria-selected="${i === sel}"${fresh && i === 0 ? ' class="new"' : ""}>
+      <span class="k">${GLYPH[c.kind]}</span><span><span class="t">${esc(c.text.replace(/\s+/g, " "))}</span>
+      <span class="m"><i style="--dot:${DOTS[c.src]}"></i>${c.src} · ${c.age}</span></span></li>`).join("")
+    : `<li class="empty">Nothing matches “${esc(q)}”.</li>`;
+  $("list").setAttribute("aria-activedescendant", shown.length ? `o${sel}` : "");
+  const c = shown[sel];
+  $("meta").textContent = c ? [GLYPH[c.kind], c.src, c.age, c.lang, `${[...c.text].length} chars`].filter(Boolean).join(" · ").toUpperCase() : "";
+  $("pre").innerHTML = c ? c.html || esc(c.text) : "";
+}
+function pick(i) { sel = Math.max(0, Math.min(i, shown.length - 1)); render(); $("o" + sel)?.scrollIntoView({ block: "nearest" }); }
+function add(text) {
+  text = text.trim();
+  if (!text) return;
+  clips = clips.filter((c) => c.text !== text); // copying the same thing again moves it up, as in the app
+  const kind = /^https?:\/\/\S+$/.test(text) ? "url" : /[{};]\s*$|=>|^\s*(fn|def|const|let|import) /m.test(text) ? "code" : "text";
+  clips.unshift({ kind, src: "this page", age: "now", text });
+  filter = "all"; $("q").value = ""; sel = 0; render(true);
+}
+async function toClipboard(text) { try { await navigator.clipboard.writeText(text); return true; } catch { return false; } }
+function flash(btn, label) { const back = btn.textContent; btn.textContent = label; setTimeout(() => { btn.textContent = back; }, 1600); }
+
+// What the visitor copies on the page; the demo's own search box is left out.
+document.addEventListener("copy", (e) => { if (e.target !== $("q")) add(String(getSelection())); });
+$("q").addEventListener("input", () => { sel = 0; render(); });
+function keys(e) {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); pick(sel + (e.key === "ArrowDown" ? 1 : -1)); }
+  else if (e.key === "Enter") $("go").click();
+  else return false;
+  return true;
+}
+$("q").addEventListener("keydown", keys);
+$("list").addEventListener("keydown", (e) => {
+  if (!keys(e) && e.key.length === 1 && !e.ctrlKey && !e.metaKey) $("q").focus(); // typing searches, as in the app
 });
+$("list").addEventListener("click", (e) => { const li = e.target.closest("li[data-i]"); if (li) pick(+li.dataset.i); });
+$("tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { filter = b.dataset.k; sel = 0; render(); } });
+$("go").addEventListener("click", async () => { const c = shown[sel]; if (c && await toClipboard(c.text)) flash($("go"), "COPIED"); });
+$("pin").addEventListener("click", () => flash($("pin"), "PINNED"));
+
+// The password really reaches the clipboard, and the window says it was left out rather than showing it.
+// The real app tells by the flag a password manager sets; here the button plays the password manager.
+let noticeTimer;
+$("copy-pw").addEventListener("click", async () => {
+  await toClipboard($("pw").value);
+  const n = $("notice");
+  n.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>A password was copied. Marked confidential, so it was not kept.';
+  n.hidden = false;
+  clearTimeout(noticeTimer); noticeTimer = setTimeout(() => { n.hidden = true; }, 4200);
+  flash($("copy-pw"), "Copied");
+});
+
+$("copy-cmd").addEventListener("click", async () => {
+  // The commands only, without the comment lines.
+  const text = $("cmd").innerText.split("\n").filter((l) => !l.startsWith("#")).join("\n");
+  if (await toClipboard(text)) { add(text); flash($("copy-cmd"), "Copied"); }
+  else { getSelection().selectAllChildren($("cmd")); $("copy-cmd").textContent = "Press Ctrl+C"; }
+});
+
+const CAPS = ["Standard, the default: plain greys and one muted blue-green accent.", "Lavande by day, Minuit by night: lilac, then deep indigo with a coral accent.", "Clinique: clean white and a clinical green, with its dark side."];
+$("pick").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  for (const x of $("pick").children) x.setAttribute("aria-pressed", x === b);
+  for (const p of document.querySelectorAll("picture[data-pair]")) p.hidden = p.dataset.pair !== b.dataset.pair;
+  $("cap").textContent = CAPS[b.dataset.pair];
+});
+
+render();
 </script>
 </body>
 </html>

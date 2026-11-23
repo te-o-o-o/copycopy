@@ -45,13 +45,17 @@ and a shortcut brings it back. English, 日本語, emoji 🎉 and code all inclu
 - **Auto-paste** (optional): the entry lands where your cursor was. Everywhere
   but Wayland.
 - **Starts with your session** (optional), silently in the background.
+- **Updates itself** on macOS: new versions install in the background and
+  take over once the window is closed. Can be turned off in the settings.
 - **Three pairs of light and dark themes**: plain greys with a muted
   blue-green accent by default, or
   Minuit and Lavande, or Clinique.
 - **English or French**, English until you pick French in the settings.
 - **Secrets are never stored**: whatever a password manager marks as
   confidential is dropped before it is written.
-- **Nothing leaves your machine**: no account, no cloud, no telemetry.
+- **Nothing leaves your machine**: no account, no cloud, no telemetry. The
+  one request copycopy makes is to GitHub, once a day, to see if a new
+  version is out (macOS, unless updates are off).
 - **Portable**: put a `copycopy.conf` next to the executable, and everything
   lives in that folder.
 - **Fast**: 100 000 entries, still 59 fps.
