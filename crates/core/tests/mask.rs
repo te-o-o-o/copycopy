@@ -65,3 +65,19 @@ fn each_box_masks_only_its_kind() {
     assert_eq!(mask(text, false, true), "ops@example.com password=[secret]");
     assert_eq!(mask(text, false, false), text);
 }
+
+#[test]
+fn find_returns_exactly_what_mask_replaces() {
+    use copycopy_core::mask::{find, Found};
+    let text = "ops@example.com, postgres://admin:s3cr3tpw@db.example.com, api_key=abcdef123456";
+    let found = find(text, true, true);
+    let kinds: Vec<Found> = found.iter().map(|(_, k)| *k).collect();
+    assert_eq!(kinds, [Found::Email, Found::Secret, Found::Secret]);
+    assert_eq!(&text[found[1].0.clone()], "s3cr3tpw");
+    // Splicing the placeholders into the ranges by hand gives `mask`.
+    let mut by_hand = text.to_string();
+    for (range, kind) in found.iter().rev() {
+        by_hand.replace_range(range.clone(), kind.placeholder());
+    }
+    assert_eq!(by_hand, mask(text, true, true));
+}

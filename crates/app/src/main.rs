@@ -298,6 +298,10 @@ pub enum Preview {
         /// recognised. Scanned here for the same reason as `links`: once per
         /// selection, never per frame.
         tokens: Vec<(std::ops::Range<usize>, copycopy_core::highlight::Token)>,
+        /// What the ticked boxes will mask on paste, inside `body`: highlighted.
+        masked: Vec<(std::ops::Range<usize>, copycopy_core::mask::Found)>,
+        /// Emails and secrets in the whole entry, ticked or not, for the footer.
+        found: (usize, usize),
         /// Counted once, on the whole entry, when the preview is built.
         chars: usize,
         lines: usize,
@@ -317,7 +321,7 @@ pub enum Preview {
 }
 
 impl Preview {
-    fn of(item: &ClipItem, l: locale::Locale) -> Self {
+    fn of(item: &ClipItem, l: locale::Locale, masks: (bool, bool)) -> Self {
         match &item.payload {
             Payload::Text(text) => {
                 let chars = text.chars().count();
@@ -329,12 +333,23 @@ impl Preview {
                     None => text.clone(),
                 };
                 let links = copycopy_core::links::find(&body);
+                let masked = copycopy_core::mask::find(&body, masks.0, masks.1);
+                // The whole text: what the footer announces is what the paste
+                // will do, not what the first 10,000 characters hold.
+                let all = copycopy_core::mask::find(text, true, true);
+                let secrets = all
+                    .iter()
+                    .filter(|(_, k)| *k == copycopy_core::mask::Found::Secret)
+                    .count();
+                let found = (all.len() - secrets, secrets);
                 let tokens = match lang {
                     Some(lang) => copycopy_core::highlight::spans(&body, lang),
                     None => Vec::new(),
                 };
                 Preview::Text {
                     body,
+                    masked,
+                    found,
                     links,
                     tokens,
                     code: lang.is_some() || item.kind == copycopy_core::Kind::Code,
@@ -612,7 +627,8 @@ impl State {
         self.preview_key = key;
         self.editing = None;
         let l = self.locale();
-        self.preview = item.map_or(Preview::Empty, |it| Preview::of(it, l));
+        let masks = self.masks();
+        self.preview = item.map_or(Preview::Empty, |it| Preview::of(it, l, masks));
     }
 
     /// The colours of the active theme. Read from the configuration, so the
@@ -1515,11 +1531,16 @@ fn handle(state: &mut State, message: Message) -> Task<Message> {
         Message::SetHideEmails(on) => {
             state.config.hide_emails = on;
             state.config.save();
+            // The highlight follows the box.
+            state.preview_key = None;
+            state.update_preview();
             Task::none()
         }
         Message::SetHideSecrets(on) => {
             state.config.hide_secrets = on;
             state.config.save();
+            state.preview_key = None;
+            state.update_preview();
             Task::none()
         }
         Message::SetAutoPaste(on) => {
@@ -1948,6 +1969,12 @@ fn seed_demo(history: &mut History) {
         (
             "{\n  \"theme\": \"dark\",\n  \"hotkey\": \"Cmd+Shift+V\"\n}",
             "vscode",
+        ),
+        // Something to mask on paste, so the highlight and the footer show.
+        (
+            "DATABASE_URL=postgres://app:hunter2hunter@db.internal/app\n\
+             ALERTS_TO=ops@example.com",
+            "terminal",
         ),
     ];
     for (text, source) in SEED.iter().rev() {

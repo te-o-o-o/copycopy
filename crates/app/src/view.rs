@@ -1141,6 +1141,8 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
                 cut,
                 links,
                 tokens,
+                masked,
+                found,
                 ..
             } => {
                 let (font, size, line) = if *code {
@@ -1153,26 +1155,27 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
                 // single word, so plain word-wrapping never breaks it — it just
                 // keeps growing past the frame instead. Falling back to a glyph
                 // break is what actually keeps it inside the window.
-                let content: Element<'_, Message> = if links.is_empty() && tokens.is_empty() {
-                    text(body.as_str())
-                        .size(size)
-                        .line_height(line)
-                        .font(font)
-                        .color(p.text)
-                        .width(Length::Fill)
-                        .wrapping(text::Wrapping::WordOrGlyph)
-                        .into()
-                } else {
-                    rich_text(painted_spans(body, tokens, links, p))
-                        .size(size)
-                        .line_height(line)
-                        .font(font)
-                        .color(p.text)
-                        .width(Length::Fill)
-                        .wrapping(text::Wrapping::WordOrGlyph)
-                        .on_link_click(Message::OpenLink)
-                        .into()
-                };
+                let content: Element<'_, Message> =
+                    if links.is_empty() && tokens.is_empty() && masked.is_empty() {
+                        text(body.as_str())
+                            .size(size)
+                            .line_height(line)
+                            .font(font)
+                            .color(p.text)
+                            .width(Length::Fill)
+                            .wrapping(text::Wrapping::WordOrGlyph)
+                            .into()
+                    } else {
+                        rich_text(painted_spans(body, tokens, links, masked, p))
+                            .size(size)
+                            .line_height(line)
+                            .font(font)
+                            .color(p.text)
+                            .width(Length::Fill)
+                            .wrapping(text::Wrapping::WordOrGlyph)
+                            .on_link_click(Message::OpenLink)
+                            .into()
+                    };
                 let mut lines = column![content].spacing(10);
                 if *cut {
                     lines = lines.push(
@@ -1181,7 +1184,12 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
                             .color(p.faint),
                     );
                 }
-                framed(lines.into(), p.border, p)
+                framed(
+                    lines.into(),
+                    p.border,
+                    p,
+                    mask_footer(*found, state.masks(), l, p),
+                )
             }
             // ScaleDown, never up: a small screenshot stays sharp at its real size
             // instead of being blown up into a blur.
@@ -1215,6 +1223,7 @@ fn panel(state: &State, p: Palette) -> Element<'_, Message> {
                     p.border
                 },
                 p,
+                None,
             ),
             Preview::Unavailable(why) => container(text(why.as_str()).size(12.0).color(p.faint))
                 .height(Length::Fill)
@@ -1268,12 +1277,19 @@ fn painted_spans<'a>(
     body: &'a str,
     tokens: &[(std::ops::Range<usize>, Token)],
     links: &[std::ops::Range<usize>],
+    masked: &[(std::ops::Range<usize>, copycopy_core::mask::Found)],
     p: Palette,
 ) -> Vec<iced::advanced::text::Span<'a, String, Font>> {
-    let mut cuts: Vec<usize> = Vec::with_capacity((tokens.len() + links.len()) * 2 + 2);
+    let mut cuts: Vec<usize> =
+        Vec::with_capacity((tokens.len() + links.len() + masked.len()) * 2 + 2);
     cuts.push(0);
     cuts.push(body.len());
-    for range in tokens.iter().map(|(r, _)| r).chain(links.iter()) {
+    for range in tokens
+        .iter()
+        .map(|(r, _)| r)
+        .chain(links.iter())
+        .chain(masked.iter().map(|(r, _)| r))
+    {
         cuts.push(range.start);
         cuts.push(range.end);
     }
@@ -1287,24 +1303,29 @@ fn painted_spans<'a>(
         if piece.is_empty() {
             continue;
         }
-        if let Some(link) = links.iter().find(|l| l.start <= start && end <= l.end) {
-            let address = &body[link.clone()];
-            spans.push(
-                span(piece)
-                    .link(address.to_string())
-                    .underline(true)
-                    .color(p.accent),
-            );
-            continue;
-        }
-        match tokens
+        // A marker-style background over whatever colour the piece takes:
+        // a password inside a link stays a link, and readable.
+        let marker = masked
             .iter()
-            .find(|(r, _)| r.start <= start && end <= r.end)
-            .map(|(_, token)| ink(*token, p))
-        {
-            Some(colour) => spans.push(span(piece).color(colour)),
-            None => spans.push(span(piece)),
-        }
+            .any(|(r, _)| r.start <= start && end <= r.end)
+            .then(|| Background::Color(t::alpha(p.tint_code, 0.28)));
+        let piece = if let Some(link) = links.iter().find(|l| l.start <= start && end <= l.end) {
+            let address = &body[link.clone()];
+            span(piece)
+                .link(address.to_string())
+                .underline(true)
+                .color(p.accent)
+        } else {
+            match tokens
+                .iter()
+                .find(|(r, _)| r.start <= start && end <= r.end)
+                .map(|(_, token)| ink(*token, p))
+            {
+                Some(colour) => span(piece).color(colour),
+                None => span(piece),
+            }
+        };
+        spans.push(piece.background_maybe(marker));
     }
     spans
 }
@@ -1761,7 +1782,12 @@ fn settings(state: &State, p: Palette) -> Element<'_, Message> {
 
 /// The frame around a text or file preview: flat, one step off the card, and
 /// as tall as the panel allows, whatever the length of the entry. Long content scrolls inside.
-fn framed<'a>(inner: Element<'a, Message>, rim: Color, p: Palette) -> Element<'a, Message> {
+fn framed<'a>(
+    inner: Element<'a, Message>,
+    rim: Color,
+    p: Palette,
+    footer: Option<Element<'a, Message>>,
+) -> Element<'a, Message> {
     let body = scrollable(container(inner).padding(Padding {
         top: 0.0,
         right: 12.0,
@@ -1772,6 +1798,9 @@ fn framed<'a>(inner: Element<'a, Message>, rim: Color, p: Palette) -> Element<'a
     .height(Length::Fill)
     .direction(thin_scrollbar())
     .style(quiet_scroll(p));
+    // Under the scrolling area, not inside it: it stays in view however long
+    // the entry, and nothing in a scrollable ever has to draw it.
+    let body = column![body].push(footer).spacing(10);
 
     container(body)
         .padding(Padding {
@@ -1865,6 +1894,50 @@ fn editor(content: &text_editor::Content, p: Palette) -> Element<'_, Message> {
             selection: t::alpha(p.accent, 0.3),
         })
         .into()
+}
+
+/// The line at the foot of a text preview saying what the paste will do with
+/// the emails and secrets the entry holds. None when it holds neither: no
+/// empty band.
+fn mask_footer<'a>(
+    found: (usize, usize),
+    masks: (bool, bool),
+    l: Locale,
+    p: Palette,
+) -> Option<Element<'a, Message>> {
+    let phrase = |n: usize, masked: bool, fr: (&str, &str), en: (&str, &str)| {
+        let what = plural(l, n, fr, en);
+        let how = match (masked, l, n > 1) {
+            (true, Locale::Fr, false) => "masqué au collage",
+            (true, Locale::Fr, true) => "masqués au collage",
+            (false, Locale::Fr, false) => "collé en clair",
+            (false, Locale::Fr, true) => "collés en clair",
+            (true, Locale::En, _) => "masked on paste",
+            (false, Locale::En, _) => "pasted as is",
+        };
+        format!("{n} {what} {how}")
+    };
+    let mut parts = Vec::new();
+    if found.1 > 0 {
+        parts.push(phrase(
+            found.1,
+            masks.1,
+            ("secret", "secrets"),
+            ("secret", "secrets"),
+        ));
+    }
+    if found.0 > 0 {
+        parts.push(phrase(
+            found.0,
+            masks.0,
+            ("e-mail", "e-mails"),
+            ("email", "emails"),
+        ));
+    }
+    if parts.is_empty() {
+        return None;
+    }
+    Some(text(parts.join("  ·  ")).size(10.0).color(p.faint).into())
 }
 
 fn mask_box<'a>(

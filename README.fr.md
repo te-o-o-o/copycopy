@@ -55,7 +55,8 @@ copiez, et un raccourci le ramène. Anglais, 日本語, emoji 🎉 et code compr
 - **Les secrets ne sont jamais conservés** : ce qu'un gestionnaire de mots de
   passe marque comme confidentiel est écarté avant d'être écrit.
 - **E-mails et clés masqués à la copie** : ce que copycopy recopie porte
-  `[email]` et `[secret]` à la place. Deux cases sous l'aperçu, « Masquer … au collage ».
+  `[email]` et `[secret]` à la place. Deux cases sous l'aperçu, « Masquer … au collage » ;
+  l'aperçu surligne ce qu'elles masqueront.
 - **Retoucher avant de copier** : Modifier (ou `⌘E` / `Ctrl+E`) rend l'aperçu
   éditable ; `⌘↩` / `Ctrl+Entrée` copie le résultat, gardé comme nouvelle entrée.
 - **Rien ne sort de la machine** : pas de compte, pas de nuage, pas de

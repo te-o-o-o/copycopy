@@ -52,7 +52,8 @@ and a shortcut brings it back. English, 日本語, emoji 🎉 and code all inclu
 - **Secrets are never stored**: whatever a password manager marks as
   confidential is dropped before it is written.
 - **Emails and keys masked on copy**: what copycopy copies back carries
-  `[email]` and `[secret]` instead. Two boxes under the preview, "Hide … on paste".
+  `[email]` and `[secret]` instead. Two boxes under the preview, "Hide … on paste";
+  the preview highlights what they will mask.
 - **Edit before copying**: Edit (or `⌘E` / `Ctrl+E`) turns the preview into an
   editor; `⌘↩` / `Ctrl+Enter` copies the result, kept as a new entry.
 - **Nothing leaves your machine**: no account, no cloud, no telemetry.

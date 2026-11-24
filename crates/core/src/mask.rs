@@ -18,44 +18,80 @@
 //! ponytail: shapes, not entropy — a random string with no prefix and no key
 //! name in front of it goes through. Add an entropy check if that bites.
 
+use std::ops::Range;
+
 pub const EMAIL: &str = "[email]";
 pub const SECRET: &str = "[secret]";
 
-/// `text` with the chosen kinds of values replaced by their placeholder.
-pub fn mask(text: &str, emails: bool, secrets: bool) -> String {
-    let mut out = text.to_string();
-    // Secrets first: `user:password@host.com` would otherwise read as an
-    // address and leave the user name in plain sight.
+/// What a masked range held.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Found {
+    Email,
+    Secret,
+}
+
+impl Found {
+    pub fn placeholder(self) -> &'static str {
+        match self {
+            Found::Email => EMAIL,
+            Found::Secret => SECRET,
+        }
+    }
+}
+
+/// What masking replaces in `text`, for the chosen kinds: byte ranges, sorted
+/// and apart. Ranges of one kind that overlap or touch make one; the preview
+/// highlights exactly these, and `mask` replaces exactly these.
+pub fn find(text: &str, emails: bool, secrets: bool) -> Vec<(Range<usize>, Found)> {
+    let mut found: Vec<(Range<usize>, Found)> = Vec::new();
     if secrets {
-        out = splice(&out, secret_ranges(&out), SECRET);
+        found.extend(
+            merged(secret_ranges(text))
+                .into_iter()
+                .map(|r| (r, Found::Secret)),
+        );
     }
     if emails {
-        out = splice(&out, email_ranges(&out), EMAIL);
+        // A secret wins over an address it overlaps: `user:password@host.com`
+        // would otherwise read as an address and leave the user name visible.
+        let taken = found.clone();
+        found.extend(
+            merged(email_ranges(text))
+                .into_iter()
+                .filter(|r| {
+                    !taken
+                        .iter()
+                        .any(|(t, _)| t.start < r.end && r.start < t.end)
+                })
+                .map(|r| (r, Found::Email)),
+        );
     }
+    found.sort_unstable_by_key(|(r, _)| r.start);
+    found
+}
+
+/// `text` with the chosen kinds of values replaced by their placeholder.
+pub fn mask(text: &str, emails: bool, secrets: bool) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut at = 0;
+    for (range, kind) in find(text, emails, secrets) {
+        out.push_str(&text[at..range.start]);
+        out.push_str(kind.placeholder());
+        at = range.end;
+    }
+    out.push_str(&text[at..]);
     out
 }
 
-/// Replaces each range with `with`. Ranges may overlap and come in any order.
-fn splice(s: &str, mut ranges: Vec<(usize, usize)>, with: &str) -> String {
-    if ranges.is_empty() {
-        return s.to_string();
-    }
+fn merged(mut ranges: Vec<(usize, usize)>) -> Vec<Range<usize>> {
     ranges.sort_unstable();
-    let mut out = String::with_capacity(s.len());
-    let mut at = 0;
+    let mut out: Vec<Range<usize>> = Vec::with_capacity(ranges.len());
     for (start, end) in ranges {
-        if end <= at {
-            continue;
+        match out.last_mut() {
+            Some(last) if start <= last.end => last.end = last.end.max(end),
+            _ => out.push(start..end),
         }
-        let start = start.max(at);
-        out.push_str(&s[at..start]);
-        // Two overlapping ranges make one placeholder, not two.
-        if !out.ends_with(with) || start > at {
-            out.push_str(with);
-        }
-        at = end;
     }
-    out.push_str(&s[at..]);
     out
 }
 
