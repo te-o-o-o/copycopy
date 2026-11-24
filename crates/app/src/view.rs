@@ -605,8 +605,8 @@ fn list(state: &State, p: Palette) -> Element<'_, Message> {
     // Neither `spacing` nor vertical margin: the pitch from one row to the
     // next must be exactly ROW_H, otherwise the virtualisation spacers drift
     // away from the real scroll position.
-    let position = state
-        .selection
+    let fade = state
+        .fade_out
         .interpolate_with(|v| v, std::time::Instant::now());
     let mut rows = column![];
     if skip > 0 {
@@ -616,9 +616,13 @@ fn list(state: &State, p: Palette) -> Element<'_, Message> {
         let Some(item) = state.visible.get(index) else {
             continue;
         };
-        // Distance to the animated selection: 1 on the incoming row, 0 once
-        // it has moved away, and a blend in between.
-        let weight = (1.0 - (index as f32 - position).abs()).clamp(0.0, 1.0);
+        let weight = if index == state.selected {
+            1.0
+        } else if index == state.left {
+            fade
+        } else {
+            0.0
+        };
         rows = rows.push(row_widget(
             item,
             index,

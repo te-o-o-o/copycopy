@@ -75,8 +75,7 @@ const QUIT_GRACE: Duration = Duration::from_millis(1500);
 /// enough for the previous application to be active again, short enough to
 /// feel like the entry landed straight away.
 const PASTE_DELAY: Duration = Duration::from_millis(150);
-/// Cross-fade of the selection highlight. Short enough to feel immediate,
-/// long enough to read as a movement rather than a jump.
+/// Fade-out of the row the selection just left. The new row lights at once.
 const SELECT_FADE: Duration = Duration::from_millis(110);
 
 static BOOT: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
@@ -158,11 +157,11 @@ pub struct State {
     /// again on every keystroke of a search.
     pub missing: std::collections::HashMap<u64, usize>,
     pub selected: usize,
-    /// The selected index, animated. Each row derives its highlight from the
-    /// distance to this value, so the outgoing row fades out while the
-    /// incoming one fades in — a slide would need an overlay, and overlays
-    /// break repainting here.
-    pub selection: Animation<f32>,
+    /// The row the selection just left, and its highlight fading from 1 to 0.
+    /// Animating the selected index instead made the highlight sweep across
+    /// every row in between, which read as a slide.
+    pub left: usize,
+    pub fade_out: Animation<f32>,
     pub hovered: Option<usize>,
     pub scroll_y: f32,
     pub viewport_h: f32,
@@ -588,10 +587,14 @@ impl State {
             .collect()
     }
 
-    /// Moves the selection and starts the cross-fade.
+    /// Moves the selection: the new row lights at once, the old one fades.
     fn select(&mut self, index: usize) {
+        if index != self.selected {
+            self.left = self.selected;
+            self.fade_out = Animation::new(1.0).duration(SELECT_FADE);
+            self.fade_out.go_mut(0.0, Instant::now());
+        }
         self.selected = index;
-        self.selection.go_mut(index as f32, Instant::now());
         self.update_preview();
     }
 
@@ -716,7 +719,7 @@ impl State {
     /// Lands the selection on `home` at once, without the fade.
     fn select_home(&mut self) {
         self.selected = self.home();
-        self.selection = Animation::new(self.selected as f32).duration(SELECT_FADE);
+        self.fade_out = Animation::new(0.0).duration(SELECT_FADE);
         self.update_preview();
     }
 
@@ -1314,7 +1317,8 @@ fn boot() -> (State, Task<Message>) {
         icons: load_icons(dir.as_deref()),
         missing: std::collections::HashMap::new(),
         selected: 0,
-        selection: Animation::new(0.0).duration(SELECT_FADE),
+        left: 0,
+        fade_out: Animation::new(0.0).duration(SELECT_FADE),
         hovered: None,
         scroll_y: 0.0,
         viewport_h: 430.0,
@@ -1342,7 +1346,7 @@ fn boot() -> (State, Task<Message>) {
     state.select_home();
     if let Some(row) = args.select {
         state.selected = row.min(state.visible.len().saturating_sub(1));
-        state.selection = Animation::new(state.selected as f32).duration(SELECT_FADE);
+        state.fade_out = Animation::new(0.0).duration(SELECT_FADE);
         state.update_preview();
     }
 
@@ -1854,7 +1858,7 @@ fn subscription(state: &State) -> Subscription<Message> {
         Subscription::run(clipboard_stream),
         Subscription::run(wake_stream),
     ];
-    if state.selection.is_animating(Instant::now()) {
+    if state.fade_out.is_animating(Instant::now()) {
         subs.push(window::frames().map(|_| Message::Redraw));
     }
     if state.copied.is_some() {
